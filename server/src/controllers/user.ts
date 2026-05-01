@@ -1,9 +1,11 @@
 import { CreateUser } from "#/@types/user";
 import User from "#/models/User";
+import { generateToken } from "#/utils/helper";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import { MAILTRAP_PASS, MAILTRAP_USER } from "#/utils/variables";
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
+import emailVerificationToken from "#/models/emailVerificationToken";
 import nodemailer from "nodemailer";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
@@ -29,10 +31,19 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
             }
         });
 
+        //token = 6 digit otp => vd: 123456 => gửi
+        //token = đính kèm các mã thông báo này vào <a href="">=> xác thực
+        const token = generateToken();
+        emailVerificationToken.create({
+            owner: newUser._id,
+            token,
+        });
+
+
         transport.sendMail({
             to: newUser.email,
             from: "auth@sonicX.com",
-            html:  "<h1>12345</<h1>"
+            html:  `<h1>${token}</h1>`
         })
 
         return res.status(201).json({
