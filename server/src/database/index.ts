@@ -9,7 +9,7 @@ const connectDB = () => {
     mongoose.connect(URI).then(() => {
         console.log('database is connected');
     }).catch((error) => {
-        console.log('database connection failed: ', error);
+          console.log('database connection failed: ', error);
     });
 };
 

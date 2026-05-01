@@ -21,6 +21,7 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
             password: hashedPassword
         });
 
+
         //gửi email xác minh
         const transport = nodemailer.createTransport({
             host: "sandbox.smtp.mailtrap.io",
@@ -38,6 +39,7 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
             owner: newUser._id,
             token,
         });
+
 
 
         transport.sendMail({

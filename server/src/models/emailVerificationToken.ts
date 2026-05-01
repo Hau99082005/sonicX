@@ -1,5 +1,5 @@
 import { Model, model, ObjectId, Schema } from "mongoose";
-
+import { hash, compare } from "bcryptjs";
 
 interface EmailVerificationTokenDocument {
     owner: ObjectId;
@@ -7,9 +7,13 @@ interface EmailVerificationTokenDocument {
     createdAt: Date;
 }
 
+interface Methods {
+    compareToken(token: string): Promise<boolean>
+}
+
 //Hết hạn sau 1 giờ
 
-const emailVerificationTokenSchema = new Schema<EmailVerificationTokenDocument>(
+const emailVerificationTokenSchema = new Schema<EmailVerificationTokenDocument, {}, Methods>(
     {
         owner: {
             type: Schema.Types.ObjectId,
@@ -28,6 +32,18 @@ const emailVerificationTokenSchema = new Schema<EmailVerificationTokenDocument>(
     }
 );
 
-export default model("EmailVerificationToken", emailVerificationTokenSchema) as Model<EmailVerificationTokenDocument>;
+emailVerificationTokenSchema.pre('save', async function () {
+    if (this.isModified('token')) {
+        this.token = await hash(this.token, 10);
+    }
+});
+
+emailVerificationTokenSchema.methods.compareToken = async function (token) {
+    const result = await compare(token, this.token)
+    return result;
+}
+
+
+export default model("EmailVerificationToken", emailVerificationTokenSchema) as Model<EmailVerificationTokenDocument, {}, Methods>;
 
 
