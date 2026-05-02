@@ -49,7 +49,8 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
 
         transport.sendMail({
             to: newUser.email,
-            from: "auth@sonicX.com",
+            from: "admin@sonicX.com",
+            subject: "Xác minh email của bạn",
             html: generateTemplate({
                 title: "Chào mừng bạn đến với SonicX",
                 message: welcomeMessage,
