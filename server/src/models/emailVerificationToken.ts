@@ -1,6 +1,7 @@
 import { Model, model, ObjectId, Schema } from "mongoose";
 import { hash, compare } from "bcryptjs";
 
+
 interface EmailVerificationTokenDocument {
     owner: ObjectId;
     token: string;
@@ -37,6 +38,7 @@ emailVerificationTokenSchema.pre('save', async function () {
         this.token = await hash(this.token, 10);
     }
 });
+
 
 emailVerificationTokenSchema.methods.compareToken = async function (token) {
     const result = await compare(token, this.token)
