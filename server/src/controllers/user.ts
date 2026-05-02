@@ -1,4 +1,5 @@
-import { CreateUser } from "#/@types/user";
+import { CreateUser, VerifyEmailRequest } from "#/@types/user";
+import emailVerificationToken from "#/models/emailVerificationToken";
 import User from "#/models/User";
 import { generateToken } from "#/utils/helper";
 import { sendVerificationMail } from "#/utils/mail";
@@ -32,4 +33,22 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
             error
         });
     }
+}
+
+export const verifyEmail: RequestHandler = async (req: VerifyEmailRequest, res) => {
+    const { token, userId } = req.body;
+    const verificationToken = await emailVerificationToken.findOne({
+        owner: userId,
+    })
+
+    if (!verificationToken) return res.status(403).json({ error: "Invalid token!" });
+    const matched = await verificationToken.compareToken(token);
+    if (!matched) return res.status(403).json({ error: "Invalid token!" });
+
+    await User.findByIdAndUpdate(userId, {
+        verified: true
+    });
+    await emailVerificationToken.findByIdAndDelete(verificationToken._id);
+    res.status(200).json({ message: "Email verified successfully!" });
+
 }
