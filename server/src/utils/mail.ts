@@ -2,7 +2,7 @@
 import nodemailer from "nodemailer";
 import { generateTemplate } from "#/mail/template";
 import path from "path";
-import { MAILTRAP_PASS, MAILTRAP_USER, VERIFICATION_EMAIL } from "#/utils/variables";
+import { MAILTRAP_PASS, MAILTRAP_USER, SIGN_IN_LINK, VERIFICATION_EMAIL } from "#/utils/variables";
 
 
 const generateMailTransporter = () => {
@@ -98,3 +98,35 @@ export const sendForgotPasswordLink = async (options: Options) => {
         ]
     })
 };
+
+export const sendPasswordResetSuccessEmail = async (name: string, email: string) => {
+    const transport = generateMailTransporter();
+    const message = `gần đây ${name} đã đặt lại mật khẩu mới cho tài khoản của mình. n
+    nếu bạn không thực hiện hành động này, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi 
+    ngay để bảo vệ tài khoản của bạn`;
+    transport.sendMail({
+        to: email,
+        from: VERIFICATION_EMAIL,
+        subject: "Mật khẩu của bạn đã được đặt lại thành công!",
+        html: generateTemplate({
+            title: "Mật khẩu của bạn đã được đặt lại thành công!",
+            message,
+            logo: "cid:logo",
+            banner: "cid:reset",
+            link: SIGN_IN_LINK,
+            btnTitle: "Đăng nhập"
+        }),
+        attachments: [
+            {
+                filename: "logo.png",
+                path: path.join(__dirname, "../assets/images/sonicX_logo.png"),
+                cid: "logo"
+            },
+            {
+                filename: "reset.png",
+                path: path.join(__dirname, "../assets/images/reset.png"),
+                cid: "reset"
+            },
+        ]
+    })
+}

@@ -2,7 +2,7 @@ import { CreateUser, VerifyEmailRequest } from "#/@types/user";
 import emailVerificationToken from "#/models/emailVerificationToken";
 import User from "#/models/User";
 import { generateToken } from "#/utils/helper";
-import { sendForgotPasswordLink, sendVerificationMail } from "#/utils/mail";
+import { sendForgotPasswordLink, sendPasswordResetSuccessEmail, sendVerificationMail } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
@@ -105,11 +105,19 @@ export const generateForgotPasswordLink: RequestHandler = async (req, res) => {
     res.status(200).json({ message: "Please check your email for the password reset link!" });
 }
 
-export const isValidPasswordResetToken: RequestHandler = async (req, res) => {
-    const { token, userId } = req.body;
-    const resetToken = await passwordResetToken.findOne({ owner: userId });
-    if (!resetToken) return res.status(403).json({ error: "Unauthorized access, invalid token!" });
-    const matched = await resetToken.compareToken(token);
-    if (!matched) return res.status(403).json({ error: "Unauthorized access, invalid token!" });
-    res.status(200).json({ message: "Token is valid!" });
+export const grantValid: RequestHandler = async (req, res) => {
+    res.status(200).json({ valid: true });
+}
+
+export const updatePassword: RequestHandler = async (req, res) => {
+    const { password, userId } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(403).json({ error: "Unauthorized access!" });
+    const matched = await user.comparePassword(password);
+    if (matched) return res.status(422).json({ error: "The new password must be different!" });
+    user.password = password;
+    await user.save();
+    await passwordResetToken.findOneAndDelete({ owner: user._id.toString() });
+    sendPasswordResetSuccessEmail(user.name, user.email);
+    res.status(200).json({ message: "Password updated successfully!"});
 }
