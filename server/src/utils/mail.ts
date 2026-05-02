@@ -1,5 +1,4 @@
 
-import emailVerificationToken from "#/models/emailVerificationToken";
 import nodemailer from "nodemailer";
 import { generateTemplate } from "#/mail/template";
 import path from "path";
@@ -30,10 +29,7 @@ export const sendVerificationMail = async (token: string, profile: Profile) => {
     //token = 6 digit otp => vd: 123456 => gửi
     //token = đính kèm các mã thông báo này vào <a href="">=> xác thực
     const { name, email, userId} = profile;
-    await emailVerificationToken.create({
-        owner: userId,
-        token,
-    });
+   
 
     const welcomeMessage = `Chào mừng ${name} đến với SonicX! cảm ơn bạn đã đăng ký tài khoản. vui lòng xác minh email của bạn bằng cách sử dụng mã OTP sau: ${token}.
         Nếu bạn không đăng ký tài khoản này, vui lòng bỏ qua email này.`;

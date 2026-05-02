@@ -6,6 +6,7 @@ import { sendVerificationMail } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
+import { isValidObjectId } from "mongoose";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
     try {
@@ -20,6 +21,10 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
             password: hashedPassword
         });
         const token = generateToken()
+        await emailVerificationToken.create({
+            owner: newUser._id.toString(),
+            token,
+        });
         sendVerificationMail(token, { name, email, userId: newUser._id.toString() });
 
 
@@ -51,4 +56,27 @@ export const verifyEmail: RequestHandler = async (req: VerifyEmailRequest, res) 
     await emailVerificationToken.findByIdAndDelete(verificationToken._id);
     res.status(200).json({ message: "Email verified successfully!" });
 
+}
+
+export const sendReVerificationToken: RequestHandler = async (req, res) => {
+    const { userId } = req.body;
+    if (!isValidObjectId(userId)) return res.status(403).json({ error: "Invalid request!" });
+    const user = await User.findById(userId);
+    if (!user) return res.status(403).json({ error: "Invalid request!" });
+
+    await emailVerificationToken.findOneAndDelete({
+        owner: userId,
+    })
+    const token = generateToken();
+    await emailVerificationToken.create({
+        owner: userId,
+        token
+    });
+    sendVerificationMail(token, {
+        name: user?.name,
+        email: user?.email,
+        userId: user?._id.toString(),
+    });
+
+    res.status(200).json({ message: "Please check your email for verification!" });
 }
