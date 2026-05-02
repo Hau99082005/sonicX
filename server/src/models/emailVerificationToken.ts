@@ -1,9 +1,9 @@
-import { Model, model, ObjectId, Schema } from "mongoose";
+import { Model, model, Schema, Types } from "mongoose";
 import { hash, compare } from "bcryptjs";
 
 
 interface EmailVerificationTokenDocument {
-    owner: ObjectId;
+    owner: Types.ObjectId | string;
     token: string;
     createdAt: Date;
 }
