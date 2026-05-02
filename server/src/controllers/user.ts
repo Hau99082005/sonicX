@@ -7,6 +7,9 @@ import { CreateUserSchema } from "#/utils/validationSchema";
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
 import { isValidObjectId } from "mongoose";
+import passwordResetToken from "#/models/passwordResetToken";
+import crypto from "crypto";
+import { PASSWORD_RESET_URL } from "#/utils/variables";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
     try {
@@ -79,4 +82,17 @@ export const sendReVerificationToken: RequestHandler = async (req, res) => {
     });
 
     res.status(200).json({ message: "Please check your email for verification!" });
+}
+
+export const generateForgotPasswordLink: RequestHandler = async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "Account not found!" });
+    const token = crypto.randomBytes(36).toString('hex');
+    await passwordResetToken.create({
+        owner: user._id.toString(),
+        token
+    });
+    const resetLink = `${PASSWORD_RESET_URL}?token=${token}&userId=${user._id.toString()}`;
+    res.status(200).json({ resetLink });
 }
