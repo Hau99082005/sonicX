@@ -58,7 +58,7 @@ export const generateTemplate = (options: Options) => {
           <tr>
             <td style="padding: 0;">
               <img src="${banner}" alt="${title}"
-                style="display: block; width: 100%; height: auto; max-height: 200px; object-fit: cover;">
+                style="display: block; width: 100%; height: auto;">
             </td>
           </tr>
 

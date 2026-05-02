@@ -2,7 +2,7 @@ import { CreateUser, VerifyEmailRequest } from "#/@types/user";
 import emailVerificationToken from "#/models/emailVerificationToken";
 import User from "#/models/User";
 import { generateToken } from "#/utils/helper";
-import { sendVerificationMail } from "#/utils/mail";
+import { sendForgotPasswordLink, sendVerificationMail } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
@@ -69,7 +69,7 @@ export const sendReVerificationToken: RequestHandler = async (req, res) => {
 
     await emailVerificationToken.findOneAndDelete({
         owner: userId,
-    })
+    });
     const token = generateToken();
     await emailVerificationToken.create({
         owner: userId,
@@ -88,11 +88,19 @@ export const generateForgotPasswordLink: RequestHandler = async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: "Account not found!" });
+    await passwordResetToken.findOneAndDelete({
+        owner: user._id.toString(),
+        
+    })
     const token = crypto.randomBytes(36).toString('hex');
     await passwordResetToken.create({
         owner: user._id.toString(),
         token
     });
     const resetLink = `${PASSWORD_RESET_URL}?token=${token}&userId=${user._id.toString()}`;
-    res.status(200).json({ resetLink });
+    sendForgotPasswordLink({
+        email: user.email,
+        link: resetLink
+    });
+    res.status(200).json({ message: "Please check your email for the password reset link!" });
 }
