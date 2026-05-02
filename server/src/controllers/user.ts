@@ -90,7 +90,7 @@ export const generateForgotPasswordLink: RequestHandler = async (req, res) => {
     if (!user) return res.status(404).json({ error: "Account not found!" });
     await passwordResetToken.findOneAndDelete({
         owner: user._id.toString(),
-        
+
     })
     const token = crypto.randomBytes(36).toString('hex');
     await passwordResetToken.create({
@@ -103,4 +103,13 @@ export const generateForgotPasswordLink: RequestHandler = async (req, res) => {
         link: resetLink
     });
     res.status(200).json({ message: "Please check your email for the password reset link!" });
+}
+
+export const isValidPasswordResetToken: RequestHandler = async (req, res) => {
+    const { token, userId } = req.body;
+    const resetToken = await passwordResetToken.findOne({ owner: userId });
+    if (!resetToken) return res.status(403).json({ error: "Unauthorized access, invalid token!" });
+    const matched = await resetToken.compareToken(token);
+    if (!matched) return res.status(403).json({ error: "Unauthorized access, invalid token!" });
+    res.status(200).json({ message: "Token is valid!" });
 }
