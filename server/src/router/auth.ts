@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { CreateUserSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
+import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
 import { validate } from "#/middleware/validator";
-import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, updatePassword, verifyEmail } from "#/controllers/user";
+import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, SignIn, updatePassword, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken } from "#/middleware/auth";
 
 const router = Router();
@@ -13,6 +13,6 @@ router.post('/forgot-password', generateForgotPasswordLink);
 router.post('/verify-password-reset-token', validate(TokenAndIDValidation),isValidPasswordResetToken,
 grantValid);
 router.post('/update-password', validate(updatedPasswordSchema),isValidPasswordResetToken,updatePassword);
-
+router.post('/sign-in', validate(SignInEmailValidationSchema), SignIn);  
 
 export default router;

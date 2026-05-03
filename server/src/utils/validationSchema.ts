@@ -35,3 +35,10 @@ export const updatedPasswordSchema = yup.object().shape({
         "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character"
     )
 })
+
+export const SignInEmailValidationSchema = yup.object().shape({
+    email: yup.string().trim().required("Email is missing").email('Invalid email id!'),
+    password: yup.string().trim().required("Password is missing"),
+
+
+})

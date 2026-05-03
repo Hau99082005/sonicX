@@ -101,7 +101,7 @@ export const sendForgotPasswordLink = async (options: Options) => {
 
 export const sendPasswordResetSuccessEmail = async (name: string, email: string) => {
     const transport = generateMailTransporter();
-    const message = `gần đây ${name} đã đặt lại mật khẩu mới cho tài khoản của mình. n
+    const message = `gần đây ${name} đã đặt lại mật khẩu mới cho tài khoản của mình.
     nếu bạn không thực hiện hành động này, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi 
     ngay để bảo vệ tài khoản của bạn`;
     transport.sendMail({
