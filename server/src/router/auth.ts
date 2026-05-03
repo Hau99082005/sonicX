@@ -3,9 +3,7 @@ import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, up
 import { validate } from "#/middleware/validator";
 import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, SignIn, updatePassword, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken, mustAuth } from "#/middleware/auth";
-import formidable from "formidable";
-import path from "path";
-import fs from "fs";
+import fileParser, { RequestWithFiles } from "#/middleware/fileParser";
 
 const router = Router();
 
@@ -33,27 +31,8 @@ router.get('/private', mustAuth, (req, res) => {
     });
 });
 
-router.post('/update-profile', async (req, res) => {
-    if (!req.headers["content-type"]?.startsWith("multipart/form-data;"))
-        return res.status(422).json({ error: "Only accepts form-data!" });
-
-        const dir = path.join(__dirname, "../public/profiles");
-        try {
-            await fs.readdirSync(dir);
-            
-        } catch (error) {
-            await fs.mkdirSync(dir)
-        }
-        
-    const form = formidable({
-        uploadDir: dir,
-        filename(name, ext, part, form) {
-            return Date.now() + "_" + part.originalFilename;
-        },
-    });
-    form.parse(req, (_err, fields, files) => {
-        res.status(200).json({ uploaded: true });
-    });
-})
-
+router.post('/update-profile', fileParser, (req: RequestWithFiles, res) => {
+    console.log(req.files);
+    res.status(200).json({ message: "Profile updated successfully!", ok: true});
+});
 export default router;
