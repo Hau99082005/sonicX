@@ -14,6 +14,7 @@ declare global {
                 following: number
             },
             files?: { [key: string]: File }
+            token: string;
         }
     }
 }
