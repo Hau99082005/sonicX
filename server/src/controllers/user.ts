@@ -158,6 +158,10 @@ export const updateProfile: RequestHandler = async (req, res) => {
     if (name.trim().length < 3) return res.status(422).json({ error: "Name must be at least 3 characters long!" });
     user.name = name;
     if (avatar) {
+        //if these is already an avatar file, we want to remove that
+        if (user.avatar?.publicId) {
+            await cloudinary.uploader.destroy(user.avatar.publicId);
+        }
 
         //upload new avatar file
         const { secure_url, public_id } = await cloudinary.uploader.upload(avatar.filepath, {
