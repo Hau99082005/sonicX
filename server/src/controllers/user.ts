@@ -1,7 +1,7 @@
 import { CreateUser, VerifyEmailRequest } from "#/@types/user";
 import emailVerificationToken from "#/models/emailVerificationToken";
 import User from "#/models/User";
-import { generateToken } from "#/utils/helper";
+import { formatProfile, generateToken } from "#/utils/helper";
 import { sendForgotPasswordLink, sendPasswordResetSuccessEmail, sendVerificationMail } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import bcrypt from "bcryptjs";
@@ -173,5 +173,9 @@ export const updateProfile: RequestHandler = async (req, res) => {
         user.avatar = { url: secure_url, publicId: public_id };
     }
     await user.save();
-    res.status(200).json({ avatar: user.avatar });
+    res.status(200).json({ profile: formatProfile(user) });
+}
+
+export const sendProfile: RequestHandler = (req, res) => {
+    res.status(200).json({ profile: req.user });
 }

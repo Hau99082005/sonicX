@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
 import { validate } from "#/middleware/validator";
-import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
+import { create, generateForgotPasswordLink, grantValid, sendProfile, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken, mustAuth } from "#/middleware/auth";
-import fileParser, { RequestWithFiles } from "#/middleware/fileParser";
+import fileParser from "#/middleware/fileParser";
 
 const router = Router();
 
@@ -15,11 +15,7 @@ router.post('/verify-password-reset-token', validate(TokenAndIDValidation), isVa
     grantValid);
 router.post('/update-password', validate(updatedPasswordSchema), isValidPasswordResetToken, updatePassword);
 router.post('/sign-in', validate(SignInEmailValidationSchema), SignIn);
-router.get('/is-auth', mustAuth, (req, res) => {
-    res.status(200).json({
-        profile: req.user
-    });
-});
+router.get('/is-auth', mustAuth, sendProfile);
 router.get('/public', (req, res) => {
     res.status(200).json({
         message: "You are in public route!"
