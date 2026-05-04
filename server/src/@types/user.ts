@@ -1,4 +1,5 @@
 import { Request } from "express";
+import { File } from "formidable";
 
 declare global {
     namespace Express {
@@ -11,7 +12,8 @@ declare global {
                 avatar?: string,
                 followers: number,
                 following: number
-            }
+            },
+            files?: { [key: string]: File }
         }
     }
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
 import { validate } from "#/middleware/validator";
-import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, SignIn, updatePassword, verifyEmail } from "#/controllers/user";
+import { create, generateForgotPasswordLink, grantValid, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken, mustAuth } from "#/middleware/auth";
 import fileParser, { RequestWithFiles } from "#/middleware/fileParser";
 
@@ -31,8 +31,5 @@ router.get('/private', mustAuth, (req, res) => {
     });
 });
 
-router.post('/update-profile', fileParser, (req: RequestWithFiles, res) => {
-    console.log(req.files);
-    res.status(200).json({ message: "Profile updated successfully!", ok: true});
-});
+router.post('/update-profile', mustAuth, fileParser, updateProfile);
 export default router;
