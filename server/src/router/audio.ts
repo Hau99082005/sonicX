@@ -1,4 +1,4 @@
-import { createAudio } from "#/controllers/audio";
+import { createAudio, deleteAudio, getAudio, updateAudio } from "#/controllers/audio";
 import { isVerified, mustAuth } from "#/middleware/auth";
 import fileParser from "#/middleware/fileParser";
 import { validate } from "#/middleware/validator";
@@ -13,4 +13,23 @@ router.post("/create",
     fileParser,
     validate(AudioValidationSchema),
     createAudio);
+
+router.patch("/:audioId",
+    mustAuth,
+    isVerified,
+    fileParser,
+    validate(AudioValidationSchema),
+    updateAudio
+);
+
+router.get("/",
+    mustAuth,
+    getAudio
+);
+
+router.delete("/:audioId",
+    mustAuth,
+    isVerified,
+    deleteAudio
+);
 export default router;

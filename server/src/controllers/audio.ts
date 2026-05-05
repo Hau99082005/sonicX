@@ -52,3 +52,79 @@ export const createAudio: RequestHandler = async (req: CreateAudioRequest, res) 
     });
 
 }
+
+export const updateAudio: RequestHandler = async (req: CreateAudioRequest, res) => {
+    const { title, about, category } = req.body;
+    const poster = req.files?.poster as formidable.File;
+    const audioFile = req.files?.file as formidable.File;
+    const ownerId = req.user.id;
+    const audioId = req.params.audioId;
+
+    const audio = await Audio.findOneAndUpdate(
+        { owner: ownerId, _id: audioId },
+        { title, about, category },
+        { new: true }
+    );
+
+    if (!audio) return res.status(404).json({ error: 'Âm thanh không tồn tại hoặc không có quyền truy cập!' });
+
+    if (audioFile) {
+        if (audio.file?.publicId) {
+            await cloudinary.uploader.destroy(audio.file.publicId, { resource_type: "video" });
+        }
+        const audioResult = await cloudinary.uploader.upload(audioFile.filepath, {
+            resource_type: "video"
+        });
+        audio.file = {
+            url: audioResult.secure_url,
+            publicId: audioResult.public_id
+        };
+        await audio.save();
+    }
+
+    if (poster) {
+        if (audio.poster?.publicId) {
+            await cloudinary.uploader.destroy(audio.poster.publicId);
+        }
+        const posterResult = await cloudinary.uploader.upload(poster.filepath, {
+            width: 500,
+            height: 500,
+            crop: "thumb",
+            gravity: "face"
+        });
+        audio.poster = {
+            url: posterResult.secure_url,
+            publicId: posterResult.public_id
+        };
+        await audio.save();
+    }
+
+    res.status(200).json({
+        audio: {
+            title: audio.title,
+            about: audio.about,
+            category: audio.category,
+            file: audio.file.url,
+            poster: audio.poster?.url
+        }
+    });
+};
+
+export const getAudio: RequestHandler = async (_req, res) => {
+    const audio = await Audio.find({}).sort({ createdAt: -1 });
+    res.status(200).json({ audio });
+}
+
+export const deleteAudio: RequestHandler = async (req, res) => {
+    const ownerId = req.user.id;
+    const audioId = req.params.audioId;
+    const audio = await Audio.findOneAndDelete({ owner: ownerId, _id: audioId });
+    if (!audio) return res.status(404).json({ error: "Âm thanh không tồn tại hoặc không có quyền truy cập!" });
+    if (audio.file.publicId) {
+        await cloudinary.uploader.destroy(audio.file.publicId, { resource_type: "video" });
+    }
+    if (audio.poster?.publicId) {
+        await cloudinary.uploader.destroy(audio.poster.publicId);
+    }
+    res.status(200).json({ message: "Âm thanh đã được xóa thành công!", audioId });
+}
