@@ -1,7 +1,8 @@
-import Audio from "#/models/audio";
+import { PopulateFavList } from "#/@types/audio";
+import Audio, { AudioDocument } from "#/models/audio";
 import Favorite from "#/models/favorite";
 import { RequestHandler } from "express";
-import { isValidObjectId, Types } from "mongoose";
+import { isValidObjectId, ObjectId, Types } from "mongoose";
 
 export const toggleFavorite: RequestHandler = async (req, res) => {
     const audioId = req.query.audioId as string;
@@ -36,5 +37,46 @@ export const toggleFavorite: RequestHandler = async (req, res) => {
         status = "added";
     }
 
+    if (status === "added") {
+        await Audio.findByIdAndUpdate(audioId, {
+            $addToSet: { likes: req.user.id }
+        });
+    }
+
+    if(status === "removed") {
+        await Audio.findByIdAndUpdate(audioId,{
+            $pull: {likes: req.user.id}
+        });
+    }
+
     res.json({ status });
+}
+
+
+export const getFavorites: RequestHandler = async(req, res) => {
+    const userId = req.user.id;
+    const favorite = await Favorite.findOne({ owner: userId}).populate<{items: PopulateFavList[]}>({
+        path: "items",
+        populate: {
+            path: "owner",
+        },
+    });
+
+    if(!favorite) return res.json({ audios: []});
+
+    const audios =favorite.items.map((item) => {
+        return {
+            id: item._id,
+            title: item.title,
+            category: item.category,
+            file: item.file.url,
+            poster: item.poster?.url,
+            owner: {
+                name: item.owner.name,
+                id: item.owner._id
+            }
+        }
+    })
+    res.json({ audios});
+
 }
