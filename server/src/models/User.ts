@@ -1,18 +1,17 @@
 import { compare, hash } from "bcryptjs";
-import { Model, model, ObjectId, Schema } from "mongoose";
-
+import { Model, model, Schema, Types } from "mongoose";
 
 export interface UserDocument {
-    _id: ObjectId;
+    _id: Types.ObjectId;
     name: string;
     email: string;
     password: string;
     verified: boolean;
     avatar?: { url: string; publicId: string };
     token: string[];
-    favorites: ObjectId[];
-    followers: ObjectId[];
-    followings: ObjectId[];
+    favorites: Types.ObjectId[];
+    followers: Types.ObjectId[];
+    followings: Types.ObjectId[];
 }
 
 interface Methods {
