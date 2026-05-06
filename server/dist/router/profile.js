@@ -7,4 +7,6 @@ const router = (0, express_1.Router)();
 router.post("/update-follower/:profileId", auth_1.mustAuth, follower_1.updatedFollower);
 router.get('/uploads', auth_1.mustAuth, follower_1.getUploads);
 router.get("/uploads/:profileId", follower_1.getPublicUploads);
+router.get("/info/:profileId", follower_1.getPublicProfile);
+router.get("/playlist/:profileId", follower_1.getPublicPlaylist);
 exports.default = router;

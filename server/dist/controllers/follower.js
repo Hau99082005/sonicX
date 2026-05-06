@@ -12,8 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicUploads = exports.getUploads = exports.updatedFollower = void 0;
+exports.getPublicPlaylist = exports.getPublicProfile = exports.getPublicUploads = exports.getUploads = exports.updatedFollower = void 0;
 const audio_1 = __importDefault(require("../models/audio"));
+const playlist_1 = __importDefault(require("../models/playlist"));
 const User_1 = __importDefault(require("../models/User"));
 const mongoose_1 = require("mongoose");
 const updatedFollower = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -82,3 +83,46 @@ const getPublicUploads = (req, res) => __awaiter(void 0, void 0, void 0, functio
     res.json({ audios });
 });
 exports.getPublicUploads = getPublicUploads;
+const getPublicProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { profileId } = req.params;
+    if (!(0, mongoose_1.isValidObjectId)(profileId))
+        return res.status(422).json({ error: "Invalid profile Id!" });
+    const user = yield User_1.default.findById(profileId);
+    if (!user)
+        return res.status(404).json({ error: "User not found!" });
+    res.json({
+        profile: {
+            id: user._id,
+            name: user.name,
+            followers: user.followers.length,
+            avatar: (_a = user.avatar) === null || _a === void 0 ? void 0 : _a.url
+        }
+    });
+});
+exports.getPublicProfile = getPublicProfile;
+const getPublicPlaylist = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { profileId } = req.params;
+    const { limit = "80", pageNo = "0" } = req.query;
+    if (!(0, mongoose_1.isValidObjectId)(profileId))
+        return res.status(422).json({ error: "Invalid profile Id!" });
+    const playlist = yield playlist_1.default.find({
+        owner: profileId,
+        visibility: 'public',
+    }).skip(parseInt(limit) * parseInt(pageNo)).limit(parseInt(limit))
+        .sort("-createdAt");
+    if (!playlist) {
+        return res.json({ playlist: [] });
+    }
+    res.json({
+        playlist: playlist.map(item => {
+            return {
+                id: item._id,
+                title: item.title,
+                itemsCount: item.items.length,
+                visibility: item.visibility,
+            };
+        })
+    });
+});
+exports.getPublicPlaylist = getPublicPlaylist;

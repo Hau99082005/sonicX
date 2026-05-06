@@ -1,5 +1,6 @@
 import { paginationQuery } from "#/@types/misc";
 import Audio, { AudioDocument } from "#/models/audio";
+import Playlist from "#/models/playlist";
 import User from "#/models/User";
 import { RequestHandler } from "express";
 import { isValidObjectId, ObjectId } from "mongoose";
@@ -89,4 +90,31 @@ export const getPublicProfile: RequestHandler = async (req, res) => {
             avatar: user.avatar?.url
         }
     })
+}
+
+export const getPublicPlaylist: RequestHandler = async (req, res) => {
+    const { profileId } = req.params;
+    const { limit = "80", pageNo = "0" } = req.query as paginationQuery;
+    if (!isValidObjectId(profileId)) return res.status(422).json({ error: "Invalid profile Id!" });
+    const playlist = await Playlist.find({
+        owner: profileId,
+        visibility: 'public',
+    }).skip(parseInt(limit) * parseInt(pageNo)).limit(parseInt(limit))
+        .sort("-createdAt");
+
+    if (!playlist) {
+        return res.json({ playlist: [] });
+    }
+
+    res.json({
+        playlist: playlist.map(item => {
+            return {
+                id: item._id,
+                title: item.title,
+                itemsCount: item.items.length,
+                visibility: item.visibility,
+            }
+        })
+    })
+
 }
