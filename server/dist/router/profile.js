@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const follower_1 = require("../controllers/follower");
+const auth_1 = require("../middleware/auth");
+const express_1 = require("express");
+const router = (0, express_1.Router)();
+router.post("/update-follower/:profileId", auth_1.mustAuth, follower_1.updatedFollower);
+router.get('/uploads', auth_1.mustAuth, follower_1.getUploads);
+router.get("/uploads/:profileId", follower_1.getPublicUploads);
+exports.default = router;

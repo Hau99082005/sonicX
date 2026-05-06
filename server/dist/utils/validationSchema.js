@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
+exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
 const yup = __importStar(require("yup"));
 const mongoose_1 = require("mongoose");
 const audio_category_1 = require("../models/audio_category");
@@ -84,4 +84,14 @@ exports.PlaylistValidationSchema = yup.object().shape({
     visibility: yup.string()
         .oneOf(["public", "private"], "Visibility must be public or private!")
         .required("Visibility is missing!")
+});
+exports.OldPlaylistValidationSchema = yup.object().shape({
+    title: yup.string().required("Title is missing"),
+    item: yup.string().transform(function (value) {
+        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
+    }),
+    id: yup.string().transform(function (value) {
+        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
+    }),
+    visibility: yup.string().oneOf(["public", "private"], "Visibility must be public or private"),
 });

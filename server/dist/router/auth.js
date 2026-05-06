@@ -30,4 +30,5 @@ router.get('/private', auth_1.mustAuth, (req, res) => {
 });
 router.post('/update-profile', auth_1.mustAuth, fileParser_1.default, user_1.updateProfile);
 router.post('/log-out', auth_1.mustAuth, user_1.logOut);
+router.get('/user', auth_1.mustAuth, user_1.getUser);
 exports.default = router;

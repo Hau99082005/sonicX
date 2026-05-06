@@ -16,6 +16,7 @@ export interface AudioDocument<T = Types.ObjectId> {
     }
     likes: Types.ObjectId[];
     category: CategoriesType;
+    createdAt: Date,
 }
 
 const AudioSchema = new Schema<AudioDocument>({

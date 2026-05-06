@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
+exports.getUser = exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
 const emailVerificationToken_1 = __importDefault(require("../models/emailVerificationToken"));
 const User_1 = __importDefault(require("../models/User"));
 const helper_1 = require("../utils/helper");
@@ -205,3 +205,13 @@ const logOut = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     res.status(200).json({ success: true });
 });
 exports.logOut = logOut;
+const getUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const user = yield User_1.default.find({}).sort({ createdAt: -1 });
+    if (user) {
+        return res.status(200).json({ user });
+    }
+    else {
+        return res.status(404).json({ message: "User not found!" });
+    }
+});
+exports.getUser = getUser;
