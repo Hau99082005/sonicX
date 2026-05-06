@@ -1,8 +1,8 @@
-import { model, Model, models, ObjectId, Schema } from "mongoose";
+import { model, Model, models, Schema, Types } from "mongoose";
 import { categories, CategoriesType } from "./audio_category";
 
-export interface AudioDocument<T = ObjectId> {
-    _id: ObjectId;
+export interface AudioDocument<T = Types.ObjectId> {
+    _id: Types.ObjectId;
     title: string;
     about: string;
     owner: T;
@@ -14,7 +14,7 @@ export interface AudioDocument<T = ObjectId> {
         url: string;
         publicId: string;
     }
-    likes: ObjectId[];
+    likes: Types.ObjectId[];
     category: CategoriesType;
 }
 

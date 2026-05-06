@@ -3,7 +3,8 @@ import { CategoriesType } from "#/models/audio_category";
 import { RequestHandler } from "express";
 import formidable from "formidable";
 import cloudinary from "#/cloud";
-import Audio from "#/models/audio";
+import Audio, { AudioDocument } from "#/models/audio";
+import { Types, HydratedDocument } from "mongoose";
 
 interface CreateAudioRequest extends RequestWithFiles {
     body: {
@@ -21,9 +22,9 @@ export const createAudio: RequestHandler = async (req: CreateAudioRequest, res) 
 
     if (!audioFile) return res.status(422).json({ error: "Audio file is missing!" });
 
-    const audioResult = await cloudinary.uploader.upload(audioFile.filepath,
-        { resource_type: "video" }
-    );
+    const audioResult = await cloudinary.uploader.upload(audioFile.filepath, {
+        resource_type: "video"
+    });
     const newAudio = new Audio({
         title,
         about,
@@ -50,21 +51,20 @@ export const createAudio: RequestHandler = async (req: CreateAudioRequest, res) 
             poster: newAudio.poster?.url
         }
     });
-
 }
 
 export const updateAudio: RequestHandler = async (req: CreateAudioRequest, res) => {
     const { title, about, category } = req.body;
     const poster = req.files?.poster as formidable.File;
     const audioFile = req.files?.file as formidable.File;
-    const ownerId = req.user.id;
-    const audioId = req.params.audioId;
+    const ownerId = new Types.ObjectId(req.user.id);
+    const audioId = new Types.ObjectId(req.params.audioId as string);
 
     const audio = await Audio.findOneAndUpdate(
         { owner: ownerId, _id: audioId },
         { title, about, category },
         { new: true }
-    );
+    ) as HydratedDocument<AudioDocument> | null;
 
     if (!audio) return res.status(404).json({ error: 'Âm thanh không tồn tại hoặc không có quyền truy cập!' });
 
@@ -116,9 +116,10 @@ export const getAudio: RequestHandler = async (_req, res) => {
 }
 
 export const deleteAudio: RequestHandler = async (req, res) => {
-    const ownerId = req.user.id;
-    const audioId = req.params.audioId;
-    const audio = await Audio.findOneAndDelete({ owner: ownerId, _id: audioId });
+    const ownerId = new Types.ObjectId(req.user.id);
+    const audioId = new Types.ObjectId(req.params.audioId as string);
+
+    const audio = await Audio.findOneAndDelete({ owner: ownerId, _id: audioId }) as HydratedDocument<AudioDocument> | null;
     if (!audio) return res.status(404).json({ error: "Âm thanh không tồn tại hoặc không có quyền truy cập!" });
     if (audio.file.publicId) {
         await cloudinary.uploader.destroy(audio.file.publicId, { resource_type: "video" });

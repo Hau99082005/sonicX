@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const validator_1 = require("../middleware/validator");
+const validationSchema_1 = require("../utils/validationSchema");
+const playlist_1 = require("../controllers/playlist");
+const router = (0, express_1.Router)();
+router.post("/create", auth_1.mustAuth, auth_1.isVerified, (0, validator_1.validate)(validationSchema_1.PlaylistValidationSchema), playlist_1.createPlaylist);
+exports.default = router;
