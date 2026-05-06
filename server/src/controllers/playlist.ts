@@ -77,10 +77,16 @@ export const removePlaylist: RequestHandler = async (req, res) => {
 }
 
 export const getPlaylistByIdProfile: RequestHandler = async (req, res) => {
+    const { pageNo = 0, limit = "80" } = req.query as { pageNo: string, limit: string };
+
+
     const data = await Playlist.find({
         owner: req.user.id,
         visibility: { $ne: 'auto' }
-    }).sort('-createdAt');
+    })
+        .skip(parseInt(pageNo as any) * parseInt(limit))
+        .limit(parseInt(limit))
+        .sort('-createdAt');
 
     const playlist = data.map((item) => {
         return {
