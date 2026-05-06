@@ -73,5 +73,23 @@ export const removePlaylist: RequestHandler = async (req, res) => {
         }, { $pull: { items: resId } });
         if (!playlist) return res.status(404).json({ error: "Playlist not found!" });
     }
-    res.json({ success: true});
+    res.json({ success: true });
 }
+
+export const getPlaylistByIdProfile: RequestHandler = async (req, res) => {
+    const data = await Playlist.find({
+        owner: req.user.id,
+        visibility: { $ne: 'auto' }
+    }).sort('-createdAt');
+
+    const playlist = data.map((item) => {
+        return {
+            id: item._id,
+            title: item.title,
+            itemsCount: item.items.length,
+            visibility: item.visibility
+        }
+    })
+
+    res.json({ playlist });
+};
