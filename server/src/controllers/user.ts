@@ -191,3 +191,12 @@ export const logOut: RequestHandler = async (req, res) => {
     await user.save();
     res.status(200).json({ success: true });
 }
+
+export const getUser: RequestHandler = async (req, res) => {
+    const user = await User.find({}).sort({ createdAt: -1 });
+    if (user) {
+        return res.status(200).json({ user });
+    } else {
+        return res.status(404).json({ message: "User not found!" });
+    }
+}

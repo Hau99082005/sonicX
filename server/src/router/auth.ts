@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
 import { validate } from "#/middleware/validator";
-import { create, generateForgotPasswordLink, grantValid, logOut, sendProfile, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
+import { create, generateForgotPasswordLink, getUser, grantValid, logOut, sendProfile, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken, mustAuth } from "#/middleware/auth";
 import fileParser from "#/middleware/fileParser";
 
@@ -29,4 +29,5 @@ router.get('/private', mustAuth, (req, res) => {
 
 router.post('/update-profile', mustAuth, fileParser, updateProfile);
 router.post('/log-out', mustAuth, logOut);
+router.get('/user', mustAuth, getUser);
 export default router;

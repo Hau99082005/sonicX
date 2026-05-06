@@ -14,3 +14,12 @@ export interface CreatePlaylist extends Request {
         visibility: ["public"| "private" | "auto"],
     }
 }
+
+export interface UpdatePlaylist extends Request {
+    body: {
+        title: string;
+        id: string;
+        item: string;
+        visibility: ["public"| "private" | "auto"]
+    }
+}
