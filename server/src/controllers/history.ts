@@ -64,5 +64,5 @@ export const updateHistory: RequestHandler = async (req, res) => {
             $set: { last: history }
         })
     }
-    res.json({ success: true });
+    res.json(histories);
 }
