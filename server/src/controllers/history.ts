@@ -146,3 +146,82 @@ export const getHistories: RequestHandler = async (req, res) => {
     ]);
     res.json(histories);
 }
+
+export const getRecentlyPlayed: RequestHandler = async (req, res) => {
+    const match = { $match: { owner: req.user.id } }
+    const sliceMath = {
+        $project: {
+            myHistory: { $slice: ["$all", 10] },
+        },
+    }
+    const dateSort = {
+        $project: {
+            histories: {
+                $sortArray: {
+                    input: "$myHistory",
+                    sortBy: {
+                        date: -1
+                    },
+                }
+            }
+        }
+    }
+
+    const unwindWithIndex = {
+        $unwind: { path: "$histories", includeArrayIndex: "index" },
+    }
+
+    const audioLookup = {
+        $lookup: {
+            from: "audios",
+            localField: "histories.audio",
+            foreignField: "_id",
+            as: "audioInfo"
+        }
+    }
+
+    const unwindAudioInfo = {
+        $unwind: "$audioInfo",
+    }
+
+    const userLookup = {
+        $lookup: {
+            from: "users",
+            localField: "audioInfo.owner",
+            foreignField: "_id",
+            as: "owner"
+        }
+    }
+
+    const unwindUser = { $unwind: "$owner" }
+
+    const projectData = {
+        $project: {
+            _id: 0,
+            id: "$histories._id",
+            audioId: "$audioInfo._id",
+            date: "$histories.date",
+            progress: "$histories.progress",
+            title: "$audioInfo.title",
+            about: "$audioInfo.about",
+            file: "$audioInfo.file",
+            poster: "$audioInfo.poster",
+            category: "$audioInfo.category",
+            owner: { name: "$owner.name", id: "$owner._id" },
+            index: "$index",
+        }
+    }
+
+    const audios = await History.aggregate([
+        match,
+        sliceMath,
+        dateSort,
+        unwindWithIndex,
+        audioLookup,
+        unwindAudioInfo,
+        userLookup,
+        unwindUser,
+        projectData,
+    ]);
+    res.json({ audios });
+}
