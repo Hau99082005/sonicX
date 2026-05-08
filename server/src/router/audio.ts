@@ -1,4 +1,4 @@
-import { createAudio, deleteAudio, getAudio, updateAudio } from "#/controllers/audio";
+import { createAudio, deleteAudio, getAudio, getLatestUploads, updateAudio } from "#/controllers/audio";
 import { isVerified, mustAuth } from "#/middleware/auth";
 import fileParser from "#/middleware/fileParser";
 import { validate } from "#/middleware/validator";
@@ -32,4 +32,6 @@ router.delete("/:audioId",
     isVerified,
     deleteAudio
 );
+
+router.get("/latest", getLatestUploads);
 export default router;

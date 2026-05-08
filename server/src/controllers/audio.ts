@@ -5,6 +5,7 @@ import formidable from "formidable";
 import cloudinary from "#/cloud";
 import Audio, { AudioDocument } from "#/models/audio";
 import { Types, HydratedDocument } from "mongoose";
+import { PopulateFavList } from "#/@types/audio";
 
 interface CreateAudioRequest extends RequestWithFiles {
     body: {
@@ -128,4 +129,24 @@ export const deleteAudio: RequestHandler = async (req, res) => {
         await cloudinary.uploader.destroy(audio.poster.publicId);
     }
     res.status(200).json({ message: "Âm thanh đã được xóa thành công!", audioId });
+}
+
+export const getLatestUploads: RequestHandler = async (req, res) => {
+    const list = await Audio.find().sort("-createdAt")
+        .limit(10).populate<PopulateFavList>("owner");
+    const audios = list.map((item) => {
+        return {
+            id: item._id,
+            title: item.title,
+            about: item.about,
+            category: item.category,
+            file: item.file.url,
+            poster: item.poster?.url,
+            owner: {
+                name: item.owner.name,
+                id: item.owner._id
+            }
+        }
+    });
+    res.json({ audios })
 }
