@@ -314,3 +314,48 @@ export const getFollowingsProfile: RequestHandler = async (req, res) => {
 
     res.json({ followings: result.followings });
 }
+
+export const getFollowersProfilePublic: RequestHandler = async (req, res) => {
+    const { limit = "80", pageNo = "0" } = req.query as paginationQuery;
+    const { profileId } = req.params;
+    if (!isValidObjectId(profileId)) {
+        return res.status(422).json({ error: "Invalid profile id!" });
+    }
+
+    const [result] = await User.aggregate([{
+        $match: { _id: new Types.ObjectId(profileId as string) }
+    }, {
+        $project: {
+            followers: {
+                $slice: ["$followers", parseInt(pageNo) * parseInt(limit), parseInt(limit)]
+            }
+        }
+    }, {
+        $unwind: "$followers"
+    }, {
+        $lookup: {
+            from: "users",
+            localField: "followers",
+            foreignField: "_id",
+            as: "userInfo"
+        }
+    }, {
+        $unwind: "$userInfo"
+    }, {
+        $group: {
+            _id: null,
+            followers: {
+                $push: {
+                    id: "$userInfo._id",
+                    name: "$userInfo.name",
+                    avatar: "$userInfo.avatar.url",
+                }
+            }
+        }
+    }]);
+    if (!result) {
+        return res.json({ followers: [] });
+    }
+
+    res.json({ followers: result });
+}
