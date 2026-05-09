@@ -18,7 +18,6 @@ const User_1 = __importDefault(require("../models/User"));
 const helper_1 = require("../utils/helper");
 const mail_1 = require("../utils/mail");
 const validationSchema_1 = require("../utils/validationSchema");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const mongoose_1 = require("mongoose");
 const passwordResetToken_1 = __importDefault(require("../models/passwordResetToken"));
 const crypto_1 = __importDefault(require("crypto"));
@@ -28,13 +27,16 @@ const cloud_1 = __importDefault(require("../cloud"));
 const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, email, password } = req.body;
+        const oldUser = yield User_1.default.findOne({
+            email
+        });
+        if (oldUser)
+            return res.status(403).json({ error: "Email is already in use!" });
         validationSchema_1.CreateUserSchema.validate({ email, name, password });
-        const salt = yield bcryptjs_1.default.genSalt(10);
-        const hashedPassword = yield bcryptjs_1.default.hash(password, salt);
         const newUser = yield User_1.default.create({
             name,
             email,
-            password: hashedPassword
+            password
         });
         const token = (0, helper_1.generateToken)();
         yield emailVerificationToken_1.default.create({
@@ -79,6 +81,8 @@ const sendReVerificationToken = (req, res) => __awaiter(void 0, void 0, void 0, 
     const user = yield User_1.default.findById(userId);
     if (!user)
         return res.status(403).json({ error: "Invalid request!" });
+    if (user.verified)
+        return res.status(422).json({ error: "You account is already verified!" });
     yield emailVerificationToken_1.default.findOneAndDelete({
         owner: userId,
     });

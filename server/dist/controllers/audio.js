@@ -33,7 +33,7 @@ const createAudio = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         category,
         owner: ownerId,
         file: {
-            url: audioResult.url,
+            url: audioResult.secure_url,
             publicId: audioResult.public_id,
         }
     });

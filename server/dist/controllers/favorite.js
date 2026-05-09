@@ -12,9 +12,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getIsFavorite = exports.getFavorites = exports.toggleFavorite = void 0;
+exports.getPlaylistAudios = exports.getIsFavorite = exports.getFavorites = exports.toggleFavorite = void 0;
 const audio_1 = __importDefault(require("../models/audio"));
 const favorite_1 = __importDefault(require("../models/favorite"));
+const playlist_1 = __importDefault(require("../models/playlist"));
 const mongoose_1 = require("mongoose");
 const toggleFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const audioId = req.query.audioId;
@@ -25,25 +26,26 @@ const toggleFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function*
     if (!audio)
         return res.status(404).json({ error: "Resource not found!" });
     const objectId = new mongoose_1.Types.ObjectId(audioId);
+    const ownerId = new mongoose_1.Types.ObjectId(req.user.id);
     const alreadyExists = yield favorite_1.default.findOne({
-        owner: req.user.id,
+        owner: ownerId,
         items: { $elemMatch: { $eq: objectId } }
     });
     if (alreadyExists) {
-        yield favorite_1.default.updateOne({ owner: req.user.id }, {
+        yield favorite_1.default.updateOne({ owner: ownerId }, {
             $pull: { items: objectId }
         });
         status = "removed";
     }
     else {
-        const favorite = yield favorite_1.default.findOne({ owner: req.user.id });
+        const favorite = yield favorite_1.default.findOne({ owner: ownerId });
         if (favorite) {
-            yield favorite_1.default.updateOne({ owner: req.user.id }, {
+            yield favorite_1.default.updateOne({ owner: ownerId }, {
                 $addToSet: { items: objectId }
             });
         }
         else {
-            yield favorite_1.default.create({ owner: req.user.id, items: [objectId] });
+            yield favorite_1.default.create({ owner: ownerId, items: [objectId] });
         }
         status = "added";
     }
@@ -62,29 +64,57 @@ const toggleFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function*
 exports.toggleFavorite = toggleFavorite;
 const getFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const userId = req.user.id;
-    const favorite = yield favorite_1.default.findOne({ owner: userId }).populate({
-        path: "items",
-        populate: {
-            path: "owner",
-        },
-    });
-    if (!favorite)
-        return res.json({ audios: [] });
-    const audios = favorite.items.map((item) => {
-        var _a;
-        return {
-            id: item._id,
-            title: item.title,
-            category: item.category,
-            file: item.file.url,
-            poster: (_a = item.poster) === null || _a === void 0 ? void 0 : _a.url,
-            owner: {
-                name: item.owner.name,
-                id: item.owner._id
+    const { limit = "80", pageNo = "0" } = req.query;
+    const favorites = yield favorite_1.default.aggregate([
+        { $match: { owner: userId } },
+        {
+            $project: {
+                audioIds: {
+                    $slice: ["$items", parseInt(limit) * parseInt(pageNo),
+                        parseInt(limit)
+                    ]
+                }
             }
-        };
-    });
-    res.json({ audios });
+        },
+        {
+            $unwind: "$audioIds"
+        },
+        {
+            $lookup: {
+                from: "audios",
+                localField: "audioIds",
+                foreignField: "_id",
+                as: "audioInfo"
+            }
+        }, {
+            $unwind: "$audioInfo"
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "audioInfo.owner",
+                foreignField: "_id",
+                as: "ownerInfo"
+            }
+        },
+        { $unwind: "$ownerInfo" },
+        {
+            $project: {
+                _id: 0,
+                id: "$audioInfo._id",
+                title: "$audioInfo.title",
+                about: "$audioInfo.about",
+                category: "$audioInfo.category",
+                file: "$audioInfo.file.url",
+                poster: "$audioInfo.poster.url",
+                owner: {
+                    name: "$ownerInfo.name",
+                    id: "$ownerInfo._id"
+                },
+            }
+        }
+    ]);
+    res.json({ audios: favorites });
 });
 exports.getFavorites = getFavorites;
 const getIsFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -98,3 +128,25 @@ const getIsFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     res.json({ result: favorite ? true : false });
 });
 exports.getIsFavorite = getIsFavorite;
+const getPlaylistAudios = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { limit = "80", pageNo = "0" } = req.params;
+    const { playlistId } = req.params;
+    if (!(0, mongoose_1.isValidObjectId)(playlistId))
+        return res.status(422).json({ error: "Invalid playlist id!" });
+    const [result] = yield playlist_1.default.aggregate([
+        { $match: { _id: new mongoose_1.Types.ObjectId(playlistId) } },
+        {
+            $project: {
+                items: {
+                    $slice: ["$items",
+                        parseInt(pageNo) * parseInt(limit),
+                        parseInt(limit)
+                    ]
+                },
+                title: "$title"
+            }
+        }
+    ]);
+    res.json(result);
+});
+exports.getPlaylistAudios = getPlaylistAudios;

@@ -1,4 +1,3 @@
-import { PopulateFavList } from "#/@types/audio";
 import { paginationQuery } from "#/@types/misc";
 import Audio, { AudioDocument } from "#/models/audio";
 import Favorite from "#/models/favorite";

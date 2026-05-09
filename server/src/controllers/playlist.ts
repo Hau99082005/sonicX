@@ -136,3 +136,69 @@ export const getAudios: RequestHandler = async (req, res) => {
     })
 
 }
+
+import { Types } from "mongoose";
+
+export const getPlaylistAudios: RequestHandler = async (req, res) => {
+    const { limit = "80", pageNo = "0" } = req.query as { limit: string; pageNo: string };
+    const { playlistId } = req.params;
+    if (!isValidObjectId(playlistId)) return res.status(422).json({ error: "Invalid playlist id!" });
+
+    const [result] = await Playlist.aggregate([
+        { $match: { _id: new Types.ObjectId(playlistId as any) } },
+        {
+            $project: {
+                items: {
+                    $slice: ["$items", parseInt(pageNo) * parseInt(limit), parseInt(limit)]
+                },
+                title: "$title"
+            }
+        },
+        { $unwind: { path: "$items", preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: "audios",
+                localField: "items",
+                foreignField: "_id",
+                as: "audios",
+            }
+        },
+        { $unwind: { path: "$audios", preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: "users",
+                localField: "audios.owner",
+                foreignField: "_id",
+                as: "userInfo",
+            }
+        },
+        { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+        {
+            $group: {
+                _id: { id: "$_id", title: "$title" },
+                audios: {
+                    $push: {
+                        id: "$audios._id",
+                        title: "$audios.title",
+                        about: "$audios.about",
+                        category: "$audios.category",
+                        file: "$audios.file.url",
+                        poster: "$audios.poster.url",
+                        owner: { name: "$userInfo.name", id: "$userInfo._id" }
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                id: "$_id.id",
+                title: "$_id.title",
+                audios: "$audios"
+            }
+        }
+    ]);
+
+    if (!result) return res.json({ list: null });
+    res.json({ list: result });
+}
