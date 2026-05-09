@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const favorite_1 = require("../controllers/favorite");
 const follower_1 = require("../controllers/follower");
+const playlist_1 = require("../controllers/playlist");
 const auth_1 = require("../middleware/auth");
 const express_1 = require("express");
 const router = (0, express_1.Router)();
@@ -15,5 +15,5 @@ router.get("/auto-generated-playlist", auth_1.mustAuth, follower_1.getAutoGenera
 router.get("/followers", auth_1.mustAuth, follower_1.getFllowersProfile);
 router.get("/followers/:profileId", auth_1.mustAuth, follower_1.getFollowersProfilePublic);
 router.get("/followings", auth_1.mustAuth, follower_1.getFollowingsProfile);
-router.get("/playlist-audios/:playlistId", favorite_1.getPlaylistAudios);
+router.get("/playlist-audios/:playlistId", playlist_1.getPlaylistAudios);
 exports.default = router;

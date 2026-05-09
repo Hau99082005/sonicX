@@ -12,10 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPlaylistAudios = exports.getIsFavorite = exports.getFavorites = exports.toggleFavorite = void 0;
+exports.getIsFavorite = exports.getFavorites = exports.toggleFavorite = void 0;
 const audio_1 = __importDefault(require("../models/audio"));
 const favorite_1 = __importDefault(require("../models/favorite"));
-const playlist_1 = __importDefault(require("../models/playlist"));
 const mongoose_1 = require("mongoose");
 const toggleFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const audioId = req.query.audioId;
@@ -128,25 +127,3 @@ const getIsFavorite = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     res.json({ result: favorite ? true : false });
 });
 exports.getIsFavorite = getIsFavorite;
-const getPlaylistAudios = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { limit = "80", pageNo = "0" } = req.params;
-    const { playlistId } = req.params;
-    if (!(0, mongoose_1.isValidObjectId)(playlistId))
-        return res.status(422).json({ error: "Invalid playlist id!" });
-    const [result] = yield playlist_1.default.aggregate([
-        { $match: { _id: new mongoose_1.Types.ObjectId(playlistId) } },
-        {
-            $project: {
-                items: {
-                    $slice: ["$items",
-                        parseInt(pageNo) * parseInt(limit),
-                        parseInt(limit)
-                    ]
-                },
-                title: "$title"
-            }
-        }
-    ]);
-    res.json(result);
-});
-exports.getPlaylistAudios = getPlaylistAudios;
