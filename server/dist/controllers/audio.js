@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAudio = exports.getAudio = exports.updateAudio = exports.createAudio = void 0;
+exports.getLatestUploads = exports.deleteAudio = exports.getAudio = exports.updateAudio = exports.createAudio = void 0;
 const cloud_1 = __importDefault(require("../cloud"));
 const audio_1 = __importDefault(require("../models/audio"));
 const mongoose_1 = require("mongoose");
@@ -126,3 +126,24 @@ const deleteAudio = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     res.status(200).json({ message: "Âm thanh đã được xóa thành công!", audioId });
 });
 exports.deleteAudio = deleteAudio;
+const getLatestUploads = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const list = yield audio_1.default.find().sort("-createdAt")
+        .limit(10).populate("owner");
+    const audios = list.map((item) => {
+        var _a;
+        return {
+            id: item._id,
+            title: item.title,
+            about: item.about,
+            category: item.category,
+            file: item.file.url,
+            poster: (_a = item.poster) === null || _a === void 0 ? void 0 : _a.url,
+            owner: {
+                name: item.owner.name,
+                id: item.owner._id
+            }
+        };
+    });
+    res.json({ audios });
+});
+exports.getLatestUploads = getLatestUploads;

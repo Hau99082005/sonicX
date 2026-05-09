@@ -14,4 +14,5 @@ router.post("/create", auth_1.mustAuth, auth_1.isVerified, fileParser_1.default,
 router.patch("/:audioId", auth_1.mustAuth, auth_1.isVerified, fileParser_1.default, (0, validator_1.validate)(validationSchema_1.AudioValidationSchema), audio_1.updateAudio);
 router.get("/", auth_1.mustAuth, audio_1.getAudio);
 router.delete("/:audioId", auth_1.mustAuth, auth_1.isVerified, audio_1.deleteAudio);
+router.get("/latest", audio_1.getLatestUploads);
 exports.default = router;

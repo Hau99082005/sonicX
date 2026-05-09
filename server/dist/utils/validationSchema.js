@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
+exports.updatedHistorySchema = exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
 const yup = __importStar(require("yup"));
 const mongoose_1 = require("mongoose");
 const audio_category_1 = require("../models/audio_category");
@@ -94,4 +94,16 @@ exports.OldPlaylistValidationSchema = yup.object().shape({
         return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
     }),
     visibility: yup.string().oneOf(["public", "private"], "Visibility must be public or private"),
+});
+exports.updatedHistorySchema = yup.object().shape({
+    audio: yup.string().transform(function (value) {
+        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
+    }).required("Invalid Audio Id!"),
+    progress: yup.number().required("History progress is missing!"),
+    date: yup.string().transform(function (value) {
+        const date = new Date(value);
+        if (date instanceof Date)
+            return value;
+        return "";
+    }).required("Invalid Date!")
 });

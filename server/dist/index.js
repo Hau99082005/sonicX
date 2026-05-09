@@ -12,6 +12,8 @@ const audio_1 = __importDefault(require("./router/audio"));
 const favorite_1 = __importDefault(require("./router/favorite"));
 const playlist_1 = __importDefault(require("./router/playlist"));
 const profile_1 = __importDefault(require("./router/profile"));
+const history_1 = __importDefault(require("./router/history"));
+require("./utils/schedule");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: false }));
@@ -21,6 +23,7 @@ app.use("/audio", audio_1.default);
 app.use("/favorite", favorite_1.default);
 app.use("/playlist", playlist_1.default);
 app.use("/profile", profile_1.default);
+app.use("/history", history_1.default);
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
     console.log('Port is listening on port ' + PORT);

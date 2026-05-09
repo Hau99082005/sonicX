@@ -4,7 +4,6 @@ import User from "#/models/User";
 import { formatProfile, generateToken } from "#/utils/helper";
 import { sendForgotPasswordLink, sendPasswordResetSuccessEmail, sendVerificationMail } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
-import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
 import { isValidObjectId } from "mongoose";
 import passwordResetToken from "#/models/passwordResetToken";
@@ -18,13 +17,11 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
     try {
         const { name, email, password } = req.body;
         CreateUserSchema.validate({ email, name, password });
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = await User.create({
             name,
             email,
-            password: hashedPassword
+            password
         });
         const token = generateToken()
         await emailVerificationToken.create({
