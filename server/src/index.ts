@@ -9,6 +9,7 @@ import playlistRouter from "./router/playlist";
 import profileRouter from "./router/profile";
 import historyRouter from "./router/history";
 import './utils/schedule';
+import { errorHandler } from "./middleware/error";
 
 const app = express();
 //register our middleware
@@ -22,6 +23,8 @@ app.use("/favorite", favoriteRouter);
 app.use("/playlist", playlistRouter);
 app.use("/profile", profileRouter);
 app.use("/history", historyRouter);
+
+app.use(errorHandler);
 const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
