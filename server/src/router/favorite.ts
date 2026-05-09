@@ -7,4 +7,5 @@ router.post("/", mustAuth, isVerified, toggleFavorite);
 router.get("/", mustAuth, getFavorites);
 router.get("/is-favorite", mustAuth, getIsFavorite);
 
+
 export default router;
