@@ -1,7 +1,12 @@
-import { SafeAreaView } from "react-native"
+import Register from '@views/auth/Register';
+import React from 'react';
 
 const App = () => {
-  return <SafeAreaView>Hello React Native</SafeAreaView>
-}
+  return (
+   <Register/>
+  );
+};
+
+
 
 export default App;
