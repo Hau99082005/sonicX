@@ -2,7 +2,7 @@ import InputField from '@components/InputField';
 import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
-import { FC, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -25,13 +25,31 @@ const BLUE_LIGHT = '#1E88E5';
 const hapticMedium = () => Vibration.vibrate(10);
 const hapticLight = () => Vibration.vibrate(5);
 
-const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({ onPress, children }) => {
+const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
+  onPress,
+  children,
+}) => {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => Animated.spring(scale, { toValue: 0.93, useNativeDriver: true, speed: 50, bounciness: 4 }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start()}>
+      onPressIn={() =>
+        Animated.spring(scale, {
+          toValue: 0.93,
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 4,
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 4,
+        }).start()
+      }
+    >
       <Animated.View style={[styles.socialButton, { transform: [{ scale }] }]}>
         {children}
       </Animated.View>
@@ -39,27 +57,49 @@ const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({ 
   );
 };
 
-const Register: FC<Props> = () => {
+const Register: FC<Props> = props => {
+  const [userInfo, setuserInfo] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <Animated.View style={[styles.inner, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={[
+              styles.inner,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
             <View style={styles.logoContainer}>
               <Image
                 source={require('../../../assets/icons/logo.png')}
@@ -72,18 +112,63 @@ const Register: FC<Props> = () => {
             <Text style={styles.subtitle}>Tham gia và khám phá âm nhạc</Text>
 
             <View style={styles.form}>
-              <InputField label="Họ tên" />
-              <InputField label="Email" keyboardType="email-address" />
-              <InputField label="Mật khẩu" autoCapitalize="none" secureTextEntry />
-              <InputField label="Xác nhận mật khẩu" autoCapitalize="none" secureTextEntry />
+              <InputField
+                label="Họ tên"
+                onChange={text => {
+                  setuserInfo({ ...userInfo, name: text });
+                }}
+              />
+              <InputField
+                label="Email"
+                keyboardType="email-address"
+                onChange={text => {
+                  setuserInfo({ ...userInfo, email: text });
+                }}
+              />
+              <InputField
+                label="Mật khẩu"
+                autoCapitalize="none"
+                secureTextEntry
+                onChange={text => {
+                  setuserInfo({ ...userInfo, password: text });
+                }}
+              />
+              <InputField
+                label="Xác nhận mật khẩu"
+                autoCapitalize="none"
+                secureTextEntry
+                onChange={text => {
+                  setuserInfo({ ...userInfo, confirmPassword: text });
+                }}
+              />
             </View>
 
             <Pressable
-              onPressIn={() => Animated.spring(buttonScale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4 }).start()}
-              onPressOut={() => Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start()}
-              onPress={hapticMedium}>
-              <Animated.View style={[styles.button, { transform: [{ scale: buttonScale }] }]}>
-                <Text style={styles.buttonText}>Đăng ký</Text>
+              onPressIn={() =>
+                Animated.spring(buttonScale, {
+                  toValue: 0.97,
+                  useNativeDriver: true,
+                  speed: 50,
+                  bounciness: 4,
+                }).start()
+              }
+              onPressOut={() =>
+                Animated.spring(buttonScale, {
+                  toValue: 1,
+                  useNativeDriver: true,
+                  speed: 50,
+                  bounciness: 4,
+                }).start()
+              }
+              onPress={() => {
+                hapticMedium();
+                console.log(userInfo);
+              }}
+            >
+              <Animated.View
+                style={[styles.button, { transform: [{ scale: buttonScale }] }]}
+              >
+                <Text style={styles.buttonText}>Đăng Ký</Text>
               </Animated.View>
             </Pressable>
 
@@ -94,9 +179,15 @@ const Register: FC<Props> = () => {
             </View>
 
             <View style={styles.socialRow}>
-              <SocialButton onPress={hapticLight}><GoogleIcon size={22} /></SocialButton>
-              <SocialButton onPress={hapticLight}><AppleIcon size={22} color="#111111" /></SocialButton>
-              <SocialButton onPress={hapticLight}><FacebookIcon size={22} /></SocialButton>
+              <SocialButton onPress={hapticLight}>
+                <GoogleIcon size={22} />
+              </SocialButton>
+              <SocialButton onPress={hapticLight}>
+                <AppleIcon size={22} color="#111111" />
+              </SocialButton>
+              <SocialButton onPress={hapticLight}>
+                <FacebookIcon size={22} />
+              </SocialButton>
             </View>
 
             <View style={styles.footer}>
@@ -105,7 +196,6 @@ const Register: FC<Props> = () => {
                 <Text style={styles.footerLink}>Đăng nhập</Text>
               </Pressable>
             </View>
-
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -141,8 +231,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    fontFamily: "Inter",
-    fontStyle: "normal",
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
     color: '#0D1B2A',
     textAlign: 'center',
     marginBottom: 8,
@@ -152,8 +242,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#7A8A9A',
     textAlign: 'center',
-    fontFamily: "Inter",
-    fontStyle: "italic",
+    fontFamily: 'Inter',
+    fontStyle: 'italic',
     marginBottom: 32,
     letterSpacing: 0.2,
   },
@@ -175,8 +265,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: "Inter",
-    fontStyle: "normal",
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
     letterSpacing: 0.4,
   },
   dividerRow: {
@@ -193,8 +283,8 @@ const styles = StyleSheet.create({
   dividerText: {
     color: '#9AAABB',
     fontSize: 14,
-    fontFamily: "Inter",
-    fontStyle: "italic",
+    fontFamily: 'Inter',
+    fontStyle: 'italic',
     letterSpacing: 0.3,
   },
   socialRow: {

@@ -16,6 +16,7 @@ interface Props {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   secureTextEntry?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
+  onChange?: (text: string) => void;
 }
 
 const InputField: FC<Props> = ({
@@ -24,6 +25,7 @@ const InputField: FC<Props> = ({
   autoCapitalize,
   secureTextEntry,
   containerStyle,
+  onChange,
 }) => {
   const [hasValue, setHasValue] = useState(false);
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -32,20 +34,42 @@ const InputField: FC<Props> = ({
 
   const handleFocus = () => {
     Animated.parallel([
-      Animated.timing(floatAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
-      Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
+      Animated.timing(floatAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(borderAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
     ]).start();
   };
 
   const handleBlur = () => {
     if (!hasValue) {
-      Animated.timing(floatAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+      Animated.timing(floatAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
     }
-    Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+    Animated.timing(borderAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
   };
 
-  const labelTop = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 7] });
-  const labelSize = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 11] });
+  const labelTop = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 7],
+  });
+  const labelSize = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [15, 11],
+  });
   const labelColor = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['#9AAABB', '#1565C0'],
@@ -59,7 +83,12 @@ const InputField: FC<Props> = ({
     <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
       <View style={[styles.wrapper, containerStyle]}>
         <Animated.View style={[styles.container, { borderColor }]}>
-          <Animated.Text style={[styles.label, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
+          <Animated.Text
+            style={[
+              styles.label,
+              { top: labelTop, fontSize: labelSize, color: labelColor },
+            ]}
+          >
             {label}
           </Animated.Text>
           <TextInput
@@ -71,7 +100,7 @@ const InputField: FC<Props> = ({
             secureTextEntry={secureTextEntry}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            onChangeText={text => setHasValue(text.length > 0)}
+            onChangeText={onChange}
           />
         </Animated.View>
       </View>
@@ -98,13 +127,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     fontWeight: '500',
-    fontFamily: "Inter",
+    fontFamily: 'Inter',
     letterSpacing: 0.1,
   },
   input: {
     color: '#0D1B2A',
     fontSize: 15,
-    fontFamily: "Inter",
+    fontFamily: 'Inter',
     padding: 0,
     margin: 0,
     height: 24,
