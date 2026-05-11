@@ -16,4 +16,6 @@ router.get("/followers", auth_1.mustAuth, follower_1.getFllowersProfile);
 router.get("/followers/:profileId", auth_1.mustAuth, follower_1.getFollowersProfilePublic);
 router.get("/followings", auth_1.mustAuth, follower_1.getFollowingsProfile);
 router.get("/playlist-audios/:playlistId", playlist_1.getPlaylistAudios);
+router.get("/private-playlist-audios/:playlistId", auth_1.mustAuth, playlist_1.getPrivatePlaylistAudios);
+router.get("/is-following/:profileId", auth_1.mustAuth, playlist_1.getIsFollowing);
 exports.default = router;

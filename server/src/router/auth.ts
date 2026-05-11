@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { CreateUserSchema, SignInEmailValidationSchema, TokenAndIDValidation, updatedPasswordSchema } from "#/utils/validationSchema";
 import { validate } from "#/middleware/validator";
-import { create, generateForgotPasswordLink, getUser, grantValid, logOut, sendProfile, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
+import { create, generateForgotPasswordLink, getUser, googleSignIn, grantValid, logOut, sendProfile, sendReVerificationToken, SignIn, updatePassword, updateProfile, verifyEmail } from "#/controllers/user";
 import { isValidPasswordResetToken, mustAuth } from "#/middleware/auth";
 import fileParser from "#/middleware/fileParser";
 
@@ -15,6 +15,7 @@ router.post('/verify-password-reset-token', validate(TokenAndIDValidation), isVa
     grantValid);
 router.post('/update-password', validate(updatedPasswordSchema), isValidPasswordResetToken, updatePassword);
 router.post('/sign-in', validate(SignInEmailValidationSchema), SignIn);
+router.post('/google-sign-in', googleSignIn);
 router.get('/is-auth', mustAuth, sendProfile);
 router.get('/public', (req, res) => {
     res.status(200).json({

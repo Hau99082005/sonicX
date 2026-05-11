@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUser = exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
+exports.googleSignIn = exports.getUser = exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
 const emailVerificationToken_1 = __importDefault(require("../models/emailVerificationToken"));
 const User_1 = __importDefault(require("../models/User"));
 const helper_1 = require("../utils/helper");
@@ -24,6 +24,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const variables_1 = require("../utils/variables");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const cloud_1 = __importDefault(require("../cloud"));
+const server_1 = require("../firebase/server");
 const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, email, password } = req.body;
@@ -219,3 +220,61 @@ const getUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.getUser = getUser;
+const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { idToken } = req.body;
+    if (!idToken)
+        return res.status(422).json({ error: "idToken is required!" });
+    try {
+        const decodedToken = yield server_1.auth.verifyIdToken(idToken);
+        const { email, name, picture } = decodedToken;
+        if (!email)
+            return res.status(422).json({ error: "Google account must have an email!" });
+        let user = yield User_1.default.findOne({ email });
+        let isNewUser = false;
+        if (!user) {
+            isNewUser = true;
+            user = new User_1.default({
+                name: name || email.split("@")[0],
+                email,
+                password: crypto_1.default.randomBytes(32).toString("hex"),
+                verified: false,
+            });
+            if (picture) {
+                user.avatar = { url: picture, publicId: "" };
+            }
+            yield user.save();
+            const otp = (0, helper_1.generateToken)();
+            yield emailVerificationToken_1.default.create({
+                owner: user._id.toString(),
+                token: otp,
+            });
+            (0, mail_1.sendVerificationMail)(otp, {
+                name: user.name,
+                email: user.email,
+                userId: user._id.toString(),
+            });
+        }
+        const token = jsonwebtoken_1.default.sign({ userId: user._id.toString() }, variables_1.JWT_SECRET);
+        user.token.push(token);
+        yield user.save();
+        return res.status(200).json({
+            profile: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                verified: user.verified,
+                avatar: (_a = user.avatar) === null || _a === void 0 ? void 0 : _a.url,
+                followers: user.followers.length,
+                following: user.followings.length,
+            },
+            token,
+            message: isNewUser ? "Vui lòng kiểm tra email để xác thực tài khoản!" : undefined,
+        });
+    }
+    catch (error) {
+        console.error("Google sign-in error:", error);
+        return res.status(401).json({ error: "Invalid or expired Google token!", detail: error.message });
+    }
+});
+exports.googleSignIn = googleSignIn;

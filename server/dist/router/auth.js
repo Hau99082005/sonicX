@@ -17,6 +17,7 @@ router.post('/forgot-password', user_1.generateForgotPasswordLink);
 router.post('/verify-password-reset-token', (0, validator_1.validate)(validationSchema_1.TokenAndIDValidation), auth_1.isValidPasswordResetToken, user_1.grantValid);
 router.post('/update-password', (0, validator_1.validate)(validationSchema_1.updatedPasswordSchema), auth_1.isValidPasswordResetToken, user_1.updatePassword);
 router.post('/sign-in', (0, validator_1.validate)(validationSchema_1.SignInEmailValidationSchema), user_1.SignIn);
+router.post('/google-sign-in', user_1.googleSignIn);
 router.get('/is-auth', auth_1.mustAuth, user_1.sendProfile);
 router.get('/public', (req, res) => {
     res.status(200).json({

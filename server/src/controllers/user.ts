@@ -12,6 +12,7 @@ import { JWT_SECRET, PASSWORD_RESET_URL } from "#/utils/variables";
 import jwt from "jsonwebtoken";
 import cloudinary from "#/cloud";
 import formidable from "formidable";
+import { auth as adminAuth } from "#/firebase/server";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
     try {
@@ -203,3 +204,64 @@ export const getUser: RequestHandler = async (req, res) => {
         return res.status(404).json({ message: "User not found!" });
     }
 }
+
+export const googleSignIn: RequestHandler = async (req, res) => {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(422).json({ error: "idToken is required!" });
+
+    try {
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        const { email, name, picture } = decodedToken;
+
+        if (!email) return res.status(422).json({ error: "Google account must have an email!" });
+
+        let user = await User.findOne({ email });
+        let isNewUser = false;
+
+        if (!user) {
+            isNewUser = true;
+            user = new User({
+                name: name || email.split("@")[0],
+                email,
+                password: crypto.randomBytes(32).toString("hex"),
+                verified: false,
+            });
+            if (picture) {
+                user.avatar = { url: picture, publicId: "" };
+            }
+            await user.save();
+
+            const otp = generateToken();
+            await emailVerificationToken.create({
+                owner: user._id.toString(),
+                token: otp,
+            });
+            sendVerificationMail(otp, {
+                name: user.name,
+                email: user.email,
+                userId: user._id.toString(),
+            });
+        }
+
+        const token = jwt.sign({ userId: user._id.toString() }, JWT_SECRET);
+        user.token.push(token);
+        await user.save();
+
+        return res.status(200).json({
+            profile: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                verified: user.verified,
+                avatar: user.avatar?.url,
+                followers: user.followers.length,
+                following: user.followings.length,
+            },
+            token,
+            message: isNewUser ? "Vui lòng kiểm tra email để xác thực tài khoản!" : undefined,
+        });
+    } catch (error) {
+        console.error("Google sign-in error:", error);
+        return res.status(401).json({ error: "Invalid or expired Google token!", detail: (error as Error).message });
+    }
+};

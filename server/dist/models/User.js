@@ -28,9 +28,11 @@ const userSchema = new mongoose_1.Schema({
         required: true
     },
     avatar: {
-        type: Object,
-        url: String,
-        publicId: String,
+        type: {
+            url: String,
+            publicId: String,
+        },
+        _id: false,
     },
     verified: {
         type: Boolean,

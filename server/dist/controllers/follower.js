@@ -55,6 +55,7 @@ const getUploads = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             title: item.title,
             about: item.about,
             file: item.file.url,
+            category: item.category,
             poster: (_a = item.poster) === null || _a === void 0 ? void 0 : _a.url,
             date: item.createdAt,
             owner: { name: req.user.name, id: req.user.id }
