@@ -1,8 +1,9 @@
-import InputField from '@components/InputField';
+import Form from '@components/form';
+import InputField from '@components/form/InputField';
+import SubmitBtn from '@components/form/SubmitBtn';
 import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
-import { Formik } from 'formik';
 import { FC, useEffect, useRef } from 'react';
 import {
   Animated,
@@ -59,10 +60,8 @@ const initialValues = {
   confirmPassword: '',
 };
 
-const BLUE = '#1565C0';
 const BLUE_LIGHT = '#1E88E5';
 
-const hapticMedium = () => Vibration.vibrate(10);
 const hapticLight = () => Vibration.vibrate(5);
 
 const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
@@ -100,7 +99,6 @@ const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
 const Register: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -119,142 +117,94 @@ const Register: FC<Props> = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Formik
+      <Form
         onSubmit={values => {
           console.log(values);
         }}
         initialValues={initialValues}
         validationSchema={registerSchema}
       >
-        {({ handleSubmit, handleChange, errors, values, submitCount }) => {
-          return (
-            <KeyboardAvoidingView
-              style={styles.flex}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View
+              style={[
+                styles.inner,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
             >
-              <ScrollView
-                contentContainerStyle={styles.scroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <Animated.View
-                  style={[
-                    styles.inner,
-                    {
-                      opacity: fadeAnim,
-                      transform: [{ translateY: slideAnim }],
-                    },
-                  ]}
-                >
-                  <View style={styles.logoContainer}>
-                    <Image
-                      source={require('../../../assets/icons/logo.png')}
-                      style={styles.logo}
-                      resizeMode="contain"
-                    />
-                  </View>
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../../../assets/icons/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
 
-                  <Text style={styles.title}>Tạo tài khoản</Text>
-                  <Text style={styles.subtitle}>
-                    Tham gia và khám phá âm nhạc
-                  </Text>
+              <Text style={styles.title}>Tạo tài khoản</Text>
+              <Text style={styles.subtitle}>Tham gia và khám phá âm nhạc</Text>
 
-                  <View style={styles.form}>
-                    <InputField
-                      label="Họ tên"
-                      onChange={handleChange('name')}
-                      value={values.name}
-                      errorMessage={submitCount > 0 ? errors.name : ''}
-                    />
-                    <InputField
-                      label="Email"
-                      keyboardType="email-address"
-                      onChange={handleChange('email')}
-                      value={values.email}
-                      errorMessage={submitCount > 0 ? errors.email : ''}
-                    />
-                    <InputField
-                      label="Mật khẩu"
-                      autoCapitalize="none"
-                      secureTextEntry
-                      onChange={handleChange('password')}
-                      value={values.password}
-                      errorMessage={submitCount > 0 ? errors.password : ''}
-                    />
-                    <InputField
-                      label="Xác nhận mật khẩu"
-                      autoCapitalize="none"
-                      secureTextEntry
-                      onChange={handleChange('confirmPassword')}
-                      value={values.confirmPassword}
-                      errorMessage={
-                        submitCount > 0 ? errors.confirmPassword : ''
-                      }
-                    />
-                  </View>
+              <View style={styles.form}>
+                <InputField name="name" label="Họ tên" />
+                <InputField
+                  label="Email"
+                  name="email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <InputField
+                  label="Mật khẩu"
+                  autoCapitalize="none"
+                  secureTextEntry
+                  name="password"
+                />
+                <InputField
+                  label="Xác nhận mật khẩu"
+                  autoCapitalize="none"
+                  secureTextEntry
+                  name="confirmPassword"
+                />
+              </View>
+              <SubmitBtn title='Đăng Ký'/>
+             
 
-                  <Pressable
-                    onPressIn={() =>
-                      Animated.spring(buttonScale, {
-                        toValue: 0.97,
-                        useNativeDriver: true,
-                        speed: 50,
-                        bounciness: 4,
-                      }).start()
-                    }
-                    onPressOut={() =>
-                      Animated.spring(buttonScale, {
-                        toValue: 1,
-                        useNativeDriver: true,
-                        speed: 50,
-                        bounciness: 4,
-                      }).start()
-                    }
-                    onPress={() => {
-                      hapticMedium();
-                      handleSubmit();
-                    }}
-                  >
-                    <Animated.View
-                      style={[
-                        styles.button,
-                        { transform: [{ scale: buttonScale }] },
-                      ]}
-                    >
-                      <Text style={styles.buttonText}>Đăng Ký</Text>
-                    </Animated.View>
-                  </Pressable>
+              <View style={styles.dividerRow}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>hoặc tiếp tục với</Text>
+                <View style={styles.divider} />
+              </View>
 
-                  <View style={styles.dividerRow}>
-                    <View style={styles.divider} />
-                    <Text style={styles.dividerText}>hoặc tiếp tục với</Text>
-                    <View style={styles.divider} />
-                  </View>
+              <View style={styles.socialRow}>
+                <SocialButton onPress={hapticLight}>
+                  <GoogleIcon size={22} />
+                </SocialButton>
+                <SocialButton onPress={hapticLight}>
+                  <AppleIcon size={22} color="#111111" />
+                </SocialButton>
+                <SocialButton onPress={hapticLight}>
+                  <FacebookIcon size={22} />
+                </SocialButton>
+              </View>
 
-                  <View style={styles.socialRow}>
-                    <SocialButton onPress={hapticLight}>
-                      <GoogleIcon size={22} />
-                    </SocialButton>
-                    <SocialButton onPress={hapticLight}>
-                      <AppleIcon size={22} color="#111111" />
-                    </SocialButton>
-                    <SocialButton onPress={hapticLight}>
-                      <FacebookIcon size={22} />
-                    </SocialButton>
-                  </View>
-
-                  <View style={styles.footer}>
-                    <Text style={styles.footerText}>Đã có tài khoản? </Text>
-                    <Pressable>
-                      <Text style={styles.footerLink}>Đăng nhập</Text>
-                    </Pressable>
-                  </View>
-                </Animated.View>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          );
-        }}
-      </Formik>
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Đã có tài khoản? </Text>
+                <Pressable>
+                  <Text style={styles.footerLink}>Đăng nhập</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Form>
     </SafeAreaView>
   );
 };
@@ -305,25 +255,6 @@ const styles = StyleSheet.create({
   },
   form: {
     marginBottom: 8,
-  },
-  button: {
-    backgroundColor: BLUE,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    letterSpacing: 0.4,
   },
   dividerRow: {
     flexDirection: 'row',

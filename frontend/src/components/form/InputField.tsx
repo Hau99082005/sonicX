@@ -1,4 +1,5 @@
 import colors from '@utils/colors';
+import { useFormikContext } from 'formik';
 import { FC, useRef, useState } from 'react';
 import {
   Animated,
@@ -12,14 +13,13 @@ import {
 } from 'react-native';
 
 interface Props {
+  name: string;
   label?: string;
   value?: string;
-  errorMessage?: string;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
   secureTextEntry?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
-  onChange?: (text: string) => void;
 }
 
 const InputField: FC<Props> = ({
@@ -29,9 +29,14 @@ const InputField: FC<Props> = ({
   autoCapitalize,
   secureTextEntry,
   containerStyle,
-  errorMessage,
-  onChange,
-}) => {
+  name,
+}
+
+) => {
+  const { handleChange, values, errors, touched, submitCount } = useFormikContext<{
+    [key: string]: string;
+  }>();
+  const errorMessage = submitCount > 0 ? errors[name] : '';
   const [hasValue, setHasValue] = useState(false);
   const floatAnim = useRef(new Animated.Value(0)).current;
   const borderAnim = useRef(new Animated.Value(0)).current;
@@ -87,11 +92,20 @@ const InputField: FC<Props> = ({
   return (
     <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
       <View style={[styles.wrapper, containerStyle]}>
-        <Animated.View style={[styles.container, { borderColor: errorMessage ? colors.ERROR : borderColor }]}>
+        <Animated.View
+          style={[
+            styles.container,
+            { borderColor: errorMessage ? colors.ERROR : borderColor },
+          ]}
+        >
           <Animated.Text
             style={[
               styles.label,
-              { top: labelTop, fontSize: labelSize, color: errorMessage ? colors.ERROR : labelColor },
+              {
+                top: labelTop,
+                fontSize: labelSize,
+                color: errorMessage ? colors.ERROR : labelColor,
+              },
             ]}
           >
             {label}
@@ -105,12 +119,14 @@ const InputField: FC<Props> = ({
             secureTextEntry={secureTextEntry}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            onChangeText={onChange}
-            value={value}
+            onChangeText={handleChange(name)}
+            value={values[name]}
           />
         </Animated.View>
         {errorMessage ? (
-          <Animated.Text style={styles.errorMessage}>{errorMessage}</Animated.Text>
+          <Animated.Text style={styles.errorMessage}>
+            {errorMessage}
+          </Animated.Text>
         ) : null}
       </View>
     </TouchableWithoutFeedback>
