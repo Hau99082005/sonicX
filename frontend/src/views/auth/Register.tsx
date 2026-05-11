@@ -64,6 +64,12 @@ const Register: FC<Props> = props => {
     password: '',
     confirmPassword: '',
   });
+  const [errorInfo, setErrorInfo] = useState({
+    name: '',
+    email: '',
+    passowrd: '',
+    confirmPassword: '',
+  });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -117,6 +123,7 @@ const Register: FC<Props> = props => {
                 onChange={text => {
                   setuserInfo({ ...userInfo, name: text });
                 }}
+                errorMessage={errorInfo.name}
               />
               <InputField
                 label="Email"
@@ -124,6 +131,7 @@ const Register: FC<Props> = props => {
                 onChange={text => {
                   setuserInfo({ ...userInfo, email: text });
                 }}
+                errorMessage={errorInfo.email}
               />
               <InputField
                 label="Mật khẩu"
@@ -132,6 +140,7 @@ const Register: FC<Props> = props => {
                 onChange={text => {
                   setuserInfo({ ...userInfo, password: text });
                 }}
+                errorMessage={errorInfo.passowrd}
               />
               <InputField
                 label="Xác nhận mật khẩu"
@@ -140,6 +149,7 @@ const Register: FC<Props> = props => {
                 onChange={text => {
                   setuserInfo({ ...userInfo, confirmPassword: text });
                 }}
+                errorMessage={errorInfo.confirmPassword}
               />
             </View>
 
@@ -162,6 +172,14 @@ const Register: FC<Props> = props => {
               }
               onPress={() => {
                 hapticMedium();
+                const errors = {
+                  name: !userInfo.name ? 'Họ tên không được để trống!' : '',
+                  email: !userInfo.email ? 'Email không được để trống' : '',
+                  passowrd: !userInfo.password ? 'Hãy nhập vào vào mật khẩu của bạn!' : '',
+                  confirmPassword: !userInfo.confirmPassword ? 'Hãy nhập vào mật khẩu bạn để xác nhận!' : '',
+                };
+                setErrorInfo(errors);
+                if (errors.name || errors.email || errors.passowrd || errors.confirmPassword) return;
                 console.log(userInfo);
               }}
             >

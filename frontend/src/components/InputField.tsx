@@ -1,3 +1,4 @@
+import colors from '@utils/colors';
 import { FC, useRef, useState } from 'react';
 import {
   Animated,
@@ -12,6 +13,7 @@ import {
 
 interface Props {
   label?: string;
+  errorMessage?: string;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
   secureTextEntry?: boolean;
@@ -25,6 +27,7 @@ const InputField: FC<Props> = ({
   autoCapitalize,
   secureTextEntry,
   containerStyle,
+  errorMessage,
   onChange,
 }) => {
   const [hasValue, setHasValue] = useState(false);
@@ -82,11 +85,11 @@ const InputField: FC<Props> = ({
   return (
     <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
       <View style={[styles.wrapper, containerStyle]}>
-        <Animated.View style={[styles.container, { borderColor }]}>
+        <Animated.View style={[styles.container, { borderColor: errorMessage ? colors.ERROR : borderColor }]}>
           <Animated.Text
             style={[
               styles.label,
-              { top: labelTop, fontSize: labelSize, color: labelColor },
+              { top: labelTop, fontSize: labelSize, color: errorMessage ? colors.ERROR : labelColor },
             ]}
           >
             {label}
@@ -103,6 +106,9 @@ const InputField: FC<Props> = ({
             onChangeText={onChange}
           />
         </Animated.View>
+        {errorMessage ? (
+          <Animated.Text style={styles.errorMessage}>{errorMessage}</Animated.Text>
+        ) : null}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -137,6 +143,13 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     height: 24,
+  },
+  errorMessage: {
+    color: colors.ERROR,
+    fontSize: 12,
+    fontFamily: 'Inter',
+    marginTop: 4,
+    marginLeft: 4,
   },
 });
 
