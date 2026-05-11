@@ -13,6 +13,7 @@ import {
 
 interface Props {
   label?: string;
+  value?: string;
   errorMessage?: string;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -23,6 +24,7 @@ interface Props {
 
 const InputField: FC<Props> = ({
   label,
+  value,
   keyboardType,
   autoCapitalize,
   secureTextEntry,
@@ -104,6 +106,7 @@ const InputField: FC<Props> = ({
             onFocus={handleFocus}
             onBlur={handleBlur}
             onChangeText={onChange}
+            value={value}
           />
         </Animated.View>
         {errorMessage ? (

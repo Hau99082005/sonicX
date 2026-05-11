@@ -2,7 +2,8 @@ import InputField from '@components/InputField';
 import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
-import { FC, useEffect, useRef, useState } from 'react';
+import { Formik } from 'formik';
+import { FC, useEffect, useRef } from 'react';
 import {
   Animated,
   Image,
@@ -16,8 +17,47 @@ import {
   Vibration,
   View,
 } from 'react-native';
+import * as yup from 'yup';
+
+const registerSchema = yup.object({
+  name: yup
+    .string()
+    .trim('Vui lòng nhập vào họ tên')
+    .min(3, 'Invalid name!')
+    .required('Name is required!'),
+  email: yup
+    .string()
+    .trim('Vui lòng nhập vào email của bạn')
+    .email('Invalid email!')
+    .required('Email is required!'),
+  password: yup
+    .string()
+    .trim('Vui lòng nhập vào mật khẩu của bạn')
+    .min(8, 'Mật khẩu không được quá ngắn!')
+    .matches(
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
+      'Mật khẩu không được quá ngắn!',
+    )
+    .required('Password is required!'),
+  confirmPassword: yup
+    .string()
+    .trim('Vui lòng nhập vào mật khẩu của bạn')
+    .min(8, 'Mật khẩu không được quá ngắn!')
+    .matches(
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
+      'Mật khẩu không được quá ngắn!',
+    )
+    .oneOf([yup.ref('password')], 'Mật khẩu xác nhận không khớp!')
+    .required('Confirm password is required!'),
+});
 
 interface Props {}
+const initialValues = {
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+};
 
 const BLUE = '#1565C0';
 const BLUE_LIGHT = '#1E88E5';
@@ -57,19 +97,7 @@ const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
   );
 };
 
-const Register: FC<Props> = props => {
-  const [userInfo, setuserInfo] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-  const [errorInfo, setErrorInfo] = useState({
-    name: '',
-    email: '',
-    passowrd: '',
-    confirmPassword: '',
-  });
+const Register: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -91,132 +119,142 @@ const Register: FC<Props> = props => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <Formik
+        onSubmit={values => {
+          console.log(values);
+        }}
+        initialValues={initialValues}
+        validationSchema={registerSchema}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View
-            style={[
-              styles.inner,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../../../assets/icons/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
-
-            <Text style={styles.title}>Tạo tài khoản</Text>
-            <Text style={styles.subtitle}>Tham gia và khám phá âm nhạc</Text>
-
-            <View style={styles.form}>
-              <InputField
-                label="Họ tên"
-                onChange={text => {
-                  setuserInfo({ ...userInfo, name: text });
-                }}
-                errorMessage={errorInfo.name}
-              />
-              <InputField
-                label="Email"
-                keyboardType="email-address"
-                onChange={text => {
-                  setuserInfo({ ...userInfo, email: text });
-                }}
-                errorMessage={errorInfo.email}
-              />
-              <InputField
-                label="Mật khẩu"
-                autoCapitalize="none"
-                secureTextEntry
-                onChange={text => {
-                  setuserInfo({ ...userInfo, password: text });
-                }}
-                errorMessage={errorInfo.passowrd}
-              />
-              <InputField
-                label="Xác nhận mật khẩu"
-                autoCapitalize="none"
-                secureTextEntry
-                onChange={text => {
-                  setuserInfo({ ...userInfo, confirmPassword: text });
-                }}
-                errorMessage={errorInfo.confirmPassword}
-              />
-            </View>
-
-            <Pressable
-              onPressIn={() =>
-                Animated.spring(buttonScale, {
-                  toValue: 0.97,
-                  useNativeDriver: true,
-                  speed: 50,
-                  bounciness: 4,
-                }).start()
-              }
-              onPressOut={() =>
-                Animated.spring(buttonScale, {
-                  toValue: 1,
-                  useNativeDriver: true,
-                  speed: 50,
-                  bounciness: 4,
-                }).start()
-              }
-              onPress={() => {
-                hapticMedium();
-                const errors = {
-                  name: !userInfo.name ? 'Họ tên không được để trống!' : '',
-                  email: !userInfo.email ? 'Email không được để trống' : '',
-                  passowrd: !userInfo.password ? 'Hãy nhập vào vào mật khẩu của bạn!' : '',
-                  confirmPassword: !userInfo.confirmPassword ? 'Hãy nhập vào mật khẩu bạn để xác nhận!' : '',
-                };
-                setErrorInfo(errors);
-                if (errors.name || errors.email || errors.passowrd || errors.confirmPassword) return;
-                console.log(userInfo);
-              }}
+        {({ handleSubmit, handleChange, errors, values, submitCount }) => {
+          return (
+            <KeyboardAvoidingView
+              style={styles.flex}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-              <Animated.View
-                style={[styles.button, { transform: [{ scale: buttonScale }] }]}
+              <ScrollView
+                contentContainerStyle={styles.scroll}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.buttonText}>Đăng Ký</Text>
-              </Animated.View>
-            </Pressable>
+                <Animated.View
+                  style={[
+                    styles.inner,
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY: slideAnim }],
+                    },
+                  ]}
+                >
+                  <View style={styles.logoContainer}>
+                    <Image
+                      source={require('../../../assets/icons/logo.png')}
+                      style={styles.logo}
+                      resizeMode="contain"
+                    />
+                  </View>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>hoặc tiếp tục với</Text>
-              <View style={styles.divider} />
-            </View>
+                  <Text style={styles.title}>Tạo tài khoản</Text>
+                  <Text style={styles.subtitle}>
+                    Tham gia và khám phá âm nhạc
+                  </Text>
 
-            <View style={styles.socialRow}>
-              <SocialButton onPress={hapticLight}>
-                <GoogleIcon size={22} />
-              </SocialButton>
-              <SocialButton onPress={hapticLight}>
-                <AppleIcon size={22} color="#111111" />
-              </SocialButton>
-              <SocialButton onPress={hapticLight}>
-                <FacebookIcon size={22} />
-              </SocialButton>
-            </View>
+                  <View style={styles.form}>
+                    <InputField
+                      label="Họ tên"
+                      onChange={handleChange('name')}
+                      value={values.name}
+                      errorMessage={submitCount > 0 ? errors.name : ''}
+                    />
+                    <InputField
+                      label="Email"
+                      keyboardType="email-address"
+                      onChange={handleChange('email')}
+                      value={values.email}
+                      errorMessage={submitCount > 0 ? errors.email : ''}
+                    />
+                    <InputField
+                      label="Mật khẩu"
+                      autoCapitalize="none"
+                      secureTextEntry
+                      onChange={handleChange('password')}
+                      value={values.password}
+                      errorMessage={submitCount > 0 ? errors.password : ''}
+                    />
+                    <InputField
+                      label="Xác nhận mật khẩu"
+                      autoCapitalize="none"
+                      secureTextEntry
+                      onChange={handleChange('confirmPassword')}
+                      value={values.confirmPassword}
+                      errorMessage={
+                        submitCount > 0 ? errors.confirmPassword : ''
+                      }
+                    />
+                  </View>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Đã có tài khoản? </Text>
-              <Pressable>
-                <Text style={styles.footerLink}>Đăng nhập</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                  <Pressable
+                    onPressIn={() =>
+                      Animated.spring(buttonScale, {
+                        toValue: 0.97,
+                        useNativeDriver: true,
+                        speed: 50,
+                        bounciness: 4,
+                      }).start()
+                    }
+                    onPressOut={() =>
+                      Animated.spring(buttonScale, {
+                        toValue: 1,
+                        useNativeDriver: true,
+                        speed: 50,
+                        bounciness: 4,
+                      }).start()
+                    }
+                    onPress={() => {
+                      hapticMedium();
+                      handleSubmit();
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.button,
+                        { transform: [{ scale: buttonScale }] },
+                      ]}
+                    >
+                      <Text style={styles.buttonText}>Đăng Ký</Text>
+                    </Animated.View>
+                  </Pressable>
+
+                  <View style={styles.dividerRow}>
+                    <View style={styles.divider} />
+                    <Text style={styles.dividerText}>hoặc tiếp tục với</Text>
+                    <View style={styles.divider} />
+                  </View>
+
+                  <View style={styles.socialRow}>
+                    <SocialButton onPress={hapticLight}>
+                      <GoogleIcon size={22} />
+                    </SocialButton>
+                    <SocialButton onPress={hapticLight}>
+                      <AppleIcon size={22} color="#111111" />
+                    </SocialButton>
+                    <SocialButton onPress={hapticLight}>
+                      <FacebookIcon size={22} />
+                    </SocialButton>
+                  </View>
+
+                  <View style={styles.footer}>
+                    <Text style={styles.footerText}>Đã có tài khoản? </Text>
+                    <Pressable>
+                      <Text style={styles.footerLink}>Đăng nhập</Text>
+                    </Pressable>
+                  </View>
+                </Animated.View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          );
+        }}
+      </Formik>
     </SafeAreaView>
   );
 };
