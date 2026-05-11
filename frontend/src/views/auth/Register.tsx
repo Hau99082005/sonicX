@@ -166,6 +166,7 @@ const Register: FC<Props> = () => {
                   autoCapitalize="none"
                   secureTextEntry
                   name="password"
+                  containerStyle={styles.marginBottom}
                 />
                 <InputField
                   label="Xác nhận mật khẩu"
@@ -174,8 +175,7 @@ const Register: FC<Props> = () => {
                   name="confirmPassword"
                 />
               </View>
-              <SubmitBtn title='Đăng Ký'/>
-             
+              <SubmitBtn title="Đăng Ký" />
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
@@ -307,6 +307,9 @@ const styles = StyleSheet.create({
     color: BLUE_LIGHT,
     fontSize: 14,
     fontWeight: '600',
+  },
+  marginBottom: {
+    marginBottom: 20,
   },
 });
 
