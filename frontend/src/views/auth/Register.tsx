@@ -4,7 +4,7 @@ import SubmitBtn from '@components/form/SubmitBtn';
 import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
-import { FC, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import * as yup from 'yup';
+import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
 
 const registerSchema = yup.object({
   name: yup
@@ -99,7 +100,16 @@ const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
 const Register: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+  const [secureEntry, setSecureEntry] = useState(true);
+  const [secureConfirmEntry, setSecureConfirmEntry] = useState(true);
 
+  const tooglePassword = () => {
+    setSecureEntry(!secureEntry);
+  };
+
+  const toogleConfirmPassword = () => {
+    setSecureConfirmEntry(!secureConfirmEntry);
+  };
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -164,15 +174,21 @@ const Register: FC<Props> = () => {
                 <InputField
                   label="Mật khẩu"
                   autoCapitalize="none"
-                  secureTextEntry
+                  secureTextEntry={secureEntry}
                   name="password"
                   containerStyle={styles.marginBottom}
+                  rightIcon={
+                    <PasswordVisibilityIcon privateIcon={secureEntry} />
+                  }
+                  onRightIconPress={tooglePassword}
                 />
                 <InputField
                   label="Xác nhận mật khẩu"
                   autoCapitalize="none"
-                  secureTextEntry
+                  secureTextEntry={secureConfirmEntry}
                   name="confirmPassword"
+                  rightIcon={<PasswordVisibilityIcon privateIcon={secureConfirmEntry} />}
+                  onRightIconPress={toogleConfirmPassword}
                 />
               </View>
               <SubmitBtn title="Đăng Ký" />

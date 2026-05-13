@@ -1,8 +1,9 @@
 import colors from '@utils/colors';
 import { useFormikContext } from 'formik';
-import { FC, useRef, useState } from 'react';
+import { FC, ReactNode, useRef, useState } from 'react';
 import {
   Animated,
+  Pressable,
   StyleProp,
   StyleSheet,
   TextInput,
@@ -20,6 +21,8 @@ interface Props {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   secureTextEntry?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
+  rightIcon?: ReactNode;
+  onRightIconPress?(): void;
 }
 
 const InputField: FC<Props> = ({
@@ -30,12 +33,13 @@ const InputField: FC<Props> = ({
   secureTextEntry,
   containerStyle,
   name,
-}
-
-) => {
-  const { handleChange, values, errors, touched, submitCount } = useFormikContext<{
-    [key: string]: string;
-  }>();
+  rightIcon,
+  onRightIconPress
+}) => {
+  const { handleChange, values, errors, touched, submitCount } =
+    useFormikContext<{
+      [key: string]: string;
+    }>();
   const errorMessage = submitCount > 0 ? errors[name] : '';
   const [hasValue, setHasValue] = useState(false);
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -72,6 +76,8 @@ const InputField: FC<Props> = ({
     }).start();
   };
 
+
+
   const labelTop = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [18, 7],
@@ -92,37 +98,44 @@ const InputField: FC<Props> = ({
   return (
     <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
       <View style={[styles.wrapper, containerStyle]}>
-        <Animated.View
-          style={[
-            styles.container,
-            { borderColor: errorMessage ? colors.ERROR : borderColor },
-          ]}
-        >
-          <Animated.Text
+        <View style={styles.inputRow}>
+          <Animated.View
             style={[
-              styles.label,
-              {
-                top: labelTop,
-                fontSize: labelSize,
-                color: errorMessage ? colors.ERROR : labelColor,
-              },
+              styles.container,
+              { borderColor: errorMessage ? colors.ERROR : borderColor },
             ]}
           >
-            {label}
-          </Animated.Text>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholderTextColor="#B0BEC5"
-            keyboardType={keyboardType}
-            autoCapitalize={autoCapitalize}
-            secureTextEntry={secureTextEntry}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onChangeText={handleChange(name)}
-            value={values[name]}
-          />
-        </Animated.View>
+            <Animated.Text
+              style={[
+                styles.label,
+                {
+                  top: labelTop,
+                  fontSize: labelSize,
+                  color: errorMessage ? colors.ERROR : labelColor,
+                },
+              ]}
+            >
+              {label}
+            </Animated.Text>
+            <TextInput
+              ref={inputRef}
+              style={[styles.input, rightIcon ? styles.inputWithIcon : null]}
+              placeholderTextColor="#B0BEC5"
+              keyboardType={keyboardType}
+              autoCapitalize={autoCapitalize}
+              secureTextEntry={secureTextEntry}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onChangeText={handleChange(name)}
+              value={values[name]}
+            />
+          </Animated.View>
+          {rightIcon ? (
+            <Pressable onPress={onRightIconPress} style={styles.rightIcons}>
+              {rightIcon}
+            </Pressable>
+          ) : null}
+        </View>
         {errorMessage ? (
           <Animated.Text style={styles.errorMessage}>
             {errorMessage}
@@ -138,6 +151,9 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 16,
   },
+  inputRow: {
+    position: 'relative',
+  },
   container: {
     borderWidth: 1.5,
     borderRadius: 12,
@@ -145,7 +161,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     justifyContent: 'flex-end',
     paddingBottom: 10,
-    position: 'relative',
     backgroundColor: '#FFFFFF',
   },
   label: {
@@ -163,12 +178,24 @@ const styles = StyleSheet.create({
     margin: 0,
     height: 24,
   },
+  inputWithIcon: {
+    paddingRight: 40,
+  },
   errorMessage: {
     color: colors.ERROR,
     fontSize: 12,
     fontFamily: 'Inter',
     marginTop: 4,
     marginLeft: 4,
+  },
+  rightIcons: {
+    width: 50,
+    height: 60,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
