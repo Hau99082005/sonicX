@@ -1,11 +1,10 @@
 import Form from '@components/form';
 import InputField from '@components/form/InputField';
-import SubmitBtn from '@components/form/SubmitBtn';
 import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
-import { useNavigation } from '@react-navigation/native';
 import { FC, useEffect, useRef, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   Animated,
   Image,
@@ -21,13 +20,9 @@ import {
 } from 'react-native';
 import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
+import SignInBtn from '@components/form/SignInBtn';
 
-const registerSchema = yup.object({
-  name: yup
-    .string()
-    .trim('Vui lòng nhập vào họ tên')
-    .min(3, 'Invalid name!')
-    .required('Name is required!'),
+const loginSchema = yup.object({
   email: yup
     .string()
     .trim('Vui lòng nhập vào email của bạn')
@@ -56,7 +51,6 @@ const registerSchema = yup.object({
 
 interface Props {}
 const initialValues = {
-  name: '',
   email: '',
   password: '',
   confirmPassword: '',
@@ -98,7 +92,7 @@ const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
   );
 };
 
-const Register: FC<Props> = () => {
+const Login: FC<Props> = () => {
   const navigation = useNavigation<any>();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -134,7 +128,7 @@ const Register: FC<Props> = () => {
           console.log(values);
         }}
         initialValues={initialValues}
-        validationSchema={registerSchema}
+        validationSchema={loginSchema}
       >
         <KeyboardAvoidingView
           style={styles.flex}
@@ -162,11 +156,12 @@ const Register: FC<Props> = () => {
                 />
               </View>
 
-              <Text style={styles.title}>Tạo tài khoản</Text>
-              <Text style={styles.subtitle}>Tham gia và khám phá âm nhạc</Text>
+              <Text style={styles.title}>Đăng nhập</Text>
+              <Text style={styles.subtitle}>
+                Chào mừng trở lại với thế giới âm nhạc SonicX
+              </Text>
 
               <View style={styles.form}>
-                <InputField name="name" label="Họ tên" />
                 <InputField
                   label="Email"
                   name="email"
@@ -189,11 +184,19 @@ const Register: FC<Props> = () => {
                   autoCapitalize="none"
                   secureTextEntry={secureConfirmEntry}
                   name="confirmPassword"
-                  rightIcon={<PasswordVisibilityIcon privateIcon={secureConfirmEntry} />}
+                  rightIcon={
+                    <PasswordVisibilityIcon privateIcon={secureConfirmEntry} />
+                  }
                   onRightIconPress={toogleConfirmPassword}
                 />
               </View>
-              <SubmitBtn title="Đăng Ký" />
+              <Pressable
+                style={styles.forgotPassword}
+                onPress={() => navigation.navigate('LostPassword')}
+              >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </Pressable>
+              <SignInBtn title="Đăng nhập" />
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
@@ -214,9 +217,9 @@ const Register: FC<Props> = () => {
               </View>
 
               <View style={styles.footer}>
-                <Text style={styles.footerText}>Đã có tài khoản? </Text>
-                <Pressable onPress={() => navigation.navigate('Login')}>
-                  <Text style={styles.footerLink}>Đăng nhập</Text>
+                <Text style={styles.footerText}>Chưa có tài khoản? </Text>
+                <Pressable onPress={() => navigation.navigate('Register')}>
+                  <Text style={styles.footerLink}>Đăng Ký</Text>
                 </Pressable>
               </View>
             </Animated.View>
@@ -329,6 +332,18 @@ const styles = StyleSheet.create({
   marginBottom: {
     marginBottom: 20,
   },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  forgotPasswordText: {
+    color: BLUE_LIGHT,
+    fontSize: 14,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '700',
+  },
 });
 
-export default Register;
+export default Login;
