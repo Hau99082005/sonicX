@@ -11,6 +11,7 @@ module.exports = {
           '@utils': './src/utils',
           '@views': './src/views',
           '@ui': './src/ui',
+          '@api': './src/api',
           src: './src',
         },
       },

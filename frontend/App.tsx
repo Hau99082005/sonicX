@@ -6,6 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { enableScreens } from 'react-native-screens';
+import Toast from 'react-native-toast-message';
 
 enableScreens();
 
@@ -23,6 +24,7 @@ const App = () => {
         <Stack.Screen name="LostPassword" component={LostPassword} />
         <Stack.Screen name="Verification" component={Verification} />
       </Stack.Navigator>
+      <Toast />
     </NavigationContainer>
   );
 };

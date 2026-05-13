@@ -5,6 +5,7 @@ import AppleIcon from '@ui/AppleIcon';
 import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
 import { useNavigation } from '@react-navigation/native';
+import { registerUser } from '@api/auth';
 import { FC, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -21,6 +22,7 @@ import {
 } from 'react-native';
 import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
+import Toast from 'react-native-toast-message';
 
 const registerSchema = yup.object({
   name: yup
@@ -38,20 +40,10 @@ const registerSchema = yup.object({
     .trim('Vui lòng nhập vào mật khẩu của bạn')
     .min(8, 'Mật khẩu không được quá ngắn!')
     .matches(
-      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
-      'Mật khẩu không được quá ngắn!',
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      'Mật khẩu phải có ít nhất 8 ký tự, 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@$!%*?&)',
     )
     .required('Password is required!'),
-  confirmPassword: yup
-    .string()
-    .trim('Vui lòng nhập vào mật khẩu của bạn')
-    .min(8, 'Mật khẩu không được quá ngắn!')
-    .matches(
-      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
-      'Mật khẩu không được quá ngắn!',
-    )
-    .oneOf([yup.ref('password')], 'Mật khẩu xác nhận không khớp!')
-    .required('Confirm password is required!'),
 });
 
 interface Props {}
@@ -59,7 +51,6 @@ const initialValues = {
   name: '',
   email: '',
   password: '',
-  confirmPassword: '',
 };
 
 const BLUE_LIGHT = '#1E88E5';
@@ -103,14 +94,9 @@ const Register: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const [secureEntry, setSecureEntry] = useState(true);
-  const [secureConfirmEntry, setSecureConfirmEntry] = useState(true);
 
   const tooglePassword = () => {
     setSecureEntry(!secureEntry);
-  };
-
-  const toogleConfirmPassword = () => {
-    setSecureConfirmEntry(!secureConfirmEntry);
   };
   useEffect(() => {
     Animated.parallel([
@@ -130,8 +116,31 @@ const Register: FC<Props> = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Form
-        onSubmit={values => {
-          console.log(values);
+        onSubmit={async (values: {name: string; email: string; password: string}) => {
+          try {
+            await registerUser({
+              name: values.name,
+              email: values.email,
+              password: values.password,
+            });
+            Toast.show({
+              type: 'success',
+              text1: 'Đăng ký thành công!',
+              text2: 'Vui lòng kiểm tra email để xác minh tài khoản.',
+              visibilityTime: 3000,
+            });
+            navigation.navigate('Login');
+          } catch (error: any) {
+            const serverMsg = error?.response?.data?.error;
+            const networkMsg = error?.message;
+            const msg = serverMsg || networkMsg || 'Đăng ký thất bại, vui lòng thử lại.';
+            Toast.show({
+              type: 'error',
+              text1: 'Đăng ký thất bại',
+              text2: msg,
+              visibilityTime: 3000,
+            });
+          }
         }}
         initialValues={initialValues}
         validationSchema={registerSchema}
@@ -178,19 +187,10 @@ const Register: FC<Props> = () => {
                   autoCapitalize="none"
                   secureTextEntry={secureEntry}
                   name="password"
-                  containerStyle={styles.marginBottom}
                   rightIcon={
                     <PasswordVisibilityIcon privateIcon={secureEntry} />
                   }
                   onRightIconPress={tooglePassword}
-                />
-                <InputField
-                  label="Xác nhận mật khẩu"
-                  autoCapitalize="none"
-                  secureTextEntry={secureConfirmEntry}
-                  name="confirmPassword"
-                  rightIcon={<PasswordVisibilityIcon privateIcon={secureConfirmEntry} />}
-                  onRightIconPress={toogleConfirmPassword}
                 />
               </View>
               <SubmitBtn title="Đăng Ký" />

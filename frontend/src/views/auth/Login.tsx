@@ -5,6 +5,8 @@ import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
 import { FC, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { loginUser } from '@api/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   Image,
@@ -21,6 +23,7 @@ import {
 import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
 import SignInBtn from '@components/form/SignInBtn';
+import Toast from 'react-native-toast-message';
 
 const loginSchema = yup.object({
   email: yup
@@ -32,28 +35,13 @@ const loginSchema = yup.object({
     .string()
     .trim('Vui lòng nhập vào mật khẩu của bạn')
     .min(8, 'Mật khẩu không được quá ngắn!')
-    .matches(
-      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
-      'Mật khẩu không được quá ngắn!',
-    )
     .required('Password is required!'),
-  confirmPassword: yup
-    .string()
-    .trim('Vui lòng nhập vào mật khẩu của bạn')
-    .min(8, 'Mật khẩu không được quá ngắn!')
-    .matches(
-      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#\$%\^&\*])[a-zA-Z\d!@#\$%\^&\*]+$/,
-      'Mật khẩu không được quá ngắn!',
-    )
-    .oneOf([yup.ref('password')], 'Mật khẩu xác nhận không khớp!')
-    .required('Confirm password is required!'),
 });
 
 interface Props {}
 const initialValues = {
   email: '',
   password: '',
-  confirmPassword: '',
 };
 
 const BLUE_LIGHT = '#1E88E5';
@@ -97,14 +85,9 @@ const Login: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const [secureEntry, setSecureEntry] = useState(true);
-  const [secureConfirmEntry, setSecureConfirmEntry] = useState(true);
 
   const tooglePassword = () => {
     setSecureEntry(!secureEntry);
-  };
-
-  const toogleConfirmPassword = () => {
-    setSecureConfirmEntry(!secureConfirmEntry);
   };
   useEffect(() => {
     Animated.parallel([
@@ -124,8 +107,31 @@ const Login: FC<Props> = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Form
-        onSubmit={values => {
-          console.log(values);
+        onSubmit={async (values: {email: string; password: string}) => {
+          try {
+            const { data } = await loginUser({
+              email: values.email,
+              password: values.password,
+            });
+            await AsyncStorage.setItem('auth-token', data.token);
+            await AsyncStorage.setItem('auth-profile', JSON.stringify(data.profile));
+            Toast.show({
+              type: 'success',
+              text1: 'Đăng nhập thành công!',
+              text2: `Chào mừng trở lại, ${data.profile.name}!`,
+              visibilityTime: 3000,
+            });
+          } catch (error: any) {
+            const serverMsg = error?.response?.data?.error;
+            const networkMsg = error?.message;
+            const msg = serverMsg || networkMsg || 'Đăng nhập thất bại, vui lòng thử lại.';
+            Toast.show({
+              type: 'error',
+              text1: 'Đăng nhập thất bại',
+              text2: msg,
+              visibilityTime: 3000,
+            });
+          }
         }}
         initialValues={initialValues}
         validationSchema={loginSchema}
@@ -173,21 +179,10 @@ const Login: FC<Props> = () => {
                   autoCapitalize="none"
                   secureTextEntry={secureEntry}
                   name="password"
-                  containerStyle={styles.marginBottom}
                   rightIcon={
                     <PasswordVisibilityIcon privateIcon={secureEntry} />
                   }
                   onRightIconPress={tooglePassword}
-                />
-                <InputField
-                  label="Xác nhận mật khẩu"
-                  autoCapitalize="none"
-                  secureTextEntry={secureConfirmEntry}
-                  name="confirmPassword"
-                  rightIcon={
-                    <PasswordVisibilityIcon privateIcon={secureConfirmEntry} />
-                  }
-                  onRightIconPress={toogleConfirmPassword}
                 />
               </View>
               <Pressable
