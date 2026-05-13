@@ -344,6 +344,6 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '700',
   },
-});
+});   
 
 export default Login;

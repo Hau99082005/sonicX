@@ -1,5 +1,6 @@
 import Form from '@components/form';
 import InputField from '@components/form/InputField';
+import SendEmailBtn from '@components/form/SendEmailBtn';
 import { FC, useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -88,6 +89,8 @@ const LostPassword: FC<Props> = () => {
                 />
               </View>
 
+              <SendEmailBtn title="Gửi email" />
+
               <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
                 <Text style={styles.backBtnText}>Quay lại đăng nhập</Text>
               </Pressable>
@@ -148,7 +151,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     alignSelf: 'center',
-    marginTop: 8,
+    marginTop: 16,
   },
   backBtnText: {
     color: BLUE_LIGHT,
