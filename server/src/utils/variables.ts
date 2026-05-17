@@ -1,5 +1,30 @@
-
-const { env } = process as { env: { [key: string]: string } }
-export const { URI, MAILTRAP_USER, MAILTRAP_PASS, VERIFICATION_EMAIL, PASSWORD_RESET_URL,
-    SIGN_IN_LINK, JWT_SECRET, CLOUD_NAME, CLOUD_KEY, CLOUD_SECRET
+const { env } = process as { env: { [key: string]: string } };
+export const {
+  URI,
+  PASSWORD_RESET_URL,
+  SIGN_IN_LINK,
+  JWT_SECRET,
+  CLOUD_NAME,
+  CLOUD_KEY,
+  CLOUD_SECRET,
+  MAILTRAP_API_TOKEN,
+  MAILTRAP_INBOX_ID,
+  MAILTRAP_USE_SANDBOX,
+  TWILIO_ACCOUNT_SID,
+  TWILIO_AUTH_TOKEN,
+  TWILIO_PHONE_NUMBER,
+  TWILIO_VERIFY_SERVICE_SID,
+  GMAIL_USER,
+  GMAIL_APP_PASSWORD,
+  FIREBASE_PRIVATE_KEY_ID,
+  FIREBASE_PRIVATE_KEY,
+  FIREBASE_CLIENT_EMAIL,
+  FIREBAE_CLIENT_ID,
+  API_KEY_FIREBASE,
+  AUTHDOMAIN,
+  ProjectID,
+  StorageBucket,
+  MessagingSenderId,
+  AppId,
+  MeasurementId,
 } = env;

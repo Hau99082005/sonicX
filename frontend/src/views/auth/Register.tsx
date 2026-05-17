@@ -118,7 +118,7 @@ const Register: FC<Props> = () => {
       <Form
         onSubmit={async (values: {name: string; email: string; password: string}) => {
           try {
-            await registerUser({
+            const { data } = await registerUser({
               name: values.name,
               email: values.email,
               password: values.password,
@@ -126,10 +126,10 @@ const Register: FC<Props> = () => {
             Toast.show({
               type: 'success',
               text1: 'Đăng ký thành công!',
-              text2: 'Vui lòng kiểm tra email để xác minh tài khoản.',
+              text2: 'Vui lòng kiểm tra email để lấy mã xác thực.',
               visibilityTime: 3000,
             });
-            navigation.navigate('Login');
+            navigation.navigate('Verification', { userId: data.user.id });
           } catch (error: any) {
             const serverMsg = error?.response?.data?.error;
             const networkMsg = error?.message;

@@ -1,5 +1,5 @@
 import { FC, useEffect, useRef, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import {
   Animated,
   Image,
@@ -15,6 +15,8 @@ import {
   Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Toast from 'react-native-toast-message';
+import { verifyEmail, resendVerification } from '@api/auth';
 
 const BLUE_LIGHT = '#1E88E5';
 const BLUE = '#1565C0';
@@ -22,28 +24,28 @@ const OTP_LENGTH = 6;
 
 const hapticMedium = () => Vibration.vibrate(10);
 
+type RootStackParamList = {
+  Verification: { userId: string };
+};
+
 interface Props {}
 
 const Verification: FC<Props> = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Verification'>>();
+  const userId = route.params?.userId;
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -63,16 +65,64 @@ const Verification: FC<Props> = () => {
     }
   };
 
-  const handleSubmit = () => {
-    hapticMedium();
+  const handleSubmit = async () => {
     const code = otp.join('');
-    console.log('OTP:', code);
+    if (code.length < OTP_LENGTH) {
+      Toast.show({
+        type: 'error',
+        text1: 'Mã không hợp lệ',
+        text2: 'Vui lòng nhập đủ 6 chữ số.',
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    hapticMedium();
+    setLoading(true);
+    try {
+      await verifyEmail({ token: code, userId });
+      Toast.show({
+        type: 'success',
+        text1: 'Xác thực thành công!',
+        text2: 'Tài khoản của bạn đã được xác minh.',
+        visibilityTime: 3000,
+      });
+      navigation.navigate('Login');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Mã xác thực không đúng, vui lòng thử lại.';
+      Toast.show({
+        type: 'error',
+        text1: 'Xác thực thất bại',
+        text2: msg,
+        visibilityTime: 3000,
+      });
+      setOtp(Array(OTP_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
-    setOtp(Array(OTP_LENGTH).fill(''));
-    inputRefs.current[0]?.focus();
-    console.log('Resend OTP');
+  const handleResend = async () => {
+    try {
+      await resendVerification({ userId });
+      setOtp(Array(OTP_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
+      Toast.show({
+        type: 'success',
+        text1: 'Đã gửi lại mã!',
+        text2: 'Vui lòng kiểm tra email của bạn.',
+        visibilityTime: 3000,
+      });
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Không thể gửi lại mã, vui lòng thử lại.';
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: msg,
+        visibilityTime: 3000,
+      });
+    }
   };
 
   return (
@@ -99,30 +149,30 @@ const Verification: FC<Props> = () => {
                 resizeMode="contain"
               />
             </View>
+
             <Text style={styles.title}>Xác minh email</Text>
             <Text style={styles.subtitle}>
               Vui lòng kiểm tra email của bạn và nhập mã OTP bên dưới.
             </Text>
+
             <View style={styles.otpRow}>
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
-                  ref={ref => {
-                    inputRefs.current[index] = ref;
-                  }}
+                  ref={ref => { inputRefs.current[index] = ref; }}
                   style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
                   value={digit}
                   onChangeText={text => handleChange(text, index)}
-                  onKeyPress={({ nativeEvent }) =>
-                    handleKeyPress(nativeEvent.key, index)
-                  }
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"
                   maxLength={1}
                   textAlign="center"
                   selectionColor={BLUE_LIGHT}
+                  editable={!loading}
                 />
               ))}
             </View>
+
             <Pressable
               onPressIn={() =>
                 Animated.spring(buttonScale, {
@@ -141,27 +191,25 @@ const Verification: FC<Props> = () => {
                 }).start()
               }
               onPress={handleSubmit}
+              disabled={loading}
             >
-              <Animated.View
-                style={[
-                  styles.submitBtn,
-                  { transform: [{ scale: buttonScale }] },
-                ]}
-              >
-                <Text style={styles.submitBtnText}>Xác nhận</Text>
+              <Animated.View style={[styles.submitBtn, { transform: [{ scale: buttonScale }] }]}>
+                <Text style={styles.submitBtnText}>
+                  {loading ? 'Đang xác thực...' : 'Xác nhận'}
+                </Text>
               </Animated.View>
             </Pressable>
+
             <View style={styles.actionsRow}>
-              <Pressable
-                style={styles.actionBtn}
-                onPress={() => navigation.goBack()}
-              >
+              <Pressable style={styles.actionBtn} onPress={() => navigation.goBack()}>
+                <Icon name="arrow-back" size={16} color={BLUE_LIGHT} />
                 <Text style={styles.actionText}>Quay lại</Text>
               </Pressable>
               <Pressable style={styles.actionBtn} onPress={handleResend}>
                 <Text style={styles.actionText}>Gửi lại OTP</Text>
+                <Icon name="refresh" size={16} color={BLUE_LIGHT} />
               </Pressable>
-            </View>{' '}
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>

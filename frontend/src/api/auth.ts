@@ -27,7 +27,13 @@ export interface LoginResponse {
 }
 
 export const registerUser = (data: RegisterPayload) =>
-  client.post('/auth/create', data);
+  client.post<{message: string; user: {id: string; name: string; email: string}}>('/auth/create', data);
 
 export const loginUser = (data: LoginPayload) =>
   client.post<LoginResponse>('/auth/sign-in', data);
+
+export const verifyEmail = (data: {token: string; userId: string}) =>
+  client.post('/auth/verify-email', data);
+
+export const resendVerification = (data: {userId: string}) =>
+  client.post('/auth/re-verify-email', data);

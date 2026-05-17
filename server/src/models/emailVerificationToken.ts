@@ -28,7 +28,7 @@ const emailVerificationTokenSchema = new Schema<EmailVerificationTokenDocument, 
         createdAt: {
             type: Date,
             expires: 3600, //60 min * 60 sec = 3600s
-            default: Date.now()
+            default: Date.now
         }
     }
 );
