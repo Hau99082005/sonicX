@@ -121,7 +121,7 @@ export const deleteAudio: RequestHandler = async (req, res) => {
     const ownerId = new Types.ObjectId(req.user.id);
     const audioId = new Types.ObjectId(req.params.audioId as string);
 
-    const audio = await Audio.findOneAndDelete({ owner: ownerId, _id: audioId }) as HydratedDocument<AudioDocument> | null;
+    const audio = await Audio.findOneAndDelete({ _id: audioId, owner: ownerId }) as HydratedDocument<AudioDocument> | null;
     if (!audio) return res.status(404).json({ error: "Âm thanh không tồn tại hoặc không có quyền truy cập!" });
     if (audio.file.publicId) {
         await cloudinary.uploader.destroy(audio.file.publicId, { resource_type: "video" });

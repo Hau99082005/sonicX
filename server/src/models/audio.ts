@@ -4,7 +4,7 @@ import { categories, CategoriesType } from "./audio_category";
 export interface AudioDocument<T = Types.ObjectId> {
     _id: Types.ObjectId;
     title: string;
-    about: string;
+    about?: string;
     owner: T;
     file: {
         url: string;
@@ -26,7 +26,7 @@ const AudioSchema = new Schema<AudioDocument>({
     },
     about: {
         type: String,
-        required: true,
+        required: false,
     },
     owner: {
         type: Schema.Types.ObjectId,
