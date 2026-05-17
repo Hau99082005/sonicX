@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -12,257 +12,254 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
-import Video, { OnLoadData, OnProgressData } from 'react-native-video';
+import Video from 'react-native-video';
 import { Audio } from '@api/music';
 import { RouteProp } from '@react-navigation/native';
 
-const { width, height } = Dimensions.get('window');
-const ARTWORK_SIZE = width - 64;
+const { width } = Dimensions.get('window');
+const ARTWORK_SIZE = width - 48;
 
-const COLORS = {
-  primary: '#5B5BD6',
-  background: '#0D0F1A',
-  surface: '#161829',
-  border: '#1E2140',
-  text: '#F1F5F9',
-  textSecondary: '#6B7280',
-  playBtn: '#5B5BD6',
-  heart: '#EF4444',
-  progressBg: '#1E2140',
-  progressFill: '#5B5BD6',
+const C = {
+  bg: '#0C0C0C',
+  surface: '#1A1A1A',
+  line: '#2A2A2A',
+  text: '#FFFFFF',
+  sub: '#777777',
+  heart: '#FF4444',
 };
 
-type RootStackParamList = {
-  MusicPlayer: { audio: Audio };
-};
-
+type RootStackParamList = { MusicPlayer: { audio: Audio } };
 interface Props {
   route: RouteProp<RootStackParamList, 'MusicPlayer'>;
   navigation: any;
 }
 
-const formatTime = (seconds: number) => {
-  if (!seconds || isNaN(seconds)) return '0:00';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+const fmt = (s: number) => {
+  if (!s || isNaN(s)) return '0:00';
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 };
+
+interface EngineProps {
+  uri: string;
+  paused: boolean;
+  repeat: boolean;
+  onLoad: (d: number) => void;
+  onProgress: (t: number) => void;
+  onEnd: () => void;
+  videoRef: React.RefObject<any>;
+}
+
+const AudioEngine = memo(
+  ({ uri, paused, repeat, onLoad, onProgress, onEnd, videoRef }: EngineProps) => (
+    <Video
+      ref={videoRef}
+      source={{ uri }}
+      playInBackground
+      playWhenInactive
+      ignoreSilentSwitch="ignore"
+      paused={paused}
+      repeat={repeat}
+      onLoad={d => onLoad(d.duration)}
+      onProgress={d => onProgress(d.currentTime)}
+      onEnd={onEnd}
+      onError={() => {}}
+      progressUpdateInterval={1000}
+      style={{ width: 0, height: 0 }}
+    />
+  ),
+  (prev, next) =>
+    prev.uri === next.uri &&
+    prev.paused === next.paused &&
+    prev.repeat === next.repeat,
+);
 
 const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   const { audio } = route.params;
   const videoRef = useRef<any>(null);
+  const durationRef = useRef(0);
+  const barWidth = useRef(width - 48);
+  const isSeeking = useRef(false);
+  const seekPositionRef = useRef(0);
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  const progressBarWidth = useRef(width - 64);
-  const artworkScale = useRef(new Animated.Value(0.92)).current;
-  const artworkOpacity = useRef(new Animated.Value(0)).current;
-  const contentSlide = useRef(new Animated.Value(30)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const playBtnScale = useRef(new Animated.Value(1)).current;
-  const heartScale = useRef(new Animated.Value(1)).current;
+  const fadeArt = useRef(new Animated.Value(0)).current;
+  const scaleArt = useRef(new Animated.Value(0.96)).current;
+  const fadeBody = useRef(new Animated.Value(0)).current;
+  const slideBody = useRef(new Animated.Value(16)).current;
+  const scalePlay = useRef(new Animated.Value(1)).current;
+
+  const fileUrl: string = typeof audio.file === 'string'
+    ? audio.file : (audio.file as any)?.url ?? '';
+  const posterUrl: string = typeof audio.poster === 'string'
+    ? audio.poster : (audio.poster as any)?.url ?? audio.image ?? '';
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(artworkScale, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
-      Animated.timing(artworkOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(contentOpacity, { toValue: 1, duration: 500, delay: 150, useNativeDriver: true }),
-      Animated.timing(contentSlide, { toValue: 0, duration: 400, delay: 150, useNativeDriver: true }),
+      Animated.timing(fadeArt, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(scaleArt, { toValue: 1, tension: 60, friction: 10, useNativeDriver: true }),
+      Animated.timing(fadeBody, { toValue: 1, duration: 350, delay: 100, useNativeDriver: true }),
+      Animated.timing(slideBody, { toValue: 0, duration: 300, delay: 100, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  const animatePlayBtn = () => {
-    Animated.sequence([
-      Animated.spring(playBtnScale, { toValue: 0.88, useNativeDriver: true, speed: 50, bounciness: 4 }),
-      Animated.spring(playBtnScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 8 }),
-    ]).start();
-  };
-
-  const animateHeart = () => {
-    Animated.sequence([
-      Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, speed: 50, bounciness: 10 }),
-      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 6 }),
-    ]).start();
-  };
-
-  const fileUrl: string = typeof audio.file === 'string'
-    ? (audio.file as string)
-    : (audio.file as any)?.url ?? '';
-
-  const posterUrl: string = typeof audio.poster === 'string'
-    ? (audio.poster as string)
-    : (audio.poster as any)?.url ?? audio.image ?? '';
-
-  const onLoad = (data: OnLoadData) => {
-    setDuration(data.duration);
+  const handleLoad = useCallback((d: number) => {
+    durationRef.current = d;
+    setDuration(d);
     setIsLoading(false);
-  };
+  }, []);
 
-  const onProgress = (data: OnProgressData) => {
-    setPosition(data.currentTime);
-  };
-
-  const onEnd = () => {
-    if (isRepeat) {
-      videoRef.current?.seek(0);
-    } else {
-      setIsPlaying(false);
-      setPosition(0);
+  const handleProgress = useCallback((t: number) => {
+    if (!isSeeking.current) {
+      setPosition(t);
     }
-  };
+  }, []);
 
-  const seekByRatio = (ratio: number) => {
-    const seekTo = Math.max(0, Math.min(ratio, 1)) * duration;
-    videoRef.current?.seek(seekTo);
-    setPosition(seekTo);
-  };
+  const handleEnd = useCallback(() => {
+    if (!isRepeat) { setIsPlaying(false); setPosition(0); }
+  }, [isRepeat]);
 
-  const panResponder = useRef(
+  const commitSeek = useCallback((ratio: number) => {
+    const t = Math.max(0, Math.min(ratio, 1)) * durationRef.current;
+    seekPositionRef.current = t;
+    videoRef.current?.seek(t);
+    setPosition(t);
+  }, []);
+
+  const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: e => seekByRatio(e.nativeEvent.locationX / progressBarWidth.current),
-      onPanResponderMove: e => seekByRatio(e.nativeEvent.locationX / progressBarWidth.current),
+      onPanResponderGrant: e => {
+        isSeeking.current = true;
+        const ratio = e.nativeEvent.locationX / barWidth.current;
+        const t = Math.max(0, Math.min(ratio, 1)) * durationRef.current;
+        setPosition(t);
+      },
+      onPanResponderMove: e => {
+        const ratio = e.nativeEvent.locationX / barWidth.current;
+        const t = Math.max(0, Math.min(ratio, 1)) * durationRef.current;
+        setPosition(t);
+      },
+      onPanResponderRelease: e => {
+        const ratio = e.nativeEvent.locationX / barWidth.current;
+        commitSeek(ratio);
+        setTimeout(() => { isSeeking.current = false; }, 300);
+      },
     }),
   ).current;
 
-  const progress = duration > 0 ? position / duration : 0;
+  const tapPlay = () => {
+    setIsPlaying(p => !p);
+    Animated.sequence([
+      Animated.spring(scalePlay, { toValue: 0.88, useNativeDriver: true, speed: 60, bounciness: 2 }),
+      Animated.spring(scalePlay, { toValue: 1, useNativeDriver: true, speed: 60, bounciness: 6 }),
+    ]).start();
+  };
+
+  const pct = duration > 0 ? Math.min(position / duration, 1) : 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Video
-        ref={videoRef}
-        source={{ uri: fileUrl }}
-        playInBackground
-        playWhenInactive
+    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+      <AudioEngine
+        uri={fileUrl}
         paused={!isPlaying}
         repeat={isRepeat}
-        onLoad={onLoad}
-        onProgress={onProgress}
-        onEnd={onEnd}
-        onError={() => setIsLoading(false)}
-        style={styles.hiddenVideo}
+        onLoad={handleLoad}
+        onProgress={handleProgress}
+        onEnd={handleEnd}
+        videoRef={videoRef}
       />
 
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn} hitSlop={8}>
-          <FontAwesome5 name="chevron-left" iconStyle="solid" size={18} color={COLORS.text} />
+      <View style={s.header}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={s.headerBtn}>
+          <FontAwesome5 name="chevron-down" iconStyle="solid" size={16} color={C.text} />
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerSub}>ĐANG PHÁT</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {audio.title}
-          </Text>
-        </View>
-        <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-          <Pressable
-            onPress={() => { setIsFavorite(f => !f); animateHeart(); }}
-            style={styles.iconBtn}
-            hitSlop={8}
-          >
-            <FontAwesome5
-              name="heart"
-              iconStyle={isFavorite ? 'solid' : 'regular'}
-              size={20}
-              color={isFavorite ? COLORS.heart : COLORS.textSecondary}
-            />
-          </Pressable>
-        </Animated.View>
+        <Text style={s.headerLabel}>ĐANG PHÁT</Text>
+        <Pressable onPress={() => setIsFavorite(f => !f)} hitSlop={12} style={s.headerBtn}>
+          <FontAwesome5
+            name="heart"
+            iconStyle={isFavorite ? 'solid' : 'regular'}
+            size={16}
+            color={isFavorite ? C.heart : C.sub}
+          />
+        </Pressable>
       </View>
 
-      <Animated.View style={[styles.artworkWrapper, { opacity: artworkOpacity, transform: [{ scale: artworkScale }] }]}>
-        {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.artwork} />
-        ) : (
-          <View style={[styles.artwork, styles.artworkPlaceholder]}>
-            <FontAwesome5 name="music" iconStyle="solid" size={72} color={COLORS.border} />
-          </View>
-        )}
+      <Animated.View style={[s.artWrap, { opacity: fadeArt, transform: [{ scale: scaleArt }] }]}>
+        {posterUrl
+          ? <Image source={{ uri: posterUrl }} style={s.art} />
+          : <View style={[s.art, s.artEmpty]}>
+              <FontAwesome5 name="music" iconStyle="solid" size={64} color={C.line} />
+            </View>
+        }
       </Animated.View>
 
-      <Animated.View style={[styles.bottomSection, { opacity: contentOpacity, transform: [{ translateY: contentSlide }] }]}>
-        <View style={styles.infoRow}>
-          <View style={styles.infoText}>
-            <Text style={styles.title} numberOfLines={1}>{audio.title}</Text>
-            <Text style={styles.artist} numberOfLines={1}>{audio.about ?? 'SonicX'}</Text>
+      <Animated.View style={[s.body, { opacity: fadeBody, transform: [{ translateY: slideBody }] }]}>
+        <View style={s.infoRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.title} numberOfLines={1}>{audio.title}</Text>
+            <Text style={s.artist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
           </View>
-          <Pressable style={styles.iconBtn} hitSlop={8}>
-            <FontAwesome5 name="ellipsis-h" iconStyle="solid" size={18} color={COLORS.textSecondary} />
-          </Pressable>
         </View>
 
-        <View style={styles.progressSection}>
+        <View style={s.progressWrap}>
           <View
-            style={styles.progressTrack}
-            onLayout={e => { progressBarWidth.current = e.nativeEvent.layout.width; }}
-            {...panResponder.panHandlers}
+            style={s.trackHit}
+            onLayout={e => { barWidth.current = e.nativeEvent.layout.width; }}
+            {...pan.panHandlers}
           >
-            <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]} />
-            <View style={[styles.progressThumb, { left: `${Math.min(progress * 100, 98)}%` }]} />
+            <View style={s.track}>
+              <View style={[s.fill, { width: `${pct * 100}%` }]} />
+              <View style={[s.thumb, { left: `${Math.min(pct * 100, 97)}%` }]} />
+            </View>
           </View>
-          <View style={styles.timeRow}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          <View style={s.timeRow}>
+            <Text style={s.time}>{fmt(position)}</Text>
+            <Text style={s.time}>{fmt(duration)}</Text>
           </View>
         </View>
 
-        <View style={styles.controls}>
-          <Pressable onPress={() => setIsShuffle(s => !s)} style={styles.sideBtn} hitSlop={8}>
-            <FontAwesome5
-              name="random"
-              iconStyle="solid"
-              size={18}
-              color={isShuffle ? COLORS.primary : COLORS.textSecondary}
-            />
+        <View style={s.controls}>
+          <Pressable hitSlop={12} onPress={() => setIsShuffle(v => !v)} style={s.sideBtn}>
+            <FontAwesome5 name="random" iconStyle="solid" size={15}
+              color={isShuffle ? C.text : C.sub} />
           </Pressable>
 
-          <Pressable
-            style={styles.skipBtn}
-            hitSlop={8}
-            onPress={() => { videoRef.current?.seek(0); setPosition(0); }}
-          >
-            <FontAwesome5 name="step-backward" iconStyle="solid" size={22} color={COLORS.text} />
+          <Pressable hitSlop={12} style={s.skipBtn}
+            onPress={() => { videoRef.current?.seek(0); setPosition(0); }}>
+            <FontAwesome5 name="step-backward" iconStyle="solid" size={22} color={C.text} />
           </Pressable>
 
-          <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
-            <Pressable
-              style={styles.playBtn}
-              onPress={() => { setIsPlaying(p => !p); animatePlayBtn(); }}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <FontAwesome5
-                  name={isPlaying ? 'pause' : 'play'}
-                  iconStyle="solid"
-                  size={22}
-                  color="#fff"
-                />
-              )}
+          <Animated.View style={{ transform: [{ scale: scalePlay }] }}>
+            <Pressable style={s.playBtn} onPress={tapPlay}>
+              {isLoading
+                ? <ActivityIndicator color="#000" size="small" />
+                : <FontAwesome5
+                    name={isPlaying ? 'pause' : 'play'}
+                    iconStyle="solid"
+                    size={20}
+                    color="#000"
+                    style={!isPlaying ? { marginLeft: 3 } : undefined}
+                  />
+              }
             </Pressable>
           </Animated.View>
 
-          <Pressable
-            style={styles.skipBtn}
-            hitSlop={8}
-            onPress={() => videoRef.current?.seek(duration)}
-          >
-            <FontAwesome5 name="step-forward" iconStyle="solid" size={22} color={COLORS.text} />
+          <Pressable hitSlop={12} style={s.skipBtn}
+            onPress={() => videoRef.current?.seek(durationRef.current)}>
+            <FontAwesome5 name="step-forward" iconStyle="solid" size={22} color={C.text} />
           </Pressable>
 
-          <Pressable onPress={() => setIsRepeat(r => !r)} style={styles.sideBtn} hitSlop={8}>
-            <FontAwesome5
-              name="redo"
-              iconStyle="solid"
-              size={18}
-              color={isRepeat ? COLORS.primary : COLORS.textSecondary}
-            />
+          <Pressable hitSlop={12} onPress={() => setIsRepeat(v => !v)} style={s.sideBtn}>
+            <FontAwesome5 name="redo" iconStyle="solid" size={15}
+              color={isRepeat ? C.text : C.sub} />
           </Pressable>
         </View>
       </Animated.View>
@@ -270,159 +267,101 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  hiddenVideo: {
-    width: 0,
-    height: 0,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingVertical: 14,
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
+  headerBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerLabel: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 11,
+    color: C.sub,
+    letterSpacing: 1.5,
   },
-  headerSub: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    letterSpacing: 2,
-    marginBottom: 3,
-  },
-  headerTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 15,
-    color: COLORS.text,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  artworkWrapper: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
+  artWrap: {
+    alignSelf: 'center',
     marginBottom: 28,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.35,
-    shadowRadius: 32,
-    elevation: 24,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  artwork: {
+  art: {
     width: ARTWORK_SIZE,
     height: ARTWORK_SIZE,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    backgroundColor: C.surface,
+    overflow: 'hidden',
   },
-  artworkPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bottomSection: {
+  artEmpty: { justifyContent: 'center', alignItems: 'center' },
+  body: {
     flex: 1,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     justifyContent: 'space-between',
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  infoText: {
-    flex: 1,
-  },
+  infoRow: { marginBottom: 20 },
   title: {
     fontFamily: 'Inter-Bold',
     fontSize: 22,
-    color: COLORS.text,
-    marginBottom: 5,
+    color: C.text,
+    marginBottom: 6,
   },
   artist: {
     fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: COLORS.textSecondary,
+    fontSize: 14,
+    color: C.sub,
   },
-  progressSection: {
-    marginBottom: 28,
+  progressWrap: { marginBottom: 28 },
+  trackHit: {
+    paddingVertical: 12,
+    marginVertical: -12,
+    marginBottom: 0,
   },
-  progressTrack: {
+  track: {
     height: 3,
-    backgroundColor: COLORS.progressBg,
+    backgroundColor: C.line,
     borderRadius: 2,
-    marginBottom: 10,
-    position: 'relative',
     justifyContent: 'center',
   },
-  progressFill: {
-    height: 3,
-    backgroundColor: COLORS.progressFill,
-    borderRadius: 2,
-  },
-  progressThumb: {
+  fill: { height: 3, backgroundColor: C.text, borderRadius: 2 },
+  thumb: {
     position: 'absolute',
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#fff',
+    backgroundColor: C.text,
     marginLeft: -7,
     top: -5.5,
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 4,
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 10,
   },
-  timeText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
+  time: { fontFamily: 'Inter-Regular', fontSize: 12, color: C.sub },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 4,
   },
-  sideBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipBtn: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  sideBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  skipBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   playBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: COLORS.playBtn,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: C.text,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.playBtn,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    elevation: 14,
   },
 });
 
