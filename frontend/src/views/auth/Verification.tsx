@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import Toast from 'react-native-toast-message';
 import { verifyEmail, resendVerification } from '@api/auth';
 
@@ -202,12 +202,12 @@ const Verification: FC<Props> = () => {
 
             <View style={styles.actionsRow}>
               <Pressable style={styles.actionBtn} onPress={() => navigation.goBack()}>
-                <Icon name="arrow-back" size={16} color={BLUE_LIGHT} />
+                <FontAwesome5 name="arrow-left" iconStyle="solid" size={14} color={BLUE_LIGHT} />
                 <Text style={styles.actionText}>Quay lại</Text>
               </Pressable>
               <Pressable style={styles.actionBtn} onPress={handleResend}>
                 <Text style={styles.actionText}>Gửi lại OTP</Text>
-                <Icon name="refresh" size={16} color={BLUE_LIGHT} />
+                <FontAwesome5 name="redo" iconStyle="solid" size={14} color={BLUE_LIGHT} />
               </Pressable>
             </View>
           </Animated.View>

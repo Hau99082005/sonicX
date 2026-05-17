@@ -1,0 +1,52 @@
+import client from './client';
+
+export interface Audio {
+  _id: string;
+  title: string;
+  about?: string;
+  owner?: string;
+  artist?: string;
+  file?: { url: string; publicId: string };
+  poster?: { url: string; publicId: string };
+  image?: string;
+  duration?: number;
+  likes?: string[];
+  category?: string;
+  createdAt?: string;
+}
+
+export interface Playlist {
+  _id: string;
+  title: string;
+  image?: string;
+  tracks?: Audio[];
+  owner?: string;
+}
+
+export const getLatestMusic = () =>
+  client.get<{ audio: Audio[] }>('/audio');
+
+export const searchMusic = (query: string) =>
+  client.get<{ audios: Audio[] }>(`/audio/search?query=${query}`);
+
+export const getFavoriteMusic = () =>
+  client.get<{ audios: Audio[] }>('/favorite');
+
+export const addFavorite = (audioId: string) =>
+  client.post('/favorite', { audioId });
+
+export const removeFavorite = (audioId: string) =>
+  client.delete(`/favorite/${audioId}`);
+
+export const getPlaylists = () =>
+  client.get<{ playlists: Playlist[] }>('/playlist');
+
+export const createPlaylist = (title: string) =>
+  client.post<{ playlist: Playlist }>('/playlist', { title });
+
+export const addToPlaylist = (playlistId: string, audioId: string) =>
+  client.post(`/playlist/${playlistId}`, { audioId });
+
+export const getProfile = () => client.get('/auth/user');
+
+export const updateProfile = (data: any) => client.post('/auth/user', data);

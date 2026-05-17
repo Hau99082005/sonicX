@@ -24,6 +24,7 @@ import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
 import SignInBtn from '@components/form/SignInBtn';
 import Toast from 'react-native-toast-message';
+import { appLogin } from '../../../App';
 
 const loginSchema = yup.object({
   email: yup
@@ -107,7 +108,7 @@ const Login: FC<Props> = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Form
-        onSubmit={async (values: {email: string; password: string}) => {
+        onSubmit={async (values: { email: string; password: string }) => {
           try {
             const { data } = await loginUser({
               email: values.email,
@@ -119,12 +120,16 @@ const Login: FC<Props> = () => {
               type: 'success',
               text1: 'Đăng nhập thành công!',
               text2: `Chào mừng trở lại, ${data.profile.name}!`,
-              visibilityTime: 3000,
+              visibilityTime: 2000,
             });
+            setTimeout(() => appLogin(data.token), 500);
           } catch (error: any) {
             const serverMsg = error?.response?.data?.error;
             const networkMsg = error?.message;
-            const msg = serverMsg || networkMsg || 'Đăng nhập thất bại, vui lòng thử lại.';
+            const msg =
+              serverMsg ||
+              networkMsg ||
+              'Đăng nhập thất bại, vui lòng thử lại.';
             Toast.show({
               type: 'error',
               text1: 'Đăng nhập thất bại',
@@ -339,6 +344,6 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '700',
   },
-});   
+});
 
 export default Login;
