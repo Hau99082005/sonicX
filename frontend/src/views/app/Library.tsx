@@ -37,6 +37,82 @@ const C = {
   green: '#10B981',
 };
 
+const BAR_HEIGHTS = [10, 16, 12];
+const BAR_DELAYS = [0, 150, 80];
+const BAR_DURATIONS = [500, 380, 460];
+
+const MusicBars = ({
+  color = C.accent,
+  size = 14,
+  playing = true,
+}: {
+  color?: string;
+  size?: number;
+  playing?: boolean;
+}) => {
+  const anims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0.3))).current;
+
+  useEffect(() => {
+    if (!playing) {
+      anims.forEach(a =>
+        Animated.timing(a, {
+          toValue: 0.3,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(),
+      );
+      return;
+    }
+    const loops = anims.map((anim, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(BAR_DELAYS[i]),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: BAR_DURATIONS[i],
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.2,
+            duration: BAR_DURATIONS[i],
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [playing]);
+
+  const barWidth = size * 0.18;
+  const maxH = size;
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: barWidth * 0.8,
+        height: maxH,
+      }}
+    >
+      {anims.map((anim, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: barWidth + 1,
+            height: maxH,
+            borderRadius: 2,
+            backgroundColor: color,
+            transform: [{ scaleY: anim }],
+            transformOrigin: 'bottom',
+          }}
+        />
+      ))}
+    </View>
+  );
+};
+
 type SortKey = 'newest' | 'title' | 'likes' | 'duration';
 type ViewMode = 'list' | 'grid';
 
@@ -268,11 +344,10 @@ const Library = ({ navigation }: any) => {
           {isActive && (
             <View style={s.activeOverlay}>
               <View style={s.activeIndicator}>
-                <FontAwesome5
-                  name="volume-up"
-                  iconStyle="solid"
-                  size={14}
+                <MusicBars
                   color={C.accent}
+                  size={18}
+                  playing={player.isPlaying}
                 />
               </View>
             </View>
@@ -331,11 +406,10 @@ const Library = ({ navigation }: any) => {
           )}
           {isActive && (
             <View style={s.activeOverlay}>
-              <FontAwesome5
-                name="volume-up"
-                iconStyle="solid"
-                size={9}
+              <MusicBars
                 color={C.accent}
+                size={14}
+                playing={player.isPlaying}
               />
             </View>
           )}

@@ -22,13 +22,19 @@ export const useGoogleSignIn = () => {
     try {
       setLoading(true);
 
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
       await GoogleSignin.signIn();
       const tokens = await GoogleSignin.getTokens();
       const idToken = tokens.idToken;
 
       if (!idToken) {
-        Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không lấy được token từ Google' });
+        Toast.show({
+          type: 'error',
+          text1: 'Lỗi',
+          text2: 'Không lấy được token từ Google',
+        });
         return;
       }
 
@@ -38,9 +44,19 @@ export const useGoogleSignIn = () => {
       await AsyncStorage.setItem('auth-profile', JSON.stringify(data.profile));
 
       if (data.message) {
-        Toast.show({ type: 'info', text1: 'Tài khoản mới', text2: data.message, visibilityTime: 4000 });
+        Toast.show({
+          type: 'info',
+          text1: 'Tài khoản mới',
+          text2: data.message,
+          visibilityTime: 4000,
+        });
       } else {
-        Toast.show({ type: 'success', text1: 'Đăng nhập thành công!', text2: `Chào mừng, ${data.profile.name}!`, visibilityTime: 2000 });
+        Toast.show({
+          type: 'success',
+          text1: 'Đăng nhập thành công!',
+          text2: `Chào mừng, ${data.profile.name}!`,
+          visibilityTime: 2000,
+        });
       }
 
       setTimeout(() => appLogin(data.token), 400);
@@ -50,12 +66,20 @@ export const useGoogleSignIn = () => {
       if (code === String(statusCodes.SIGN_IN_CANCELLED)) return;
 
       if (code === String(statusCodes.IN_PROGRESS)) {
-        Toast.show({ type: 'info', text1: 'Đang xử lý', text2: 'Vui lòng chờ...' });
+        Toast.show({
+          type: 'info',
+          text1: 'Đang xử lý',
+          text2: 'Vui lòng chờ...',
+        });
         return;
       }
 
       if (code === String(statusCodes.PLAY_SERVICES_NOT_AVAILABLE)) {
-        Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Google Play Services không khả dụng' });
+        Toast.show({
+          type: 'error',
+          text1: 'Lỗi',
+          text2: 'Google Play Services không khả dụng',
+        });
         return;
       }
 
@@ -71,7 +95,12 @@ export const useGoogleSignIn = () => {
 
       const serverMsg = error?.response?.data?.error;
       const msg = serverMsg || error?.message || 'Đăng nhập Google thất bại';
-      Toast.show({ type: 'error', text1: 'Lỗi', text2: msg, visibilityTime: 4000 });
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: msg,
+        visibilityTime: 4000,
+      });
     } finally {
       setLoading(false);
     }

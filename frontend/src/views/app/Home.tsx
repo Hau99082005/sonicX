@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   TextInput,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
@@ -28,6 +29,51 @@ const C = {
   sub: '#8A8FAD',
   accent: '#6C63FF',
   gold: '#F59E0B',
+};
+
+const BAR_DELAYS = [0, 150, 80];
+const BAR_DURATIONS = [500, 380, 460];
+
+const MusicBars = ({ color = C.accent, size = 14, playing = true }: { color?: string; size?: number; playing?: boolean }) => {
+  const anims = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
+
+  useEffect(() => {
+    if (!playing) {
+      anims.forEach(a => Animated.timing(a, { toValue: 0.3, duration: 200, useNativeDriver: true }).start());
+      return;
+    }
+    const loops = anims.map((anim, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(BAR_DELAYS[i]),
+          Animated.timing(anim, { toValue: 1, duration: BAR_DURATIONS[i], useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0.2, duration: BAR_DURATIONS[i], useNativeDriver: true }),
+        ]),
+      ),
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [playing]);
+
+  const barW = Math.max(2, size * 0.18);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: barW * 0.8, height: size }}>
+      {anims.map((anim, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: barW + 1,
+            height: size,
+            borderRadius: 2,
+            backgroundColor: color,
+            transform: [{ scaleY: anim }],
+            transformOrigin: 'bottom',
+          }}
+        />
+      ))}
+    </View>
+  );
 };
 
 const Home = ({ navigation }: any) => {
@@ -137,6 +183,7 @@ const Home = ({ navigation }: any) => {
                 <View style={styles.recentRow}>
                   {recentTracks.map(item => {
                     const poster = getPoster(item);
+                    const isActive = player.currentAudio?._id === item._id;
                     return (
                       <Pressable
                         key={item._id}
@@ -151,8 +198,13 @@ const Home = ({ navigation }: any) => {
                               <FontAwesome5 name="music" iconStyle="solid" size={22} color={C.border} />
                             </View>
                           )}
+                          {isActive && (
+                            <View style={styles.activeOverlay}>
+                              <MusicBars color={C.accent} size={18} playing={player.isPlaying} />
+                            </View>
+                          )}
                         </View>
-                        <Text style={styles.recentTitle} numberOfLines={1}>
+                        <Text style={[styles.recentTitle, isActive && { color: C.accent }]} numberOfLines={1}>
                           {item.title}
                         </Text>
                       </Pressable>
@@ -169,10 +221,11 @@ const Home = ({ navigation }: any) => {
                   {recommended.map(item => {
                     const poster = getPoster(item);
                     const streams = item.likes?.length ?? 0;
+                    const isActive = player.currentAudio?._id === item._id;
                     return (
                       <Pressable
                         key={item._id}
-                        style={styles.recommendCard}
+                        style={[styles.recommendCard, isActive && styles.recommendCardActive]}
                         onPress={() => handlePlay(item)}
                       >
                         <View style={styles.recommendImgWrap}>
@@ -183,9 +236,14 @@ const Home = ({ navigation }: any) => {
                               <FontAwesome5 name="music" iconStyle="solid" size={28} color={C.border} />
                             </View>
                           )}
+                          {isActive && (
+                            <View style={styles.activeOverlay}>
+                              <MusicBars color={C.accent} size={16} playing={player.isPlaying} />
+                            </View>
+                          )}
                         </View>
                         <View style={styles.recommendInfo}>
-                          <Text style={styles.recommendTitle} numberOfLines={1}>
+                          <Text style={[styles.recommendTitle, isActive && { color: C.accent }]} numberOfLines={1}>
                             {item.title}
                           </Text>
                           <Text style={styles.recommendArtist} numberOfLines={1}>
@@ -353,6 +411,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  activeOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   recentTitle: {
     fontFamily: 'Inter',
     fontSize: 13,
@@ -369,12 +434,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  recommendCardActive: {
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 12,
+    padding: 8,
+    marginHorizontal: -8,
+  },
   recommendImgWrap: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 5,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   recommendImg: {
     width: 72,
