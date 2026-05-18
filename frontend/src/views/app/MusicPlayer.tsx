@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
+import PagerView from 'react-native-pager-view';
 import {
   Audio,
   toggleFavorite,
@@ -23,6 +24,7 @@ import {
 } from '@api/music';
 import { RouteProp } from '@react-navigation/native';
 import { usePlayer } from '../../context/PlayerContext';
+import LyricsView from '../../components/LyricsView';
 
 const { width } = Dimensions.get('window');
 const ARTWORK_SIZE = width - 48;
@@ -59,6 +61,8 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   const [isFavLoading, setIsFavLoading] = useState(false);
   const [similarTracks, setSimilarTracks] = useState<Audio[]>([]);
   const [similarLoading, setSimilarLoading] = useState(true);
+  const [pageIndex, setPageIndex] = useState(0);
+  const pagerRef = useRef<PagerView>(null);
 
   const fadeArt = useRef(new Animated.Value(0)).current;
   const scaleArt = useRef(new Animated.Value(0.96)).current;
@@ -256,363 +260,245 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
           hitSlop={12}
           style={styles.headerBtn}
         >
-          <FontAwesome5
-            name="chevron-left"
-            iconStyle="solid"
-            size={18}
-            color={C.text}
-          />
+          <FontAwesome5 name="chevron-left" iconStyle="solid" size={18} color={C.text} />
         </Pressable>
 
-        <View
-          style={[
-            styles.statusBadge,
-            isPlaying ? styles.statusPlaying : styles.statusPaused,
-          ]}
-        >
-          <FontAwesome5
-            name={isPlaying ? 'music' : 'pause-circle'}
-            iconStyle="solid"
-            size={12}
-            color={isPlaying ? '#22C55E' : '#EF4444'}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: isPlaying ? '#22C55E' : '#EF4444' },
-            ]}
-          >
-            {isPlaying ? 'Đang phát' : 'Tạm dừng'}
-          </Text>
+        <View style={styles.pageDots}>
+          <Pressable onPress={() => pagerRef.current?.setPage(0)}>
+            <View style={[styles.dot, pageIndex === 0 && styles.dotActive]} />
+          </Pressable>
+          <Pressable onPress={() => pagerRef.current?.setPage(1)}>
+            <View style={[styles.dot, pageIndex === 1 && styles.dotActive]} />
+          </Pressable>
         </View>
 
         <Pressable hitSlop={12} style={styles.headerBtn} onPress={openMenu}>
-          <FontAwesome5
-            name="ellipsis-v"
-            iconStyle="solid"
-            size={18}
-            color={C.text}
-          />
+          <FontAwesome5 name="ellipsis-v" iconStyle="solid" size={18} color={C.text} />
         </Pressable>
       </View>
 
-      <Animated.View
-        style={[
-          styles.artContainer,
-          {
-            opacity: fadeArt,
-            transform: [{ scale: scaleArt }, { rotate: spin }],
-          },
-        ]}
+      <PagerView
+        ref={pagerRef}
+        style={{ flex: 1 }}
+        initialPage={0}
+        onPageSelected={e => setPageIndex(e.nativeEvent.position)}
       >
-        <View style={styles.artWrapper}>
-          {posterUrl ? (
-            <Image source={{ uri: posterUrl }} style={styles.artwork} />
-          ) : (
-            <View style={[styles.artwork, styles.artworkEmpty]}>
-              <FontAwesome5
-                name="music"
-                iconStyle="solid"
-                size={64}
-                color={C.line}
-              />
+        <View key="player" style={{ flex: 1 }}>
+          <Animated.View
+            style={[
+              styles.artContainer,
+              { opacity: fadeArt, transform: [{ scale: scaleArt }, { rotate: spin }] },
+            ]}
+          >
+            <View style={styles.artWrapper}>
+              {posterUrl ? (
+                <Image source={{ uri: posterUrl }} style={styles.artwork} />
+              ) : (
+                <View style={[styles.artwork, styles.artworkEmpty]}>
+                  <FontAwesome5 name="music" iconStyle="solid" size={64} color={C.line} />
+                </View>
+              )}
             </View>
-          )}
-        </View>
-      </Animated.View>
+          </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.content,
-          { opacity: fadeBody, transform: [{ translateY: slideBody }] },
-        ]}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.infoSection}>
-            <View style={styles.infoRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {audio.title}
-                </Text>
-                <Text style={styles.artist} numberOfLines={1}>
-                  {audio.about || 'SonicX'}
-                </Text>
+          <Animated.View
+            style={[styles.content, { opacity: fadeBody, transform: [{ translateY: slideBody }] }]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              <View style={styles.infoSection}>
+                <View style={styles.infoRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.title} numberOfLines={1}>{audio.title}</Text>
+                    <Text style={styles.artist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
+                  </View>
+                  <Pressable onPress={toggleFav} hitSlop={12} style={styles.favoriteBtn} disabled={isFavLoading}>
+                    {isFavLoading ? (
+                      <ActivityIndicator size={18} color={C.sub} />
+                    ) : (
+                      <FontAwesome5
+                        name="heart"
+                        iconStyle={isFavorite ? 'solid' : 'regular'}
+                        size={22}
+                        color={isFavorite ? C.heart : C.sub}
+                      />
+                    )}
+                  </Pressable>
+                </View>
               </View>
-              <Pressable
-                onPress={toggleFav}
-                hitSlop={12}
-                style={styles.favoriteBtn}
-                disabled={isFavLoading}
-              >
-                {isFavLoading ? (
-                  <ActivityIndicator size={18} color={C.sub} />
-                ) : (
-                  <FontAwesome5
-                    name="heart"
-                    iconStyle={isFavorite ? 'solid' : 'regular'}
-                    size={22}
-                    color={isFavorite ? C.heart : C.sub}
-                  />
-                )}
-              </Pressable>
-            </View>
-          </View>
 
-          <View style={styles.progressSection}>
+              <View style={styles.progressSection}>
+                <View
+                  style={styles.trackContainer}
+                  onLayout={e => { barWidth.current = e.nativeEvent.layout.width; }}
+                  {...pan.panHandlers}
+                >
+                  <View style={styles.trackBar}>
+                    <View style={[styles.trackProgress, { width: `${pct * 100}%` }]} />
+                    <View style={[styles.trackThumb, { left: `${Math.min(pct * 100, 97)}%` as any }]} />
+                  </View>
+                </View>
+                <View style={styles.timeContainer}>
+                  <Text style={styles.timeText}>{fmt(position)}</Text>
+                  <Text style={styles.timeText}>{fmt(duration)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.controlsSection}>
+                <Pressable hitSlop={14} onPress={() => player.setIsShuffle(!isShuffle)} style={[styles.controlButton, isShuffle && styles.controlButtonActive]}>
+                  <FontAwesome5 name="random" size={16} color={isShuffle ? C.accent : C.sub} iconStyle="solid" />
+                </Pressable>
+                <Pressable hitSlop={14} onPress={() => player.seek(0)} style={styles.skipButton}>
+                  <FontAwesome5 name="step-backward" size={20} color={C.text} iconStyle="solid" />
+                </Pressable>
+                <Animated.View style={{ transform: [{ scale: scalePlay }] }}>
+                  <Pressable style={styles.playButton} onPress={tapPlay}>
+                    {isLoading ? (
+                      <ActivityIndicator color={C.bg} size={20} />
+                    ) : (
+                      <FontAwesome5
+                        name={isPlaying ? 'pause' : 'play'}
+                        size={24}
+                        color={C.bg}
+                        iconStyle="solid"
+                        style={isPlaying ? undefined : { marginLeft: 3 }}
+                      />
+                    )}
+                  </Pressable>
+                </Animated.View>
+                <Pressable hitSlop={14} onPress={() => player.seek(player.durationRef.current)} style={styles.skipButton}>
+                  <FontAwesome5 name="step-forward" size={20} color={C.text} iconStyle="solid" />
+                </Pressable>
+                <Pressable hitSlop={14} onPress={() => player.setRepeatMode((repeatMode + 1) % 3)} style={[styles.controlButton, repeatMode > 0 && styles.controlButtonActive]}>
+                  <View style={styles.repeatIconContainer}>
+                    <FontAwesome5 name="redo" size={16} color={repeatMode > 0 ? C.accent : C.sub} iconStyle="solid" />
+                    {repeatMode === 2 && <Text style={styles.repeatOneLabel}>1</Text>}
+                  </View>
+                </Pressable>
+              </View>
+
+              <View style={styles.statsSection}>
+                <View style={styles.statItem}>
+                  <FontAwesome5 name="heart" size={16} color={C.sub} iconStyle="solid" />
+                  <Text style={styles.statLabel}>{audio.likes?.length ?? 0} lượt thích</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <FontAwesome5 name="tag" size={16} color={C.sub} iconStyle="solid" />
+                  <Text style={styles.statLabel} numberOfLines={1}>{audio.category ?? 'Chưa phân loại'}</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <FontAwesome5 name="clock" size={16} color={C.sub} iconStyle="solid" />
+                  <Text style={styles.statLabel}>{audio.duration ? fmt(audio.duration) : fmt(duration)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.similarSection}>
+                <View style={styles.similarHeader}>
+                  <Text style={styles.similarTitle}>Bài hát tương tự</Text>
+                  <Pressable onPress={() => navigation.navigate('Home')}>
+                    <Text style={styles.seeAll}>Xem tất cả</Text>
+                  </Pressable>
+                </View>
+                {similarLoading ? (
+                  <ActivityIndicator color={C.accent} style={{ paddingVertical: 32 }} />
+                ) : similarTracks.length === 0 ? (
+                  <View style={styles.similarEmpty}>
+                    <FontAwesome5 name="music" size={28} color={C.line} iconStyle="solid" />
+                    <Text style={styles.similarEmptyText}>Không có bài hát tương tự</Text>
+                  </View>
+                ) : (
+                  similarTracks.map((item, index) => {
+                    const itemPoster = typeof item.poster === 'string' ? item.poster : (item.poster as any)?.url ?? item.image ?? '';
+                    return (
+                      <Pressable
+                        key={item._id}
+                        style={[styles.trackRow, index < similarTracks.length - 1 && styles.trackRowBorder]}
+                        onPress={() => navigation.replace('MusicPlayer', { audio: item })}
+                      >
+                        <View style={styles.trackIndexWrap}>
+                          <Text style={styles.trackIndex}>{index + 1}</Text>
+                        </View>
+                        <View style={styles.trackThumbWrap}>
+                          {itemPoster ? (
+                            <Image source={{ uri: itemPoster }} style={styles.trackThumbImg} />
+                          ) : (
+                            <View style={[styles.trackThumbImg, styles.trackThumbEmpty]}>
+                              <FontAwesome5 name="music" size={14} color={C.line} iconStyle="solid" />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.trackInfo}>
+                          <Text style={styles.trackTitle} numberOfLines={1}>{item.title}</Text>
+                          <View style={styles.trackMeta}>
+                            <FontAwesome5 name="tag" size={10} color={C.sub} iconStyle="solid" />
+                            <Text style={styles.trackCategory} numberOfLines={1}>{item.category ?? 'Khác'}</Text>
+                            {item.likes && item.likes.length > 0 && (
+                              <>
+                                <View style={styles.trackMetaDot} />
+                                <FontAwesome5 name="heart" size={10} color={C.sub} iconStyle="solid" />
+                                <Text style={styles.trackCategory}>{item.likes.length}</Text>
+                              </>
+                            )}
+                          </View>
+                        </View>
+                        <FontAwesome5 name="play-circle" size={20} color={C.accent} iconStyle="solid" />
+                      </Pressable>
+                    );
+                  })
+                )}
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </View>
+
+        <View key="lyrics" style={{ flex: 1 }}>
+          <View style={styles.lyricsHeader}>
+            <Text style={styles.lyricsTitle} numberOfLines={1}>{audio.title}</Text>
+            <Text style={styles.lyricsArtist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
+          </View>
+          <LyricsView audio={audio} onSeek={t => player.seek(t)} />
+          <View style={styles.lyricsControls}>
             <View
-              style={styles.trackContainer}
-              onLayout={e => {
-                barWidth.current = e.nativeEvent.layout.width;
-              }}
+              style={styles.miniTrackContainer}
+              onLayout={e => { barWidth.current = e.nativeEvent.layout.width; }}
               {...pan.panHandlers}
             >
               <View style={styles.trackBar}>
-                <View
-                  style={[styles.trackProgress, { width: `${pct * 100}%` }]}
-                />
-                <View
-                  style={[
-                    styles.trackThumb,
-                    { left: `${Math.min(pct * 100, 97)}%` as any },
-                  ]}
-                />
+                <View style={[styles.trackProgress, { width: `${pct * 100}%` }]} />
+                <View style={[styles.trackThumb, { left: `${Math.min(pct * 100, 97)}%` as any }]} />
               </View>
             </View>
-            <View style={styles.timeContainer}>
+            <View style={styles.miniTimeRow}>
               <Text style={styles.timeText}>{fmt(position)}</Text>
               <Text style={styles.timeText}>{fmt(duration)}</Text>
             </View>
-          </View>
-
-          <View style={styles.controlsSection}>
-            <Pressable
-              hitSlop={14}
-              onPress={() => player.setIsShuffle(!isShuffle)}
-              style={[
-                styles.controlButton,
-                isShuffle && styles.controlButtonActive,
-              ]}
-            >
-              <FontAwesome5
-                name="random"
-                size={16}
-                color={isShuffle ? C.accent : C.sub}
-                iconStyle="solid"
-              />
-            </Pressable>
-
-            <Pressable
-              hitSlop={14}
-              onPress={() => player.seek(0)}
-              style={styles.skipButton}
-            >
-              <FontAwesome5
-                name="step-backward"
-                size={20}
-                color={C.text}
-                iconStyle="solid"
-              />
-            </Pressable>
-
-            <Animated.View style={{ transform: [{ scale: scalePlay }] }}>
-              <Pressable style={styles.playButton} onPress={tapPlay}>
-                {isLoading ? (
-                  <ActivityIndicator color={C.bg} size={20} />
-                ) : (
-                  <FontAwesome5
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={24}
-                    color={C.bg}
-                    iconStyle="solid"
-                    style={isPlaying ? undefined : { marginLeft: 3 }}
-                  />
-                )}
+            <View style={styles.miniButtons}>
+              <Pressable hitSlop={14} onPress={() => player.seek(0)} style={styles.skipButton}>
+                <FontAwesome5 name="step-backward" size={18} color={C.text} iconStyle="solid" />
               </Pressable>
-            </Animated.View>
-
-            <Pressable
-              hitSlop={14}
-              onPress={() => player.seek(player.durationRef.current)}
-              style={styles.skipButton}
-            >
-              <FontAwesome5
-                name="step-forward"
-                size={20}
-                color={C.text}
-                iconStyle="solid"
-              />
-            </Pressable>
-
-            <Pressable
-              hitSlop={14}
-              onPress={() => player.setRepeatMode((repeatMode + 1) % 3)}
-              style={[
-                styles.controlButton,
-                repeatMode > 0 && styles.controlButtonActive,
-              ]}
-            >
-              <View style={styles.repeatIconContainer}>
-                <FontAwesome5
-                  name="redo"
-                  size={16}
-                  color={repeatMode > 0 ? C.accent : C.sub}
-                  iconStyle="solid"
-                />
-                {repeatMode === 2 && (
-                  <Text style={styles.repeatOneLabel}>1</Text>
-                )}
-              </View>
-            </Pressable>
-          </View>
-
-          <View style={styles.statsSection}>
-            <View style={styles.statItem}>
-              <FontAwesome5
-                name="heart"
-                size={16}
-                color={C.sub}
-                iconStyle="solid"
-              />
-              <Text style={styles.statLabel}>
-                {audio.likes?.length ?? 0} lượt thích
-              </Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <FontAwesome5
-                name="tag"
-                size={16}
-                color={C.sub}
-                iconStyle="solid"
-              />
-              <Text style={styles.statLabel} numberOfLines={1}>
-                {audio.category ?? 'Chưa phân loại'}
-              </Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <FontAwesome5
-                name="clock"
-                size={16}
-                color={C.sub}
-                iconStyle="solid"
-              />
-              <Text style={styles.statLabel}>
-                {audio.duration ? fmt(audio.duration) : fmt(duration)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.similarSection}>
-            <View style={styles.similarHeader}>
-              <Text style={styles.similarTitle}>Bài hát tương tự</Text>
-              <Pressable onPress={() => navigation.navigate('Home')}>
-                <Text style={styles.seeAll}>Xem tất cả</Text>
-              </Pressable>
-            </View>
-
-            {similarLoading ? (
-              <ActivityIndicator
-                color={C.accent}
-                style={{ paddingVertical: 32 }}
-              />
-            ) : similarTracks.length === 0 ? (
-              <View style={styles.similarEmpty}>
-                <FontAwesome5
-                  name="music"
-                  size={28}
-                  color={C.line}
-                  iconStyle="solid"
-                />
-                <Text style={styles.similarEmptyText}>
-                  Không có bài hát tương tự
-                </Text>
-              </View>
-            ) : (
-              similarTracks.map((item, index) => {
-                const itemPoster =
-                  typeof item.poster === 'string'
-                    ? item.poster
-                    : (item.poster as any)?.url ?? item.image ?? '';
-                return (
-                  <Pressable
-                    key={item._id}
-                    style={[
-                      styles.trackRow,
-                      index < similarTracks.length - 1 && styles.trackRowBorder,
-                    ]}
-                    onPress={() =>
-                      navigation.replace('MusicPlayer', { audio: item })
-                    }
-                  >
-                    <View style={styles.trackIndexWrap}>
-                      <Text style={styles.trackIndex}>{index + 1}</Text>
-                    </View>
-                    <View style={styles.trackThumbWrap}>
-                      {itemPoster ? (
-                        <Image
-                          source={{ uri: itemPoster }}
-                          style={styles.trackThumbImg}
-                        />
-                      ) : (
-                        <View
-                          style={[styles.trackThumbImg, styles.trackThumbEmpty]}
-                        >
-                          <FontAwesome5
-                            name="music"
-                            size={14}
-                            color={C.line}
-                            iconStyle="solid"
-                          />
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.trackInfo}>
-                      <Text style={styles.trackTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <View style={styles.trackMeta}>
-                        <FontAwesome5
-                          name="tag"
-                          size={10}
-                          color={C.sub}
-                          iconStyle="solid"
-                        />
-                        <Text style={styles.trackCategory} numberOfLines={1}>
-                          {item.category ?? 'Khác'}
-                        </Text>
-                        {item.likes && item.likes.length > 0 && (
-                          <>
-                            <View style={styles.trackMetaDot} />
-                            <FontAwesome5
-                              name="heart"
-                              size={10}
-                              color={C.sub}
-                              iconStyle="solid"
-                            />
-                            <Text style={styles.trackCategory}>
-                              {item.likes.length}
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
+              <Animated.View style={{ transform: [{ scale: scalePlay }] }}>
+                <Pressable style={styles.playButton} onPress={tapPlay}>
+                  {isLoading ? (
+                    <ActivityIndicator color={C.bg} size={20} />
+                  ) : (
                     <FontAwesome5
-                      name="play-circle"
-                      size={20}
-                      color={C.accent}
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={22}
+                      color={C.bg}
                       iconStyle="solid"
+                      style={isPlaying ? undefined : { marginLeft: 3 }}
                     />
-                  </Pressable>
-                );
-              })
-            )}
+                  )}
+                </Pressable>
+              </Animated.View>
+              <Pressable hitSlop={14} onPress={() => player.seek(player.durationRef.current)} style={styles.skipButton}>
+                <FontAwesome5 name="step-forward" size={18} color={C.text} iconStyle="solid" />
+              </Pressable>
+            </View>
           </View>
-        </ScrollView>
-      </Animated.View>
+        </View>
+      </PagerView>
     </SafeAreaView>
   );
 };
@@ -632,29 +518,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  statusPlaying: {
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderColor: 'rgba(34,197,94,0.3)',
-  },
-  statusPaused: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
-  },
-  statusText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
+  pageDots: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.line },
+  dotActive: { width: 20, backgroundColor: C.accent },
   artContainer: {
     alignSelf: 'center',
     marginBottom: 28,
@@ -877,6 +743,45 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
     backgroundColor: C.sub,
     marginHorizontal: 2,
+  },
+  lyricsHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12,
+    alignItems: 'center',
+  },
+  lyricsTitle: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.text,
+    textAlign: 'center',
+  },
+  lyricsArtist: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '400',
+    color: C.sub,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  lyricsControls: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    paddingTop: 8,
+    backgroundColor: C.bg,
+  },
+  miniTrackContainer: { height: 28, justifyContent: 'center', marginBottom: 4 },
+  miniTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  miniButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
   },
 });
 

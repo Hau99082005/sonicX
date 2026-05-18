@@ -1,4 +1,4 @@
-import { createAudio, deleteAudio, getAudio, getLatestUploads, getSimilarAudios, updateAudio } from "#/controllers/audio";
+import { createAudio, deleteAudio, getAudio, getLatestUploads, getLyrics, getSimilarAudios, updateAudio } from "#/controllers/audio";
 import { isVerified, mustAuth } from "#/middleware/auth";
 import fileParser from "#/middleware/fileParser";
 import { validate } from "#/middleware/validator";
@@ -36,5 +36,7 @@ router.delete("/:audioId",
 router.get("/latest", getLatestUploads);
 
 router.get("/similar/:audioId", mustAuth, getSimilarAudios);
+
+router.get("/:audioId/lyrics", mustAuth, getLyrics);
 
 export default router;

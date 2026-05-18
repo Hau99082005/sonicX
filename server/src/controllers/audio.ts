@@ -159,6 +159,13 @@ export const getSimilarAudios: RequestHandler = async (req, res) => {
     res.json({ audios });
 };
 
+export const getLyrics: RequestHandler = async (req, res) => {
+    const { audioId } = req.params;
+    const audio = await Audio.findById(audioId).select('lyrics');
+    if (!audio) return res.status(404).json({ error: 'Không tìm thấy bài hát!' });
+    res.json({ lyrics: audio.lyrics ?? null });
+};
+
 export const getLatestUploads: RequestHandler = async (req, res) => {
     const list = await Audio.find().sort("-createdAt")
         .limit(10).populate<PopulateFavList>("owner");

@@ -16,7 +16,8 @@ export interface AudioDocument<T = Types.ObjectId> {
     }
     likes: Types.ObjectId[];
     category: CategoriesType;
-    createdAt: Date,
+    createdAt: Date;
+    lyrics?: string;
 }
 
 const AudioSchema = new Schema<AudioDocument>({
@@ -51,6 +52,10 @@ const AudioSchema = new Schema<AudioDocument>({
         type: String,
         enum: categories,
         default: "Others"
+    },
+    lyrics: {
+        type: String,
+        required: false,
     }
 }, { timestamps: true });
 

@@ -5,6 +5,11 @@ export interface AudioOwner {
   id: string;
 }
 
+export interface LyricLine {
+  time: number;
+  text: string;
+}
+
 export interface Audio {
   _id: string;
   title: string;
@@ -18,6 +23,7 @@ export interface Audio {
   likes?: string[];
   category?: string;
   createdAt?: string;
+  lyrics?: LyricLine[] | string;
 }
 
 export interface Playlist {
@@ -60,3 +66,6 @@ export const getSimilarAudios = (audioId: string, category?: string) =>
 export const getProfile = () => client.get('/auth/user');
 
 export const updateProfile = (data: any) => client.post('/auth/user', data);
+
+export const getLyrics = (audioId: string) =>
+  client.get<{ lyrics: LyricLine[] | string | null }>(`/audio/${audioId}/lyrics`);
