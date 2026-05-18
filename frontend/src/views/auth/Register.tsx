@@ -26,17 +26,17 @@ import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 const registerSchema = yup.object({
   name: yup
     .string()
-    .trim('Vui lòng nhập vào họ tên')
+    .trim()
     .min(3, 'Invalid name!')
     .required('Name is required!'),
   email: yup
     .string()
-    .trim('Vui lòng nhập vào email của bạn')
+    .trim()
     .email('Invalid email!')
     .required('Email is required!'),
   password: yup
     .string()
-    .trim('Vui lòng nhập vào mật khẩu của bạn')
+    .trim()
     .min(8, 'Mật khẩu không được quá ngắn!')
     .matches(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
@@ -47,7 +47,6 @@ const registerSchema = yup.object({
 
 interface Props {}
 const initialValues = { name: '', email: '', password: '' };
-
 const BLUE_LIGHT = '#1E88E5';
 
 const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
@@ -78,12 +77,7 @@ const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
 
   const borderColor = glow.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#DDE3EA', '#EA433540'],
-  });
-
-  const shadowOpacity = glow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.06, 0.18],
+    outputRange: ['#DDE3EA', '#EA433580'],
   });
 
   return (
@@ -107,24 +101,17 @@ const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
         }).start()
       }
     >
-      <Animated.View
-        style={[
-          styles.googleBtn,
-          {
-            transform: [{ scale }],
-            borderColor,
-            shadowOpacity,
-          },
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color="#EA4335" />
-        ) : (
-          <GoogleIcon size={22} />
-        )}
-        <Text style={styles.googleBtnText}>
-          {loading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
-        </Text>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Animated.View style={[styles.googleBtn, { borderColor }]}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#EA4335" />
+          ) : (
+            <GoogleIcon size={22} />
+          )}
+          <Text style={styles.googleBtnText}>
+            {loading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
+          </Text>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
@@ -137,7 +124,7 @@ const Register: FC<Props> = () => {
   const [secureEntry, setSecureEntry] = useState(true);
   const { signInWithGoogle, loading: googleLoading } = useGoogleSignIn();
 
-  const tooglePassword = () => setSecureEntry(!secureEntry);
+  const tooglePassword = () => setSecureEntry(v => !v);
 
   useEffect(() => {
     Animated.parallel([
@@ -315,6 +302,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     shadowColor: '#EA4335',
     shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 3,
   },
