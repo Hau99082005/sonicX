@@ -113,7 +113,18 @@ export const updateAudio: RequestHandler = async (req: CreateAudioRequest, res) 
 };
 
 export const getAudio: RequestHandler = async (_req, res) => {
-    const audio = await Audio.find({}).sort({ createdAt: -1 });
+    const list = await Audio.find({}).sort({ createdAt: -1 });
+    const audio = list.map(item => ({
+        _id: item._id,
+        title: item.title,
+        about: item.about,
+        category: item.category,
+        file: item.file,
+        poster: item.poster,
+        likes: item.likes,
+        lyrics: item.lyrics,
+        createdAt: item.createdAt,
+    }));
     res.status(200).json({ audio });
 }
 
@@ -171,7 +182,7 @@ export const getLatestUploads: RequestHandler = async (req, res) => {
         .limit(10).populate<PopulateFavList>("owner");
     const audios = list.map((item) => {
         return {
-            id: item._id,
+            _id: item._id,
             title: item.title,
             about: item.about,
             category: item.category,

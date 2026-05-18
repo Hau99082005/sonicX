@@ -186,7 +186,7 @@ const Home = ({ navigation }: any) => {
                     const isActive = player.currentAudio?._id === item._id;
                     return (
                       <Pressable
-                        key={item._id}
+                        key={String(item._id)}
                         style={styles.recentCard}
                         onPress={() => handlePlay(item)}
                       >
@@ -224,7 +224,7 @@ const Home = ({ navigation }: any) => {
                     const isActive = player.currentAudio?._id === item._id;
                     return (
                       <Pressable
-                        key={item._id}
+                        key={String(item._id)}
                         style={[styles.recommendCard, isActive && styles.recommendCardActive]}
                         onPress={() => handlePlay(item)}
                       >

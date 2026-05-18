@@ -412,7 +412,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
                     const itemPoster = typeof item.poster === 'string' ? item.poster : (item.poster as any)?.url ?? item.image ?? '';
                     return (
                       <Pressable
-                        key={item._id}
+                        key={String(item._id)}
                         style={[styles.trackRow, index < similarTracks.length - 1 && styles.trackRowBorder]}
                         onPress={() => navigation.replace('MusicPlayer', { audio: item })}
                       >
