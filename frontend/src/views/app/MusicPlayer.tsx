@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import Video from 'react-native-video';
-import { Audio, addFavorite, removeFavorite } from '@api/music';
+import { Audio, addFavorite, removeFavorite, getSimilarAudios } from '@api/music';
 import { RouteProp } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
@@ -100,6 +100,8 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   const [isShuffle, setIsShuffle] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [similarTracks, setSimilarTracks] = useState<Audio[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(true);
 
   const fadeArt = useRef(new Animated.Value(0)).current;
   const scaleArt = useRef(new Animated.Value(0.96)).current;
@@ -165,8 +167,14 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
       : (audio.poster as any)?.url ?? audio.image ?? '';
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeArt, {
+    getSimilarAudios(audio._id, audio.category)
+      .then(res => setSimilarTracks(res.data.audios ?? []))
+      .catch(() => setSimilarTracks([]))
+      .finally(() => setSimilarLoading(false));
+  }, [audio._id, audio.category]);
+
+  useEffect(() => {
+    Animated.parallel([      Animated.timing(fadeArt, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
@@ -414,13 +422,13 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
                 <View
                   style={[styles.trackProgress, { width: `${pct * 100}%` }]}
                 />
+                <View
+                  style={[
+                    styles.trackThumb,
+                    { left: `${Math.min(pct * 100, 97)}%` as any },
+                  ]}
+                />
               </View>
-              <View
-                style={[
-                  styles.trackThumb,
-                  { left: `${Math.min(pct * 100, 97)}%` as any },
-                ]}
-              />
             </View>
             <View style={styles.timeContainer}>
               <Text style={styles.timeText}>{fmt(position)}</Text>
@@ -553,19 +561,68 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.similarSection}>
             <View style={styles.similarHeader}>
               <Text style={styles.similarTitle}>Bài hát tương tự</Text>
-              <Pressable>
+              <Pressable onPress={() => navigation.navigate('Home')}>
                 <Text style={styles.seeAll}>Xem tất cả</Text>
               </Pressable>
             </View>
-            <View style={styles.similarPlaceholder}>
-              <FontAwesome5
-                name="music"
-                size={32}
-                color={C.line}
-                iconStyle="solid"
-              />
-              <Text style={styles.placeholderText}>Đang tải bài hát...</Text>
-            </View>
+
+            {similarLoading ? (
+              <ActivityIndicator color={C.accent} style={{ paddingVertical: 32 }} />
+            ) : similarTracks.length === 0 ? (
+              <View style={styles.similarEmpty}>
+                <FontAwesome5 name="music" size={28} color={C.line} iconStyle="solid" />
+                <Text style={styles.similarEmptyText}>Không có bài hát tương tự</Text>
+              </View>
+            ) : (
+              similarTracks.map((item, index) => {
+                const itemPoster =
+                  typeof item.poster === 'string'
+                    ? item.poster
+                    : (item.poster as any)?.url ?? item.image ?? '';
+                return (
+                  <Pressable
+                    key={item._id}
+                    style={[
+                      styles.trackRow,
+                      index < similarTracks.length - 1 && styles.trackRowBorder,
+                    ]}
+                    onPress={() => navigation.replace('MusicPlayer', { audio: item })}
+                  >
+                    <View style={styles.trackIndexWrap}>
+                      <Text style={styles.trackIndex}>{index + 1}</Text>
+                    </View>
+                    <View style={styles.trackThumbWrap}>
+                      {itemPoster ? (
+                        <Image source={{ uri: itemPoster }} style={styles.trackThumbImg} />
+                      ) : (
+                        <View style={[styles.trackThumbImg, styles.trackThumbEmpty]}>
+                          <FontAwesome5 name="music" size={14} color={C.line} iconStyle="solid" />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.trackInfo}>
+                      <Text style={styles.trackTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <View style={styles.trackMeta}>
+                        <FontAwesome5 name="tag" size={10} color={C.sub} iconStyle="solid" />
+                        <Text style={styles.trackCategory} numberOfLines={1}>
+                          {item.category ?? 'Khác'}
+                        </Text>
+                        {item.likes && item.likes.length > 0 && (
+                          <>
+                            <View style={styles.trackMetaDot} />
+                            <FontAwesome5 name="heart" size={10} color={C.sub} iconStyle="solid" />
+                            <Text style={styles.trackCategory}>{item.likes.length}</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                    <FontAwesome5 name="play-circle" size={20} color={C.accent} iconStyle="solid" />
+                  </Pressable>
+                );
+              })
+            )}
           </View>
         </ScrollView>
       </Animated.View>
@@ -667,8 +724,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   trackContainer: {
-    paddingVertical: 14,
-    marginVertical: -14,
+    height: 28,
     justifyContent: 'center',
   },
   trackBar: {
@@ -687,7 +743,8 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     backgroundColor: C.text,
-    top: 7,
+    top: '50%' as any,
+    marginTop: -7,
     marginLeft: -7,
   },
   timeContainer: {
@@ -697,8 +754,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   timeText: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter',
     fontSize: 11,
+    fontWeight: '500',
     color: C.sub,
   },
   controlsSection: {
@@ -752,8 +810,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statLabel: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter',
     fontSize: 12,
+    fontWeight: '500',
     color: C.sub,
   },
   statDivider: {
@@ -797,7 +856,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   placeholderText: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter',
     fontSize: 13,
     color: C.sub,
   },
@@ -807,11 +866,90 @@ const styles = StyleSheet.create({
   },
   repeatOneLabel: {
     position: 'absolute',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter',
     fontSize: 8,
+    fontWeight: '700',
     color: C.accent,
     bottom: -6,
     right: -6,
+  },
+  similarEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  similarEmptyText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '400',
+    color: C.sub,
+  },
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  trackRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.line,
+  },
+  trackIndexWrap: {
+    width: 20,
+    alignItems: 'center',
+  },
+  trackIndex: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '500',
+    color: C.sub,
+  },
+  trackThumbWrap: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trackThumbImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.surface,
+  },
+  trackThumbEmpty: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trackInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  trackTitle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+    lineHeight: 20,
+  },
+  trackMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trackCategory: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '400',
+    color: C.sub,
+  },
+  trackMetaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: C.sub,
+    marginHorizontal: 2,
   },
 });
 

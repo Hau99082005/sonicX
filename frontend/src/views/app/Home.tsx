@@ -8,41 +8,48 @@ import {
   Pressable,
   ActivityIndicator,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import { getLatestMusic, Audio } from '@api/music';
+import { getUser } from '@utils/storage';
 import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
-const CARD_SIZE = (width - 20 * 2 - 12) / 2;
+const RECENT_CARD = (width - 20 * 2 - 12 * 2) / 3;
 
-const COLORS = {
-  primary: '#6C63FF',
-  primaryDim: 'rgba(108,99,255,0.15)',
-  background: '#0A0D14',
-  surface: '#13172A',
-  surfaceAlt: '#1A1E30',
-  border: '#1E2235',
-  text: '#F1F5F9',
-  textSecondary: '#64748B',
-  overlay: 'rgba(0,0,0,0.45)',
-  accent: '#FF6584',
+const C = {
+  bg: '#0D0F1E',
+  surface: '#161829',
+  border: '#1E2140',
+  text: '#FFFFFF',
+  sub: '#8A8FAD',
+  accent: '#6C63FF',
+  gold: '#F59E0B',
 };
 
 const Home = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [audios, setAudios] = useState<Audio[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => { loadMusic(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const loadMusic = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const response = await getLatestMusic();
-      setAudios(response.data.audio ?? []);
+      const [userData, musicRes] = await Promise.all([
+        getUser(),
+        getLatestMusic(),
+      ]);
+      setUser(userData);
+      setAudios(musicRes.data.audio ?? []);
     } catch {
-      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể tải dữ liệu nhạc', visibilityTime: 3000 });
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể tải dữ liệu', visibilityTime: 3000 });
     } finally {
       setLoading(false);
     }
@@ -50,119 +57,150 @@ const Home = ({ navigation }: any) => {
 
   const handlePlay = (audio: Audio) => navigation.navigate('MusicPlayer', { audio });
 
-  const FeaturedCard = ({ audio }: { audio: Audio }) => (
-    <Pressable onPress={() => handlePlay(audio)} style={styles.featuredCard}>
-      <Image
-        source={{ uri: audio.poster?.url || audio.image || 'https://via.placeholder.com/400' }}
-        style={styles.featuredImage}
-      />
-      <View style={styles.featuredOverlay} />
-      <View style={styles.featuredContent}>
-        <View style={styles.featuredBadge}>
-          <Text style={styles.featuredBadgeText}>MỚI NHẤT</Text>
-        </View>
-        <Text style={styles.featuredTitle} numberOfLines={2}>{audio.title}</Text>
-        <Text style={styles.featuredArtist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
-        <View style={styles.featuredPlayBtn}>
-          <FontAwesome5 name="play" iconStyle="solid" size={14} color="#fff" />
-          <Text style={styles.featuredPlayText}>Phát ngay</Text>
-        </View>
-      </View>
-    </Pressable>
-  );
+  const getPoster = (audio: Audio) =>
+    typeof audio.poster === 'string'
+      ? audio.poster
+      : (audio.poster as any)?.url ?? audio.image ?? '';
 
-  const GridCard = ({ audio }: { audio: Audio }) => (
-    <Pressable onPress={() => handlePlay(audio)} style={styles.gridCard}>
-      <Image
-        source={{ uri: audio.poster?.url || audio.image || 'https://via.placeholder.com/200' }}
-        style={styles.gridImage}
-      />
-      <View style={styles.gridOverlay}>
-        <View style={styles.gridPlayIcon}>
-          <FontAwesome5 name="play" iconStyle="solid" size={12} color="#fff" />
-        </View>
-      </View>
-      <View style={styles.gridInfo}>
-        <Text style={styles.gridTitle} numberOfLines={1}>{audio.title}</Text>
-        <Text style={styles.gridArtist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
-      </View>
-    </Pressable>
-  );
+  const formatStreams = (n: number) => {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k / lượt nghe`;
+    return `${n} / lượt nghe`;
+  };
 
-  const RowCard = ({ audio }: { audio: Audio }) => (
-    <Pressable onPress={() => handlePlay(audio)} style={styles.rowCard}>
-      <Image
-        source={{ uri: audio.poster?.url || audio.image || 'https://via.placeholder.com/100' }}
-        style={styles.rowImage}
-      />
-      <View style={styles.rowInfo}>
-        <Text style={styles.rowTitle} numberOfLines={1}>{audio.title}</Text>
-        <Text style={styles.rowArtist} numberOfLines={1}>{audio.about || 'SonicX'}</Text>
-      </View>
-      <Pressable style={styles.rowPlayBtn} onPress={() => handlePlay(audio)}>
-        <FontAwesome5 name="play" iconStyle="solid" size={12} color={COLORS.primary} />
-      </Pressable>
-    </Pressable>
-  );
-
-  const gridItems = audios.slice(1, 5);
-  const listItems = audios.slice(5);
+  const recentTracks = audios.slice(0, 3);
+  const recommended = audios.slice(3);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerSub}>Chào mừng trở lại</Text>
-            <Text style={styles.headerTitle}>Khám phá âm nhạc</Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate('Profile')} style={styles.avatarBtn}>
-            <View style={styles.avatarCircle}>
-              <FontAwesome5 name="user" iconStyle="solid" size={16} color={COLORS.primary} />
+          <Pressable
+            style={styles.avatarWrap}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Image
+              source={{
+                uri:
+                  user?.avatar ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=1E2235&color=F1F5F9&size=200`,
+              }}
+              style={styles.avatar}
+            />
+          </Pressable>
+
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerName}>{user?.name ?? 'Người dùng'}</Text>
+            <View style={styles.memberRow}>
+              <FontAwesome5 name="star" iconStyle="solid" size={10} color={C.gold} />
+              <Text style={styles.memberText}>Thành viên Vàng</Text>
             </View>
+          </View>
+
+          <Pressable style={styles.bellBtn} hitSlop={10}>
+            <FontAwesome5 name="bell" iconStyle="regular" size={20} color={C.text} />
           </Pressable>
         </View>
 
+        <View style={styles.heroRow}>
+          <View style={styles.heroTextWrap}>
+            <Text style={styles.heroTitle}>Nghe những</Text>
+            <Text style={styles.heroTitle}>bản nhạc mới</Text>
+          </View>
+          <View style={styles.searchBox}>
+            <FontAwesome5 name="search" iconStyle="solid" size={13} color={C.sub} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm"
+              placeholderTextColor={C.sub}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+            />
+          </View>
+        </View>
+
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
+          <ActivityIndicator color={C.accent} style={styles.loader} />
         ) : (
           <>
-            {audios[0] && (
+            {recentTracks.length > 0 && (
               <View style={styles.section}>
-                <FeaturedCard audio={audios[0]} />
+                <Text style={styles.sectionTitle}>Nghe gần đây</Text>
+                <View style={styles.recentRow}>
+                  {recentTracks.map(item => {
+                    const poster = getPoster(item);
+                    return (
+                      <Pressable
+                        key={item._id}
+                        style={styles.recentCard}
+                        onPress={() => handlePlay(item)}
+                      >
+                        <View style={styles.recentImgWrap}>
+                          {poster ? (
+                            <Image source={{ uri: poster }} style={styles.recentImg} />
+                          ) : (
+                            <View style={[styles.recentImg, styles.recentImgEmpty]}>
+                              <FontAwesome5 name="music" iconStyle="solid" size={22} color={C.border} />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.recentTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             )}
 
-            {gridItems.length > 0 && (
+            {recommended.length > 0 && (
               <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Nghe gần đây</Text>
-                  <Pressable onPress={() => navigation.navigate('AllMusic')}>
-                    <Text style={styles.seeAll}>Xem tất cả</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.grid}>
-                  {gridItems.map(item => (
-                    <GridCard key={item._id} audio={item} />
-                  ))}
+                <Text style={styles.sectionTitle}>Gợi ý cho bạn</Text>
+                <View style={styles.recommendList}>
+                  {recommended.map(item => {
+                    const poster = getPoster(item);
+                    const streams = item.likes?.length ?? 0;
+                    return (
+                      <Pressable
+                        key={item._id}
+                        style={styles.recommendCard}
+                        onPress={() => handlePlay(item)}
+                      >
+                        <View style={styles.recommendImgWrap}>
+                          {poster ? (
+                            <Image source={{ uri: poster }} style={styles.recommendImg} />
+                          ) : (
+                            <View style={[styles.recommendImg, styles.recommendImgEmpty]}>
+                              <FontAwesome5 name="music" iconStyle="solid" size={28} color={C.border} />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.recommendInfo}>
+                          <Text style={styles.recommendTitle} numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          <Text style={styles.recommendArtist} numberOfLines={1}>
+                            {item.about || 'SonicX'}
+                          </Text>
+                          <Text style={styles.recommendStreams}>
+                            {formatStreams(streams)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             )}
 
-            {listItems.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Gợi ý cho bạn</Text>
-                  <Pressable onPress={() => navigation.navigate('AllMusic')}>
-                    <Text style={styles.seeAll}>Xem tất cả</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.rowList}>
-                  {listItems.map(item => (
-                    <RowCard key={item._id} audio={item} />
-                  ))}
-                </View>
+            {audios.length === 0 && (
+              <View style={styles.emptyWrap}>
+                <FontAwesome5 name="music" iconStyle="solid" size={40} color={C.border} />
+                <Text style={styles.emptyText}>Chưa có bài hát nào</Text>
               </View>
             )}
           </>
@@ -173,218 +211,210 @@ const Home = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.bg,
   },
   scrollContent: {
     paddingBottom: 110,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 8,
+    gap: 12,
   },
-  headerSub: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 3,
+  avatarWrap: {
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  headerTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 24,
-    color: COLORS.text,
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: C.surface,
+    borderWidth: 2,
+    borderColor: C.accent,
   },
-  avatarBtn: {},
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.primaryDim,
+  headerInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  headerName: {
+    fontFamily: 'Inter',
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+    lineHeight: 20,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  memberText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '400',
+    color: C.gold,
+  },
+  bellBtn: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    gap: 16,
+  },
+  heroTextWrap: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontFamily: 'Inter',
+    fontSize: 26,
+    fontWeight: '800',
+    color: C.text,
+    lineHeight: 34,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+    width: 140,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: C.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '400',
+    color: C.text,
+    padding: 0,
   },
   loader: {
     marginTop: 80,
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 28,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 17,
-    color: COLORS.text,
+    fontFamily: 'Inter',
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.text,
+    marginBottom: 18,
   },
-  seeAll: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: COLORS.primary,
-  },
-  featuredCard: {
-    width: '100%',
-    height: 220,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-  },
-  featuredImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  featuredOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  featuredContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 18,
-  },
-  featuredBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  featuredBadgeText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 10,
-    color: '#fff',
-    letterSpacing: 1,
-  },
-  featuredTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#fff',
-    marginBottom: 4,
-  },
-  featuredArtist: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 12,
-  },
-  featuredPlayBtn: {
+  recentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-  },
-  featuredPlayText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 13,
-    color: '#fff',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
-  gridCard: {
-    width: CARD_SIZE,
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    overflow: 'hidden',
+  recentCard: {
+    width: RECENT_CARD,
+    alignItems: 'center',
+    gap: 10,
   },
-  gridImage: {
-    width: '100%',
-    height: CARD_SIZE,
-    resizeMode: 'cover',
+  recentImgWrap: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  gridOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: CARD_SIZE,
+  recentImg: {
+    width: RECENT_CARD,
+    height: RECENT_CARD,
+    borderRadius: 12,
+    backgroundColor: C.surface,
+  },
+  recentImgEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.overlay,
   },
-  gridPlayIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingLeft: 3,
-  },
-  gridInfo: {
-    padding: 10,
-  },
-  gridTitle: {
-    fontFamily: 'Inter-SemiBold',
+  recentTitle: {
+    fontFamily: 'Inter',
     fontSize: 13,
-    color: COLORS.text,
-    marginBottom: 3,
+    fontWeight: '500',
+    color: C.text,
+    textAlign: 'center',
+    lineHeight: 18,
   },
-  gridArtist: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 11,
-    color: COLORS.textSecondary,
+  recommendList: {
+    gap: 20,
   },
-  rowList: {
-    gap: 2,
-  },
-  rowCard: {
+  recommendCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    gap: 16,
   },
-  rowImage: {
-    width: 54,
-    height: 54,
+  recommendImgWrap: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  recommendImg: {
+    width: 72,
+    height: 72,
     borderRadius: 10,
-    backgroundColor: COLORS.surface,
+    backgroundColor: C.surface,
   },
-  rowInfo: {
-    flex: 1,
-    paddingHorizontal: 14,
-  },
-  rowTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  rowArtist: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  rowPlayBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primaryDim,
+  recommendImgEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 2,
+  },
+  recommendInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  recommendTitle: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.text,
+    lineHeight: 22,
+  },
+  recommendArtist: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '400',
+    color: C.sub,
+    lineHeight: 18,
+  },
+  recommendStreams: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '400',
+    color: C.sub,
+    lineHeight: 17,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingTop: 80,
+    gap: 14,
+  },
+  emptyText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '400',
+    color: C.sub,
   },
 });
 

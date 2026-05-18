@@ -47,6 +47,11 @@ export const createPlaylist = (title: string) =>
 export const addToPlaylist = (playlistId: string, audioId: string) =>
   client.post(`/playlist/${playlistId}`, { audioId });
 
+export const getSimilarAudios = (audioId: string, category?: string) =>
+  client.get<{ audios: Audio[] }>(
+    `/audio/similar/${audioId}${category ? `?category=${encodeURIComponent(category)}` : ''}`,
+  );
+
 export const getProfile = () => client.get('/auth/user');
 
 export const updateProfile = (data: any) => client.post('/auth/user', data);

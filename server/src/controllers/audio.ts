@@ -132,6 +132,33 @@ export const deleteAudio: RequestHandler = async (req, res) => {
     res.status(200).json({ message: "Âm thanh đã được xóa thành công!", audioId });
 }
 
+export const getSimilarAudios: RequestHandler = async (req, res) => {
+    const { audioId } = req.params;
+    const { category } = req.query as { category?: string };
+
+    const filter: Record<string, any> = { _id: { $ne: audioId } };
+    if (category) filter.category = category;
+
+    const list = await Audio.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate<PopulateFavList>('owner');
+
+    const audios = list.map(item => ({
+        _id: item._id,
+        title: item.title,
+        about: item.about,
+        category: item.category,
+        file: item.file.url,
+        poster: item.poster?.url,
+        duration: (item as any).duration,
+        likes: item.likes,
+        owner: { name: item.owner.name, id: item.owner._id },
+    }));
+
+    res.json({ audios });
+};
+
 export const getLatestUploads: RequestHandler = async (req, res) => {
     const list = await Audio.find().sort("-createdAt")
         .limit(10).populate<PopulateFavList>("owner");
