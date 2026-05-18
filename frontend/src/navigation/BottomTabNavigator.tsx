@@ -140,9 +140,9 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: C.bg,
-    height: 84,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
-    paddingTop: 10,
+    height: 116,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 18,
+    paddingTop: 14,
     alignItems: 'center',
   },
   tabItem: {
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: 44,
-    height: 28,
+    height: 30,
   },
   activeIndicator: {
     position: 'absolute',
