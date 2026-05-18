@@ -206,7 +206,7 @@ const Profile = ({ navigation }: any) => {
           ) : (
             <Pressable style={s.bioRow} onPress={() => setEditingBio(true)}>
               <Text style={s.bioText}>
-                {user?.bio || 'Thêm bio của bạn...'}
+                {user?.bio || 'Thêm giới thiệu của bạn...'}
               </Text>
               <FontAwesome5
                 name="pen"

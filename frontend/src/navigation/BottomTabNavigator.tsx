@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import Home from '../views/app/Home';
 import Library from '../views/app/Library';
+import Videos from '../views/app/Videos';
 import Favorites from '../views/app/Favorites';
 import Profile from '../views/app/Profile';
 import MiniPlayer from '../components/MiniPlayer';
@@ -15,6 +16,7 @@ import { usePlayer } from '../context/PlayerContext';
 type TabParamList = {
   Home: undefined;
   Library: undefined;
+  Videos: undefined;
   Favorites: undefined;
   Profile: undefined;
 };
@@ -22,24 +24,21 @@ type TabParamList = {
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const C = {
-  bg: '#0C0C0C',
-  border: '#1E1E1E',
+  bg: '#0D0F1E',
+  surface: '#161829',
+  border: '#1E2140',
   active: '#FFFFFF',
-  inactive: '#555555',
+  inactive: '#4A4F6A',
+  accent: '#6C63FF',
+  accentGlow: 'rgba(108,99,255,0.35)',
 };
 
-const TAB_ICONS: Record<string, string> = {
-  Home: 'home',
-  Library: 'music',
-  Favorites: 'heart',
-  Profile: 'user',
-};
-
-const TAB_LABELS: Record<string, string> = {
-  Home: 'Trang chủ',
-  Library: 'Thư viện',
-  Favorites: 'Yêu thích',
-  Profile: 'Hồ sơ',
+const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
+  Home: { icon: 'home', label: 'Trang chủ' },
+  Library: { icon: 'music', label: 'Thư viện' },
+  Videos: { icon: 'play-circle', label: 'Video' },
+  Favorites: { icon: 'heart', label: 'Yêu thích' },
+  Profile: { icon: 'user', label: 'Hồ sơ' },
 };
 
 const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
@@ -54,24 +53,61 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
       <View style={styles.tabBar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
-          const color = isFocused ? C.active : C.inactive;
+          const isCenter = route.name === 'Videos';
+          const cfg = TAB_CONFIG[route.name];
 
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
           };
 
+          if (isCenter) {
+            return (
+              <View key={route.key} style={styles.centerTabWrap}>
+                <TouchableOpacity
+                  style={[styles.centerBtn, isFocused && styles.centerBtnActive]}
+                  onPress={onPress}
+                  activeOpacity={0.85}
+                >
+                  <FontAwesome5
+                    name="play-circle"
+                    iconStyle="solid"
+                    size={26}
+                    color="#fff"
+                  />
+                </TouchableOpacity>
+                <Text style={[styles.centerLabel, isFocused && { color: C.accent }]}>
+                  {cfg.label}
+                </Text>
+              </View>
+            );
+          }
+
+          const color = isFocused ? C.active : C.inactive;
+
           return (
-            <TouchableOpacity key={route.key} style={styles.tabItem} onPress={onPress} activeOpacity={0.7}>
-              <FontAwesome5
-                name={TAB_ICONS[route.name] as any}
-                iconStyle="solid"
-                size={18}
-                color={color}
-              />
-              <Text style={[styles.tabLabel, { color }]}>{TAB_LABELS[route.name]}</Text>
+            <TouchableOpacity
+              key={route.key}
+              style={styles.tabItem}
+              onPress={onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.tabIconWrap}>
+                {isFocused && <View style={styles.activeIndicator} />}
+                <FontAwesome5
+                  name={cfg.icon as any}
+                  iconStyle="solid"
+                  size={18}
+                  color={color}
+                />
+              </View>
+              <Text style={[styles.tabLabel, { color }]}>{cfg.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -89,6 +125,7 @@ const BottomTabNavigator = () => (
   >
     <Tab.Screen name="Home" component={Home} />
     <Tab.Screen name="Library" component={Library} />
+    <Tab.Screen name="Videos" component={Videos} />
     <Tab.Screen name="Favorites" component={Favorites} />
     <Tab.Screen name="Profile" component={Profile} />
   </Tab.Navigator>
@@ -97,27 +134,72 @@ const BottomTabNavigator = () => (
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: C.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
   },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: C.bg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
-    height: 80,
-    paddingBottom: 16,
+    height: 84,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
     paddingTop: 10,
+    alignItems: 'center',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 5,
+  },
+  tabIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 28,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: C.accent,
   },
   tabLabel: {
     fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '400',
-    marginTop: 2,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  centerTabWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  centerBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  centerBtnActive: {
+    backgroundColor: '#7C75FF',
+    shadowOpacity: 0.7,
+  },
+  centerLabel: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    fontWeight: '500',
+    color: C.inactive,
+    letterSpacing: 0.2,
   },
 });
 
