@@ -17,6 +17,7 @@ import { getProfile, getFavoriteMusic, updateProfile } from '@api/music';
 import { getUser, clearStorage } from '@utils/storage';
 import Toast from 'react-native-toast-message';
 import { appLogout } from '../../../App';
+import { usePlayer } from '../../context/PlayerContext';
 
 const C = {
   bg: '#0D0F1E',
@@ -43,6 +44,7 @@ const Profile = ({ navigation }: any) => {
   const [bioValue, setBioValue] = useState('');
   const [savingBio, setSavingBio] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { stopAndReset } = usePlayer();
 
   useEffect(() => {
     loadProfile();
@@ -97,6 +99,7 @@ const Profile = ({ navigation }: any) => {
 
   const handleLogout = async () => {
     try {
+      stopAndReset();
       await clearStorage();
       setTimeout(() => appLogout(), 300);
     } catch {

@@ -14,6 +14,7 @@ module.exports = {
           '@api': './src/api',
           '@navigation': './src/navigation',
           '@context': './src/context',
+          '@hooks': './src/hooks',
           src: './src',
         },
       },

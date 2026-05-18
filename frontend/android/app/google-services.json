@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "739589186628",
+    "project_id": "sonicx-aafee",
+    "storage_bucket": "sonicx-aafee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739589186628:android:06f1de79e2c20a5ea74811",
+        "android_client_info": {
+          "package_name": "com.frontend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "739589186628-6d69h4pqnjm4cuo3e0tq35p9re0ev4jo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.frontend",
+            "certificate_hash": "84d1f02a16061ed758351594cf593d0ed74665b5"
+          }
+        },
+        {
+          "client_id": "739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgqAbK6brFKJ7KEyvmrJQkz4IM7R2CgB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

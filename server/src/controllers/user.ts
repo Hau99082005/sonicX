@@ -13,6 +13,7 @@ import {
 } from "#/utils/mail";
 import { CreateUserSchema } from "#/utils/validationSchema";
 import { RequestHandler } from "express";
+import axios from "axios";
 import { isValidObjectId } from "mongoose";
 import passwordResetToken from "#/models/passwordResetToken";
 import crypto from "crypto";
@@ -24,7 +25,6 @@ import {
 import jwt from "jsonwebtoken";
 import cloudinary from "#/cloud";
 import formidable from "formidable";
-import { auth as adminAuth } from "#/firebase/server";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
   try {
@@ -255,13 +255,22 @@ export const googleSignIn: RequestHandler = async (req, res) => {
   if (!idToken) return res.status(422).json({ error: "idToken is required!" });
 
   try {
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { email, name, picture } = decodedToken;
+    const response = await axios.get(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+    );
+    const { email, name, picture, aud, email_verified } = response.data;
 
-    if (!email)
-      return res
-        .status(422)
-        .json({ error: "Google account must have an email!" });
+    if (!email) {
+      return res.status(422).json({ error: "Google account must have an email!" });
+    }
+
+    const validAudiences = [
+      "739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com",
+      "739589186628-6d69h4pqnjm4cuo3e0tq35p9re0ev4jo.apps.googleusercontent.com",
+    ];
+    if (!validAudiences.includes(aud)) {
+      return res.status(401).json({ error: "Invalid token audience!" });
+    }
 
     let user = await User.findOne({ email });
     let isNewUser = false;

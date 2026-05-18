@@ -37,3 +37,6 @@ export const verifyEmail = (data: {token: string; userId: string}) =>
 
 export const resendVerification = (data: {userId: string}) =>
   client.post('/auth/re-verify-email', data);
+
+export const googleSignInApi = (idToken: string) =>
+  client.post<LoginResponse & { message?: string }>('/auth/google-sign-in', { idToken });

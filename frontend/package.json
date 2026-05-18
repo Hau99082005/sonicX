@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "adb reverse tcp:8081 tcp:8081 & react-native run-android",
+    "android": "adb -s VGXSGIOBHULNN7FM reverse tcp:8081 tcp:8081 & react-native run-android --deviceId VGXSGIOBHULNN7FM",
     "android:start": "concurrently \"react-native start\" \"react-native run-android\"",
     "ios": "react-native run-ios",
     "lint": "eslint .",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/blur": "4.4.1",
+    "@react-native-google-signin/google-signin": "^14.0.1",
     "@react-native-vector-icons/fontawesome5": "13.1.1",
     "@react-native/new-app-screen": "0.85.3",
     "@react-navigation/bottom-tabs": "^7.16.1",
@@ -22,6 +23,7 @@
     "formik": "^2.4.9",
     "react": "19.2.3",
     "react-native": "0.85.3",
+    "react-native-config": "^1.5.3",
     "react-native-linear-gradient": "2.8.3",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.25.0",

@@ -19,12 +19,14 @@ import {
   Text,
   Vibration,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
 import SignInBtn from '@components/form/SignInBtn';
 import Toast from 'react-native-toast-message';
 import { appLogin } from '../../../App';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 const loginSchema = yup.object({
   email: yup
@@ -86,6 +88,7 @@ const Login: FC<Props> = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const [secureEntry, setSecureEntry] = useState(true);
+  const { signInWithGoogle, loading: googleLoading } = useGoogleSignIn();
 
   const tooglePassword = () => {
     setSecureEntry(!secureEntry);
@@ -205,8 +208,10 @@ const Login: FC<Props> = () => {
               </View>
 
               <View style={styles.socialRow}>
-                <SocialButton onPress={hapticLight}>
-                  <GoogleIcon size={22} />
+                <SocialButton onPress={signInWithGoogle}>
+                  {googleLoading
+                    ? <ActivityIndicator size="small" color="#EA4335" />
+                    : <GoogleIcon size={22} />}
                 </SocialButton>
                 <SocialButton onPress={hapticLight}>
                   <AppleIcon size={22} color="#111111" />

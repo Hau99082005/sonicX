@@ -21,6 +21,7 @@ interface PlayerContextValue {
   setIsShuffle: (v: boolean) => void;
   setRate: (r: number) => void;
   setSleepTimer: (minutes: number | null) => void;
+  stopAndReset: () => void;
   videoRef: React.RefObject<any>;
   durationRef: React.RefObject<number>;
 }
@@ -74,6 +75,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setRepeatMode = useCallback((mode: number) => setRepeatModeState(mode), []);
   const setIsShuffle = useCallback((v: boolean) => setIsShuffleState(v), []);
   const setRate = useCallback((r: number) => setRateState(r), []);
+
+  const stopAndReset = useCallback(() => {
+    setIsPlaying(false);
+    setCurrentAudio(null);
+    setPosition(0);
+    setDuration(0);
+    setIsLoading(false);
+    durationRef.current = 0;
+    if (sleepTimerRef.current) {
+      clearInterval(sleepTimerRef.current);
+      sleepTimerRef.current = null;
+    }
+    setSleepMinutesState(null);
+    setSleepRemaining(null);
+  }, []);
 
   const setSleepTimer = useCallback((minutes: number | null) => {
     if (sleepTimerRef.current) {
@@ -134,6 +150,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsShuffle,
         setRate,
         setSleepTimer,
+        stopAndReset,
         videoRef,
         durationRef,
       }}
