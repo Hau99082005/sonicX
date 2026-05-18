@@ -34,8 +34,7 @@ export interface Playlist {
   owner?: string;
 }
 
-export const getLatestMusic = () =>
-  client.get<{ audio: Audio[] }>('/audio');
+export const getLatestMusic = () => client.get<{ audio: Audio[] }>('/audio');
 
 export const searchMusic = (query: string) =>
   client.get<{ audios: Audio[] }>(`/audio/search?query=${query}`);
@@ -60,7 +59,9 @@ export const addToPlaylist = (playlistId: string, audioId: string) =>
 
 export const getSimilarAudios = (audioId: string, category?: string) =>
   client.get<{ audios: Audio[] }>(
-    `/audio/similar/${audioId}${category ? `?category=${encodeURIComponent(category)}` : ''}`,
+    `/audio/similar/${audioId}${
+      category ? `?category=${encodeURIComponent(category)}` : ''
+    }`,
   );
 
 export const getProfile = () => client.get('/auth/user');
@@ -68,4 +69,6 @@ export const getProfile = () => client.get('/auth/user');
 export const updateProfile = (data: any) => client.post('/auth/user', data);
 
 export const getLyrics = (audioId: string) =>
-  client.get<{ lyrics: LyricLine[] | string | null }>(`/audio/${audioId}/lyrics`);
+  client.get<{ lyrics: LyricLine[] | string | null }>(
+    `/audio/${audioId}/lyrics`,
+  );

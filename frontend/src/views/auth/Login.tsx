@@ -1,13 +1,12 @@
 import Form from '@components/form';
 import InputField from '@components/form/InputField';
-import AppleIcon from '@ui/AppleIcon';
-import FacebookIcon from '@ui/FacebookIcon';
 import GoogleIcon from '@ui/GoogleIcon';
 import { FC, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { loginUser } from '@api/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -17,9 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  Vibration,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
@@ -42,42 +39,81 @@ const loginSchema = yup.object({
 });
 
 interface Props {}
-const initialValues = {
-  email: '',
-  password: '',
-};
+const initialValues = { email: '', password: '' };
 
 const BLUE_LIGHT = '#1E88E5';
 
-const hapticLight = () => Vibration.vibrate(5);
-
-const SocialButton: FC<{ onPress: () => void; children: React.ReactNode }> = ({
+const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
   onPress,
-  children,
+  loading,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 1800,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const borderColor = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#DDE3EA', '#EA433540'],
+  });
+
+  const shadowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.06, 0.18],
+  });
+
   return (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       onPressIn={() =>
         Animated.spring(scale, {
-          toValue: 0.93,
+          toValue: 0.97,
           useNativeDriver: true,
-          speed: 50,
-          bounciness: 4,
+          speed: 60,
+          bounciness: 2,
         }).start()
       }
       onPressOut={() =>
         Animated.spring(scale, {
           toValue: 1,
           useNativeDriver: true,
-          speed: 50,
+          speed: 60,
           bounciness: 4,
         }).start()
       }
     >
-      <Animated.View style={[styles.socialButton, { transform: [{ scale }] }]}>
-        {children}
+      <Animated.View
+        style={[
+          styles.googleBtn,
+          { transform: [{ scale }], borderColor, shadowOpacity },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#EA4335" />
+        ) : (
+          <GoogleIcon size={22} />
+        )}
+        <Text style={styles.googleBtnText}>
+          {loading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
+        </Text>
       </Animated.View>
     </Pressable>
   );
@@ -90,9 +126,8 @@ const Login: FC<Props> = () => {
   const [secureEntry, setSecureEntry] = useState(true);
   const { signInWithGoogle, loading: googleLoading } = useGoogleSignIn();
 
-  const tooglePassword = () => {
-    setSecureEntry(!secureEntry);
-  };
+  const tooglePassword = () => setSecureEntry(!secureEntry);
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -118,7 +153,10 @@ const Login: FC<Props> = () => {
               password: values.password,
             });
             await AsyncStorage.setItem('auth-token', data.token);
-            await AsyncStorage.setItem('auth-profile', JSON.stringify(data.profile));
+            await AsyncStorage.setItem(
+              'auth-profile',
+              JSON.stringify(data.profile),
+            );
             Toast.show({
               type: 'success',
               text1: 'Đăng nhập thành công!',
@@ -127,11 +165,9 @@ const Login: FC<Props> = () => {
             });
             setTimeout(() => appLogin(data.token), 500);
           } catch (error: any) {
-            const serverMsg = error?.response?.data?.error;
-            const networkMsg = error?.message;
             const msg =
-              serverMsg ||
-              networkMsg ||
+              error?.response?.data?.error ||
+              error?.message ||
               'Đăng nhập thất bại, vui lòng thử lại.';
             Toast.show({
               type: 'error',
@@ -156,10 +192,7 @@ const Login: FC<Props> = () => {
             <Animated.View
               style={[
                 styles.inner,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
+                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
               ]}
             >
               <View style={styles.logoContainer}>
@@ -193,12 +226,14 @@ const Login: FC<Props> = () => {
                   onRightIconPress={tooglePassword}
                 />
               </View>
+
               <Pressable
                 style={styles.forgotPassword}
                 onPress={() => navigation.navigate('LostPassword')}
               >
                 <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
               </Pressable>
+
               <SignInBtn title="Đăng nhập" />
 
               <View style={styles.dividerRow}>
@@ -207,19 +242,10 @@ const Login: FC<Props> = () => {
                 <View style={styles.divider} />
               </View>
 
-              <View style={styles.socialRow}>
-                <SocialButton onPress={signInWithGoogle}>
-                  {googleLoading
-                    ? <ActivityIndicator size="small" color="#EA4335" />
-                    : <GoogleIcon size={22} />}
-                </SocialButton>
-                <SocialButton onPress={hapticLight}>
-                  <AppleIcon size={22} color="#111111" />
-                </SocialButton>
-                <SocialButton onPress={hapticLight}>
-                  <FacebookIcon size={22} />
-                </SocialButton>
-              </View>
+              <GoogleButton
+                onPress={signInWithGoogle}
+                loading={googleLoading}
+              />
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Chưa có tài khoản? </Text>
@@ -236,42 +262,23 @@ const Login: FC<Props> = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  flex: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 48,
-  },
-  inner: {
-    paddingHorizontal: 28,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-  },
+  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 48 },
+  inner: { paddingHorizontal: 28 },
+  logoContainer: { alignItems: 'center', marginBottom: 28 },
+  logo: { width: 100, height: 100, borderRadius: 20 },
   title: {
     fontSize: 26,
     fontWeight: '700',
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     color: '#0D1B2A',
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: 0.1,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#7A8A9A',
     textAlign: 'center',
     fontFamily: 'Inter',
@@ -279,8 +286,13 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     letterSpacing: 0.2,
   },
-  form: {
-    marginBottom: 8,
+  form: { marginBottom: 8 },
+  forgotPassword: { alignSelf: 'flex-end', marginTop: 8, marginBottom: 18 },
+  forgotPasswordText: {
+    color: BLUE_LIGHT,
+    fontSize: 14,
+    fontFamily: 'Inter',
+    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
@@ -288,66 +300,42 @@ const styles = StyleSheet.create({
     marginVertical: 24,
     gap: 12,
   },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#DDE3EA',
-  },
+  divider: { flex: 1, height: 1, backgroundColor: '#DDE3EA' },
   dividerText: {
     color: '#9AAABB',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Inter',
     fontStyle: 'italic',
     letterSpacing: 0.3,
   },
-  socialRow: {
+  googleBtn: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  socialButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDE3EA',
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    gap: 12,
+    height: 54,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#EA4335',
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 10,
+    elevation: 3,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 32,
+  googleBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0D1B2A',
+    letterSpacing: 0.2,
   },
-  footerText: {
-    color: '#7A8A9A',
-    fontSize: 14,
-  },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 28 },
+  footerText: { color: '#7A8A9A', fontSize: 14, fontFamily: 'Inter' },
   footerLink: {
     color: BLUE_LIGHT,
     fontSize: 14,
     fontWeight: '600',
-  },
-  marginBottom: {
-    marginBottom: 20,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
-    marginBottom: 18,
-  },
-  forgotPasswordText: {
-    color: BLUE_LIGHT,
-    fontSize: 14,
     fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '700',
   },
 });
 
