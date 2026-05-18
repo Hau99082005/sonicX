@@ -15,6 +15,7 @@ import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import { getLatestMusic, Audio } from '@api/music';
 import { getUser } from '@utils/storage';
 import Toast from 'react-native-toast-message';
+import { usePlayer } from '../../context/PlayerContext';
 
 const { width } = Dimensions.get('window');
 const RECENT_CARD = (width - 20 * 2 - 12 * 2) / 3;
@@ -34,6 +35,7 @@ const Home = ({ navigation }: any) => {
   const [audios, setAudios] = useState<Audio[]>([]);
   const [user, setUser] = useState<any>(null);
   const [search, setSearch] = useState('');
+  const player = usePlayer();
 
   useEffect(() => {
     loadData();
@@ -55,7 +57,10 @@ const Home = ({ navigation }: any) => {
     }
   };
 
-  const handlePlay = (audio: Audio) => navigation.navigate('MusicPlayer', { audio });
+  const handlePlay = (audio: Audio) => {
+    player.play(audio);
+    navigation.navigate('MusicPlayer', { audio });
+  };
 
   const getPoster = (audio: Audio) =>
     typeof audio.poster === 'string'
@@ -271,7 +276,7 @@ const styles = StyleSheet.create({
   },
   heroRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 28,
@@ -282,20 +287,20 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: 'Inter',
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     color: C.text,
-    lineHeight: 34,
+    lineHeight: 30,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     gap: 8,
-    width: 140,
+    width: 130,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -306,6 +311,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: C.text,
     padding: 0,
+    margin: 0,
   },
   loader: {
     marginTop: 80,

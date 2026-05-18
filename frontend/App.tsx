@@ -11,6 +11,7 @@ import { enableScreens } from 'react-native-screens';
 import Toast from 'react-native-toast-message';
 import { getToken } from '@utils/storage';
 import { ActivityIndicator, View } from 'react-native';
+import { PlayerProvider } from './src/context/PlayerContext';
 
 enableScreens();
 
@@ -54,24 +55,26 @@ const App = () => {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={userToken ? 'MainApp' : 'Auth'}
-        screenOptions={{ headerShown: false }}
-      >
-        {userToken ? (
-          <>
-            <Stack.Screen name="MainApp" component={BottomTabNavigator} />
-            <Stack.Screen name="MusicPlayer" component={MusicPlayer as any} options={{ animation: 'slide_from_bottom' }} />
-          </>
-        ) : (
-          <Stack.Group screenOptions={{ animation: 'none' }}>
-            <Stack.Screen name="Auth" component={AuthNavigator} />
-          </Stack.Group>
-        )}
-      </Stack.Navigator>
-      <Toast />
-    </NavigationContainer>
+    <PlayerProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName={userToken ? 'MainApp' : 'Auth'}
+          screenOptions={{ headerShown: false }}
+        >
+          {userToken ? (
+            <>
+              <Stack.Screen name="MainApp" component={BottomTabNavigator} />
+              <Stack.Screen name="MusicPlayer" component={MusicPlayer as any} options={{ animation: 'slide_from_bottom' }} />
+            </>
+          ) : (
+            <Stack.Group screenOptions={{ animation: 'none' }}>
+              <Stack.Screen name="Auth" component={AuthNavigator} />
+            </Stack.Group>
+          )}
+        </Stack.Navigator>
+        <Toast />
+      </NavigationContainer>
+    </PlayerProvider>
   );
 };
 

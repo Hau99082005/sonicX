@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
-import Video from 'react-native-video';
-import { Audio, addFavorite, removeFavorite, getSimilarAudios } from '@api/music';
+import {
+  Audio,
+  toggleFavorite,
+  checkIsFavorite,
+  getSimilarAudios,
+} from '@api/music';
 import { RouteProp } from '@react-navigation/native';
+import { usePlayer } from '../../context/PlayerContext';
 
 const { width } = Dimensions.get('window');
 const ARTWORK_SIZE = width - 48;
@@ -43,63 +48,15 @@ const fmt = (s: number) => {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 };
 
-interface EngineProps {
-  uri: string;
-  paused: boolean;
-  repeat: boolean;
-  onLoad: (d: number) => void;
-  onProgress: (t: number) => void;
-  onEnd: () => void;
-  videoRef: React.RefObject<any>;
-}
-
-const AudioEngine = memo(
-  ({
-    uri,
-    paused,
-    repeat,
-    onLoad,
-    onProgress,
-    onEnd,
-    videoRef,
-  }: EngineProps) => (
-    <Video
-      ref={videoRef}
-      source={{ uri }}
-      playInBackground
-      playWhenInactive
-      ignoreSilentSwitch="ignore"
-      paused={paused}
-      repeat={repeat}
-      onLoad={d => onLoad(d.duration)}
-      onProgress={d => onProgress(d.currentTime)}
-      onEnd={onEnd}
-      onError={() => {}}
-      progressUpdateInterval={1000}
-      style={{ width: 0, height: 0 }}
-    />
-  ),
-  (prev, next) =>
-    prev.uri === next.uri &&
-    prev.paused === next.paused &&
-    prev.repeat === next.repeat,
-);
-
 const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   const { audio } = route.params;
-  const videoRef = useRef<any>(null);
-  const durationRef = useRef(0);
+  const player = usePlayer();
+
   const barWidth = useRef(width - 48);
   const isSeeking = useRef(false);
 
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
-  const [repeatMode, setRepeatMode] = useState(0);
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [similarTracks, setSimilarTracks] = useState<Audio[]>([]);
   const [similarLoading, setSimilarLoading] = useState(true);
 
@@ -112,6 +69,19 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   const rotation = useRef(new Animated.Value(0)).current;
   const rotationDeg = useRef(0);
   const rotationAnim = useRef<Animated.CompositeAnimation | null>(null);
+
+  const isPlaying = player.isPlaying;
+  const isLoading = player.isLoading;
+  const position = player.position;
+  const duration = player.duration;
+  const repeatMode = player.repeatMode;
+  const isShuffle = player.isShuffle;
+
+  useEffect(() => {
+    if (audio._id !== player.currentAudio?._id) {
+      player.play(audio);
+    }
+  }, [audio._id]);
 
   const startRotation = useCallback(() => {
     const remaining = 360 - (rotationDeg.current % 360);
@@ -157,10 +127,6 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
     extrapolate: 'extend',
   });
 
-  const fileUrl: string =
-    typeof audio.file === 'string'
-      ? audio.file
-      : (audio.file as any)?.url ?? '';
   const posterUrl: string =
     typeof audio.poster === 'string'
       ? audio.poster
@@ -174,7 +140,8 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   }, [audio._id, audio.category]);
 
   useEffect(() => {
-    Animated.parallel([      Animated.timing(fadeArt, {
+    Animated.parallel([
+      Animated.timing(fadeArt, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
@@ -200,46 +167,24 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
     ]).start();
   }, []);
 
-  const handleLoad = useCallback((d: number) => {
-    durationRef.current = d;
-    setDuration(d);
-    setIsLoading(false);
-  }, []);
+  useEffect(() => {
+    checkIsFavorite(audio._id)
+      .then(res => setIsFavorite(res.data.result))
+      .catch(() => setIsFavorite(false));
+  }, [audio._id]);
 
-  const handleProgress = useCallback((t: number) => {
-    if (!isSeeking.current) setPosition(t);
-  }, []);
-
-  const handleEnd = useCallback(() => {
-    if (repeatMode === 0) {
-      setIsPlaying(false);
-      setPosition(0);
-    }
-  }, [repeatMode]);
-
-  const commitSeek = useCallback((ratio: number) => {
-    const t = Math.max(0, Math.min(ratio, 1)) * durationRef.current;
-    videoRef.current?.seek(t);
-    setPosition(t);
-  }, []);
-
-  const toggleFavorite = useCallback(async () => {
+  const toggleFav = useCallback(async () => {
     if (isFavLoading) return;
     setIsFavLoading(true);
     try {
-      if (isFavorite) {
-        await removeFavorite(audio._id);
-        setIsFavorite(false);
-      } else {
-        await addFavorite(audio._id);
-        setIsFavorite(true);
-      }
+      const res = await toggleFavorite(audio._id);
+      setIsFavorite(res.data.status === 'added');
     } catch {
       Alert.alert('Lỗi', 'Không thể cập nhật yêu thích. Vui lòng thử lại.');
     } finally {
       setIsFavLoading(false);
     }
-  }, [isFavorite, isFavLoading, audio._id]);
+  }, [isFavLoading, audio._id]);
 
   const openMenu = useCallback(() => {
     Alert.alert(
@@ -269,19 +214,13 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: e => {
         isSeeking.current = true;
-        const t =
-          Math.max(0, Math.min(e.nativeEvent.locationX / barWidth.current, 1)) *
-          durationRef.current;
-        setPosition(t);
+        player.seekRatio(e.nativeEvent.locationX / barWidth.current);
       },
       onPanResponderMove: e => {
-        const t =
-          Math.max(0, Math.min(e.nativeEvent.locationX / barWidth.current, 1)) *
-          durationRef.current;
-        setPosition(t);
+        player.seekRatio(e.nativeEvent.locationX / barWidth.current);
       },
       onPanResponderRelease: e => {
-        commitSeek(e.nativeEvent.locationX / barWidth.current);
+        player.seekRatio(e.nativeEvent.locationX / barWidth.current);
         setTimeout(() => {
           isSeeking.current = false;
         }, 300);
@@ -290,7 +229,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
   ).current;
 
   const tapPlay = () => {
-    setIsPlaying(p => !p);
+    player.togglePlay();
     Animated.sequence([
       Animated.spring(scalePlay, {
         toValue: 0.88,
@@ -311,16 +250,6 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <AudioEngine
-        uri={fileUrl}
-        paused={!isPlaying}
-        repeat={repeatMode === 2}
-        onLoad={handleLoad}
-        onProgress={handleProgress}
-        onEnd={handleEnd}
-        videoRef={videoRef}
-      />
-
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -334,7 +263,29 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
             color={C.text}
           />
         </Pressable>
-        <Text style={styles.headerLabel}>Đang phát</Text>
+
+        <View
+          style={[
+            styles.statusBadge,
+            isPlaying ? styles.statusPlaying : styles.statusPaused,
+          ]}
+        >
+          <FontAwesome5
+            name={isPlaying ? 'music' : 'pause-circle'}
+            iconStyle="solid"
+            size={12}
+            color={isPlaying ? '#22C55E' : '#EF4444'}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              { color: isPlaying ? '#22C55E' : '#EF4444' },
+            ]}
+          >
+            {isPlaying ? 'Đang phát' : 'Tạm dừng'}
+          </Text>
+        </View>
+
         <Pressable hitSlop={12} style={styles.headerBtn} onPress={openMenu}>
           <FontAwesome5
             name="ellipsis-v"
@@ -391,7 +342,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
                 </Text>
               </View>
               <Pressable
-                onPress={toggleFavorite}
+                onPress={toggleFav}
                 hitSlop={12}
                 style={styles.favoriteBtn}
                 disabled={isFavLoading}
@@ -439,7 +390,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.controlsSection}>
             <Pressable
               hitSlop={14}
-              onPress={() => setIsShuffle(v => !v)}
+              onPress={() => player.setIsShuffle(!isShuffle)}
               style={[
                 styles.controlButton,
                 isShuffle && styles.controlButtonActive,
@@ -455,10 +406,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
 
             <Pressable
               hitSlop={14}
-              onPress={() => {
-                videoRef.current?.seek(0);
-                setPosition(0);
-              }}
+              onPress={() => player.seek(0)}
               style={styles.skipButton}
             >
               <FontAwesome5
@@ -487,7 +435,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
 
             <Pressable
               hitSlop={14}
-              onPress={() => videoRef.current?.seek(durationRef.current)}
+              onPress={() => player.seek(player.durationRef.current)}
               style={styles.skipButton}
             >
               <FontAwesome5
@@ -500,7 +448,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
 
             <Pressable
               hitSlop={14}
-              onPress={() => setRepeatMode((m: number) => (m + 1) % 3)}
+              onPress={() => player.setRepeatMode((repeatMode + 1) % 3)}
               style={[
                 styles.controlButton,
                 repeatMode > 0 && styles.controlButtonActive,
@@ -567,11 +515,21 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
             </View>
 
             {similarLoading ? (
-              <ActivityIndicator color={C.accent} style={{ paddingVertical: 32 }} />
+              <ActivityIndicator
+                color={C.accent}
+                style={{ paddingVertical: 32 }}
+              />
             ) : similarTracks.length === 0 ? (
               <View style={styles.similarEmpty}>
-                <FontAwesome5 name="music" size={28} color={C.line} iconStyle="solid" />
-                <Text style={styles.similarEmptyText}>Không có bài hát tương tự</Text>
+                <FontAwesome5
+                  name="music"
+                  size={28}
+                  color={C.line}
+                  iconStyle="solid"
+                />
+                <Text style={styles.similarEmptyText}>
+                  Không có bài hát tương tự
+                </Text>
               </View>
             ) : (
               similarTracks.map((item, index) => {
@@ -586,17 +544,29 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
                       styles.trackRow,
                       index < similarTracks.length - 1 && styles.trackRowBorder,
                     ]}
-                    onPress={() => navigation.replace('MusicPlayer', { audio: item })}
+                    onPress={() =>
+                      navigation.replace('MusicPlayer', { audio: item })
+                    }
                   >
                     <View style={styles.trackIndexWrap}>
                       <Text style={styles.trackIndex}>{index + 1}</Text>
                     </View>
                     <View style={styles.trackThumbWrap}>
                       {itemPoster ? (
-                        <Image source={{ uri: itemPoster }} style={styles.trackThumbImg} />
+                        <Image
+                          source={{ uri: itemPoster }}
+                          style={styles.trackThumbImg}
+                        />
                       ) : (
-                        <View style={[styles.trackThumbImg, styles.trackThumbEmpty]}>
-                          <FontAwesome5 name="music" size={14} color={C.line} iconStyle="solid" />
+                        <View
+                          style={[styles.trackThumbImg, styles.trackThumbEmpty]}
+                        >
+                          <FontAwesome5
+                            name="music"
+                            size={14}
+                            color={C.line}
+                            iconStyle="solid"
+                          />
                         </View>
                       )}
                     </View>
@@ -605,20 +575,37 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
                         {item.title}
                       </Text>
                       <View style={styles.trackMeta}>
-                        <FontAwesome5 name="tag" size={10} color={C.sub} iconStyle="solid" />
+                        <FontAwesome5
+                          name="tag"
+                          size={10}
+                          color={C.sub}
+                          iconStyle="solid"
+                        />
                         <Text style={styles.trackCategory} numberOfLines={1}>
                           {item.category ?? 'Khác'}
                         </Text>
                         {item.likes && item.likes.length > 0 && (
                           <>
                             <View style={styles.trackMetaDot} />
-                            <FontAwesome5 name="heart" size={10} color={C.sub} iconStyle="solid" />
-                            <Text style={styles.trackCategory}>{item.likes.length}</Text>
+                            <FontAwesome5
+                              name="heart"
+                              size={10}
+                              color={C.sub}
+                              iconStyle="solid"
+                            />
+                            <Text style={styles.trackCategory}>
+                              {item.likes.length}
+                            </Text>
                           </>
                         )}
                       </View>
                     </View>
-                    <FontAwesome5 name="play-circle" size={20} color={C.accent} iconStyle="solid" />
+                    <FontAwesome5
+                      name="play-circle"
+                      size={20}
+                      color={C.accent}
+                      iconStyle="solid"
+                    />
                   </Pressable>
                 );
               })
@@ -631,10 +618,7 @@ const MusicPlayer: React.FC<Props> = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
+  root: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -648,14 +632,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerLabel: {
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusPlaying: {
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  statusPaused: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  statusText: {
     fontFamily: 'Inter',
-    fontSize: 15,
-    fontStyle: "normal",
-    fontWeight: "500",
-    lineHeight: 16,
-    color: C.text,
-    letterSpacing: 0.3,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   artContainer: {
     alignSelf: 'center',
@@ -673,39 +671,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: C.surface,
   },
-  artwork: {
-    width: '100%',
-    height: '100%',
-  },
+  artwork: { width: '100%', height: '100%' },
   artworkEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: C.surface,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  infoSection: {
-    marginBottom: 20,
-  },
+  content: { flex: 1, paddingHorizontal: 24 },
+  scrollContent: { paddingBottom: 32 },
+  infoSection: { marginBottom: 20 },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  favoriteBtn: {
-    marginLeft: 12,
-    paddingTop: 4,
-  },
+  favoriteBtn: { marginLeft: 12, paddingTop: 4 },
   title: {
     fontFamily: 'Inter',
     fontSize: 20,
     fontWeight: '700',
-    fontStyle: 'normal',
     lineHeight: 28,
     color: C.text,
     marginBottom: 6,
@@ -714,29 +698,15 @@ const styles = StyleSheet.create({
   artist: {
     fontFamily: 'Inter',
     fontSize: 14,
+    fontWeight: '500',
     color: C.sub,
     lineHeight: 21,
     letterSpacing: 0.3,
-    fontStyle: 'normal',
-    fontWeight: '500'
   },
-  progressSection: {
-    marginBottom: 28,
-  },
-  trackContainer: {
-    height: 28,
-    justifyContent: 'center',
-  },
-  trackBar: {
-    height: 4,
-    backgroundColor: C.line,
-    borderRadius: 2,
-  },
-  trackProgress: {
-    height: 4,
-    backgroundColor: C.accent,
-    borderRadius: 2,
-  },
+  progressSection: { marginBottom: 28 },
+  trackContainer: { height: 28, justifyContent: 'center' },
+  trackBar: { height: 4, backgroundColor: C.line, borderRadius: 2 },
+  trackProgress: { height: 4, backgroundColor: C.accent, borderRadius: 2 },
   trackThumb: {
     position: 'absolute',
     width: 14,
@@ -772,9 +742,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 24,
   },
-  controlButtonActive: {
-    backgroundColor: C.line,
-  },
+  controlButtonActive: { backgroundColor: C.line },
   skipButton: {
     width: 52,
     height: 52,
@@ -804,25 +772,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 32,
   },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 8,
-  },
+  statItem: { alignItems: 'center', flex: 1, gap: 8 },
   statLabel: {
     fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: '500',
     color: C.sub,
   },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: C.line,
-  },
-  similarSection: {
-    marginBottom: 24,
-  },
+  statDivider: { width: 1, height: 24, backgroundColor: C.line },
+  similarSection: { marginBottom: 24 },
   similarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -833,7 +791,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: '700',
-    fontStyle: 'normal',
     lineHeight: 24,
     letterSpacing: 0.4,
     color: C.text,
@@ -841,29 +798,12 @@ const styles = StyleSheet.create({
   seeAll: {
     fontFamily: 'Inter',
     fontSize: 14,
-    fontStyle: 'normal',
     fontWeight: '500',
     lineHeight: 20,
     letterSpacing: 0.3,
     color: C.accent,
   },
-  similarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    gap: 12,
-  },
-  placeholderText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    color: C.sub,
-  },
-  repeatIconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  repeatIconContainer: { alignItems: 'center', justifyContent: 'center' },
   repeatOneLabel: {
     position: 'absolute',
     fontFamily: 'Inter',
@@ -895,10 +835,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: C.line,
   },
-  trackIndexWrap: {
-    width: 20,
-    alignItems: 'center',
-  },
+  trackIndexWrap: { width: 20, alignItems: 'center' },
   trackIndex: {
     fontFamily: 'Inter',
     fontSize: 13,
@@ -918,14 +855,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: C.surface,
   },
-  trackThumbEmpty: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trackInfo: {
-    flex: 1,
-    gap: 4,
-  },
+  trackThumbEmpty: { justifyContent: 'center', alignItems: 'center' },
+  trackInfo: { flex: 1, gap: 4 },
   trackTitle: {
     fontFamily: 'Inter',
     fontSize: 14,
@@ -933,11 +864,7 @@ const styles = StyleSheet.create({
     color: C.text,
     lineHeight: 20,
   },
-  trackMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  trackMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   trackCategory: {
     fontFamily: 'Inter',
     fontSize: 11,

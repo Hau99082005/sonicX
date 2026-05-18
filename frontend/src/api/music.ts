@@ -1,10 +1,15 @@
 import client from './client';
 
+export interface AudioOwner {
+  name: string;
+  id: string;
+}
+
 export interface Audio {
   _id: string;
   title: string;
   about?: string;
-  owner?: string;
+  owner?: string | AudioOwner;
   artist?: string;
   file?: { url: string; publicId: string };
   poster?: { url: string; publicId: string };
@@ -32,11 +37,11 @@ export const searchMusic = (query: string) =>
 export const getFavoriteMusic = () =>
   client.get<{ audios: Audio[] }>('/favorite');
 
-export const addFavorite = (audioId: string) =>
-  client.post('/favorite', { audioId });
+export const toggleFavorite = (audioId: string) =>
+  client.post<{ status: 'added' | 'removed' }>(`/favorite?audioId=${audioId}`);
 
-export const removeFavorite = (audioId: string) =>
-  client.delete(`/favorite/${audioId}`);
+export const checkIsFavorite = (audioId: string) =>
+  client.get<{ result: boolean }>(`/favorite/is-favorite?audioId=${audioId}`);
 
 export const getPlaylists = () =>
   client.get<{ playlists: Playlist[] }>('/playlist');
