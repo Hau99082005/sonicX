@@ -8,6 +8,7 @@ import favoriteRouter from "./router/favorite";
 import playlistRouter from "./router/playlist";
 import profileRouter from "./router/profile";
 import historyRouter from "./router/history";
+import dynamicMusicRouter from "./router/dynamicMusic";
 import './utils/schedule';
 import { errorHandler } from "./middleware/error";
 
@@ -23,6 +24,7 @@ app.use("/favorite", favoriteRouter);
 app.use("/playlist", playlistRouter);
 app.use("/profile", profileRouter);
 app.use("/history", historyRouter);
+app.use("/dynamic-music", dynamicMusicRouter);
 
 app.use(errorHandler);
 const PORT = process.env.PORT;
