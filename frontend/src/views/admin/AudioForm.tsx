@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
@@ -64,6 +65,8 @@ const AudioForm = ({ route, navigation }: any) => {
       }
     }
   };
+
+  
 
   const handleSubmit = async () => {
     if (!title || !category) {
@@ -175,10 +178,16 @@ const AudioForm = ({ route, navigation }: any) => {
 
         <View style={styles.fileSection}>
           <Text style={styles.label}>Ảnh bìa (Poster)</Text>
+          {(selectedPoster || audio?.poster?.url) && (
+            <Image
+              source={{ uri: selectedPoster?.uri || audio?.poster?.url }}
+              style={styles.previewImage}
+            />
+          )}
           <TouchableOpacity style={styles.fileBtn} onPress={pickPosterFile}>
             <FontAwesome5 name="image" iconStyle="solid" size={16} color={C.sub} />
             <Text style={styles.fileBtnText}>
-              {selectedPoster ? selectedPoster.name : (isEdit ? 'Đã có ảnh (nhấn để thay đổi)' : 'Chọn ảnh bìa')}
+              {selectedPoster ? selectedPoster.name : (isEdit ? 'Đổi ảnh bìa' : 'Chọn ảnh bìa')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -277,6 +286,13 @@ const styles = StyleSheet.create({
   fileBtnText: {
     color: C.sub,
     fontSize: 14,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: C.surface,
   },
   submitBtn: {
     backgroundColor: C.accent,

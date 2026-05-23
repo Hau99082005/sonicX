@@ -34,20 +34,42 @@ const C = {
 const BAR_DELAYS = [0, 150, 80];
 const BAR_DURATIONS = [500, 380, 460];
 
-const MusicBars = ({ color = C.accent, size = 14, playing = true }: { color?: string; size?: number; playing?: boolean }) => {
+const MusicBars = ({
+  color = C.accent,
+  size = 14,
+  playing = true,
+}: {
+  color?: string;
+  size?: number;
+  playing?: boolean;
+}) => {
   const anims = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
 
   useEffect(() => {
     if (!playing) {
-      anims.forEach(a => Animated.timing(a, { toValue: 0.3, duration: 200, useNativeDriver: true }).start());
+      anims.forEach(a =>
+        Animated.timing(a, {
+          toValue: 0.3,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(),
+      );
       return;
     }
     const loops = anims.map((anim, i) =>
       Animated.loop(
         Animated.sequence([
           Animated.delay(BAR_DELAYS[i]),
-          Animated.timing(anim, { toValue: 1, duration: BAR_DURATIONS[i], useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0.2, duration: BAR_DURATIONS[i], useNativeDriver: true }),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: BAR_DURATIONS[i],
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.2,
+            duration: BAR_DURATIONS[i],
+            useNativeDriver: true,
+          }),
         ]),
       ),
     );
@@ -58,7 +80,14 @@ const MusicBars = ({ color = C.accent, size = 14, playing = true }: { color?: st
   const barW = Math.max(2, size * 0.18);
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: barW * 0.8, height: size }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: barW * 0.8,
+        height: size,
+      }}
+    >
       {anims.map((anim, i) => (
         <Animated.View
           key={i}
@@ -97,7 +126,12 @@ const Home = ({ navigation }: any) => {
       setUser(userData);
       setAudios(musicRes.data.audio ?? []);
     } catch {
-      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể tải dữ liệu', visibilityTime: 3000 });
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: 'Không thể tải dữ liệu',
+        visibilityTime: 3000,
+      });
     } finally {
       setLoading(false);
     }
@@ -136,7 +170,9 @@ const Home = ({ navigation }: any) => {
               source={{
                 uri:
                   user?.avatar ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=1E2235&color=F1F5F9&size=200`,
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                    user?.name || 'U',
+                  )}&background=1E2235&color=F1F5F9&size=200`,
               }}
               style={styles.avatar}
             />
@@ -145,13 +181,23 @@ const Home = ({ navigation }: any) => {
           <View style={styles.headerInfo}>
             <Text style={styles.headerName}>{user?.name ?? 'Người dùng'}</Text>
             <View style={styles.memberRow}>
-              <FontAwesome5 name="star" iconStyle="solid" size={10} color={C.gold} />
+              <FontAwesome5
+                name="star"
+                iconStyle="solid"
+                size={10}
+                color={C.gold}
+              />
               <Text style={styles.memberText}>Thành viên Vàng</Text>
             </View>
           </View>
 
           <Pressable style={styles.bellBtn} hitSlop={10}>
-            <FontAwesome5 name="bell" iconStyle="regular" size={20} color={C.text} />
+            <FontAwesome5
+              name="bell"
+              iconStyle="regular"
+              size={20}
+              color={C.text}
+            />
           </Pressable>
         </View>
 
@@ -161,7 +207,12 @@ const Home = ({ navigation }: any) => {
             <Text style={styles.heroTitle}>bản nhạc mới</Text>
           </View>
           <View style={styles.searchBox}>
-            <FontAwesome5 name="search" iconStyle="solid" size={13} color={C.sub} />
+            <FontAwesome5
+              name="search"
+              iconStyle="solid"
+              size={13}
+              color={C.sub}
+            />
             <TextInput
               style={styles.searchInput}
               placeholder="Tìm kiếm"
@@ -192,19 +243,39 @@ const Home = ({ navigation }: any) => {
                       >
                         <View style={styles.recentImgWrap}>
                           {poster ? (
-                            <Image source={{ uri: poster }} style={styles.recentImg} />
+                            <Image
+                              source={{ uri: poster }}
+                              style={styles.recentImg}
+                            />
                           ) : (
-                            <View style={[styles.recentImg, styles.recentImgEmpty]}>
-                              <FontAwesome5 name="music" iconStyle="solid" size={22} color={C.border} />
+                            <View
+                              style={[styles.recentImg, styles.recentImgEmpty]}
+                            >
+                              <FontAwesome5
+                                name="music"
+                                iconStyle="solid"
+                                size={22}
+                                color={C.border}
+                              />
                             </View>
                           )}
                           {isActive && (
                             <View style={styles.activeOverlay}>
-                              <MusicBars color={C.accent} size={18} playing={player.isPlaying} />
+                              <MusicBars
+                                color={C.accent}
+                                size={18}
+                                playing={player.isPlaying}
+                              />
                             </View>
                           )}
                         </View>
-                        <Text style={[styles.recentTitle, isActive && { color: C.accent }]} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.recentTitle,
+                            isActive && { color: C.accent },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {item.title}
                         </Text>
                       </Pressable>
@@ -225,28 +296,57 @@ const Home = ({ navigation }: any) => {
                     return (
                       <Pressable
                         key={String(item._id)}
-                        style={[styles.recommendCard, isActive && styles.recommendCardActive]}
+                        style={[
+                          styles.recommendCard,
+                          isActive && styles.recommendCardActive,
+                        ]}
                         onPress={() => handlePlay(item)}
                       >
                         <View style={styles.recommendImgWrap}>
                           {poster ? (
-                            <Image source={{ uri: poster }} style={styles.recommendImg} />
+                            <Image
+                              source={{ uri: poster }}
+                              style={styles.recommendImg}
+                            />
                           ) : (
-                            <View style={[styles.recommendImg, styles.recommendImgEmpty]}>
-                              <FontAwesome5 name="music" iconStyle="solid" size={28} color={C.border} />
+                            <View
+                              style={[
+                                styles.recommendImg,
+                                styles.recommendImgEmpty,
+                              ]}
+                            >
+                              <FontAwesome5
+                                name="music"
+                                iconStyle="solid"
+                                size={28}
+                                color={C.border}
+                              />
                             </View>
                           )}
                           {isActive && (
                             <View style={styles.activeOverlay}>
-                              <MusicBars color={C.accent} size={16} playing={player.isPlaying} />
+                              <MusicBars
+                                color={C.accent}
+                                size={16}
+                                playing={player.isPlaying}
+                              />
                             </View>
                           )}
                         </View>
                         <View style={styles.recommendInfo}>
-                          <Text style={[styles.recommendTitle, isActive && { color: C.accent }]} numberOfLines={1}>
+                          <Text
+                            style={[
+                              styles.recommendTitle,
+                              isActive && { color: C.accent },
+                            ]}
+                            numberOfLines={1}
+                          >
                             {item.title}
                           </Text>
-                          <Text style={styles.recommendArtist} numberOfLines={1}>
+                          <Text
+                            style={styles.recommendArtist}
+                            numberOfLines={1}
+                          >
                             {item.about || 'SonicX'}
                           </Text>
                           <Text style={styles.recommendStreams}>
@@ -262,7 +362,12 @@ const Home = ({ navigation }: any) => {
 
             {audios.length === 0 && (
               <View style={styles.emptyWrap}>
-                <FontAwesome5 name="music" iconStyle="solid" size={40} color={C.border} />
+                <FontAwesome5
+                  name="music"
+                  iconStyle="solid"
+                  size={40}
+                  color={C.border}
+                />
                 <Text style={styles.emptyText}>Chưa có bài hát nào</Text>
               </View>
             )}
