@@ -57,6 +57,21 @@ export const createPlaylist = (title: string) =>
 export const addToPlaylist = (playlistId: string, audioId: string) =>
   client.post(`/playlist/${playlistId}`, { audioId });
 
+export const createAudio = (formData: FormData) =>
+  client.post('/audio/create', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+export const updateAudio = (audioId: string, formData: FormData) =>
+  client.patch(`/audio/${audioId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+export const deleteAudio = (audioId: string) =>
+  client.delete(`/audio/${audioId}`);
+
+export const getAllAudios = () => client.get<{ audio: Audio[] }>('/audio');
+
 export const getSimilarAudios = (audioId: string, category?: string) =>
   client.get<{ audios: Audio[] }>(
     `/audio/similar/${audioId}${

@@ -3,6 +3,8 @@ import Register from '@views/auth/Register';
 import LostPassword from '@views/auth/LostPassword';
 import Verification from '@views/auth/Verification';
 import MusicPlayer from '@views/app/MusicPlayer';
+import AdminDashboard from '@views/admin/AdminDashboard';
+import AudioForm from '@views/admin/AudioForm';
 import BottomTabNavigator from '@navigation/BottomTabNavigator';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -65,6 +67,8 @@ const App = () => {
             <>
               <Stack.Screen name="MainApp" component={BottomTabNavigator} />
               <Stack.Screen name="MusicPlayer" component={MusicPlayer as any} options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+              <Stack.Screen name="AudioForm" component={AudioForm} />
             </>
           ) : (
             <Stack.Group screenOptions={{ animation: 'none' }}>

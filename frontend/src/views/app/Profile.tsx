@@ -284,9 +284,15 @@ const Profile = ({ navigation }: any) => {
         <Text style={s.groupLabel}>TÀI KHOẢN</Text>
         <View style={s.menuGroup}>
           <MenuRow
+            icon="user-shield"
+            label="Quản trị âm nhạc"
+            onPress={() => navigation.navigate('AdminDashboard')}
+          />
+          <MenuRow
             icon="user-edit"
             label="Chỉnh sửa hồ sơ"
             onPress={() => setEditingBio(true)}
+            showDivider
           />
           <MenuRow
             icon="bell"
