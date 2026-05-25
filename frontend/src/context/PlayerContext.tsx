@@ -11,6 +11,7 @@ interface PlayerContextValue {
   repeatMode: number;
   isShuffle: boolean;
   rate: number;
+  volume: number;
   sleepMinutes: number | null;
   sleepRemaining: number | null;
   play: (audio: Audio) => void;
@@ -20,6 +21,7 @@ interface PlayerContextValue {
   setRepeatMode: (mode: number) => void;
   setIsShuffle: (v: boolean) => void;
   setRate: (r: number) => void;
+  setVolume: (v: number) => void;
   setSleepTimer: (minutes: number | null) => void;
   stopAndReset: () => void;
   videoRef: React.RefObject<any>;
@@ -35,9 +37,6 @@ export const usePlayer = (): PlayerContextValue => {
 };
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // #region debug-point H1:provider-init
-  fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"invalid-hook-call",runId:"pre",hypothesisId:"H1",location:"PlayerContext.tsx:38",msg:"[DEBUG] PlayerProvider init"})}).catch(()=>{});
-  // #endregion
   const videoRef = useRef<any>(null);
   const durationRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -50,6 +49,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [repeatMode, setRepeatModeState] = useState(0);
   const [isShuffle, setIsShuffleState] = useState(false);
   const [rate, setRateState] = useState(1);
+  const [volume, setVolumeState] = useState(1);
   const [sleepMinutes, setSleepMinutesState] = useState<number | null>(null);
   const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
 
@@ -78,6 +78,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setRepeatMode = useCallback((mode: number) => setRepeatModeState(mode), []);
   const setIsShuffle = useCallback((v: boolean) => setIsShuffleState(v), []);
   const setRate = useCallback((r: number) => setRateState(r), []);
+  const setVolume = useCallback((v: number) => setVolumeState(Math.max(0, Math.min(v, 1))), []);
 
   const stopAndReset = useCallback(() => {
     setIsPlaying(false);
@@ -143,6 +144,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         repeatMode,
         isShuffle,
         rate,
+        volume,
         sleepMinutes,
         sleepRemaining,
         play,
@@ -152,6 +154,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setRepeatMode,
         setIsShuffle,
         setRate,
+        setVolume,
         setSleepTimer,
         stopAndReset,
         videoRef,
@@ -169,6 +172,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           paused={!isPlaying}
           repeat={repeatMode === 2}
           rate={rate}
+          volume={volume}
           onLoad={d => {
             durationRef.current = d.duration;
             setDuration(d.duration);

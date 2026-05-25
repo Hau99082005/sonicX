@@ -9,6 +9,7 @@ declare global {
         name: string;
         email: string;
         verified: boolean;
+        role: "user" | "admin";
         avatar?: string;
         followers: number;
         following: number;

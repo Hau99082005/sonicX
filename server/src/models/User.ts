@@ -8,6 +8,7 @@ export interface UserDocument {
   phone?: string;
   password: string;
   verified: boolean;
+  role: "user" | "admin";
   phoneVerified?: boolean;
   avatar?: { url: string; publicId: string };
   token: string[];
@@ -47,6 +48,11 @@ const userSchema = new Schema<UserDocument, {}, Methods>(
     verified: {
       type: Boolean,
       default: false,
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
     },
     phone: {
       type: String,

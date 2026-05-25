@@ -95,6 +95,10 @@ export const PlaylistValidationSchema = yup.object().shape({
     .required("Visibility is missing!"),
 });
 
+export const BannerValidationSchema = yup.object().shape({
+  title: yup.string().required("Title is missing!"),
+});
+
 export const OldPlaylistValidationSchema = yup.object().shape({
   title: yup.string().required("Title is missing"),
   item: yup.string().transform(function (value) {

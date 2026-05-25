@@ -30,6 +30,7 @@ export const mustAuth: RequestHandler = async (req, res, next) => {
         name: user.name,
         email: user.email,
         verified: user.verified,
+        role: user.role,
         avatar: user.avatar?.url,
         followers: user.followers.length,
         following: user.followings.length
@@ -54,6 +55,7 @@ export const isAuth: RequestHandler = async (req, res, next) => {
             name: user.name,
             email: user.email,
             verified: user.verified,
+            role: user.role,
             avatar: user.avatar?.url,
             followers: user.followers.length,
             following: user.followings.length
@@ -67,6 +69,10 @@ export const isVerified: RequestHandler = (req, res, next) => {
     if (!req.user.verified) {
         return res.status(403).json({ error: "Please verify your email account!" });
     }
+    next();
+}
+
+export const isAdmin: RequestHandler = (req, res, next) => {
     next();
 }
 
