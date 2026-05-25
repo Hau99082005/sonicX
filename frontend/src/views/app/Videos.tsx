@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,28 +10,26 @@ import {
   Dimensions,
   TextInput,
   Animated,
-  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
+import LinearGradient from 'react-native-linear-gradient';
 import { getLatestMusic, Audio } from '@api/music';
 import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 40;
-const THUMB_HEIGHT = CARD_WIDTH * 0.56;
 
 const C = {
-  bg: '#0D0F1E',
-  surface: '#161829',
-  card: '#1C1F35',
-  border: '#1E2140',
+  bg: '#080912',
+  surface: '#121421',
+  card: '#1A1D2E',
+  border: 'rgba(255,255,255,0.06)',
   text: '#FFFFFF',
-  sub: '#8A8FAD',
-  accent: '#6C63FF',
-  accentDim: 'rgba(108,99,255,0.14)',
+  sub: '#94A3B8',
+  accent: '#7C3AED',
+  accentDim: 'rgba(124, 58, 237, 0.1)',
   red: '#EF4444',
-  redDim: 'rgba(239,68,68,0.14)',
   gold: '#F59E0B',
 };
 
@@ -46,7 +44,7 @@ const FILTERS = [
 ];
 
 const fmt = (s?: number) => {
-  if (!s || isNaN(s)) return '';
+  if (!s || isNaN(s)) return '0:00';
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 };
 
@@ -65,141 +63,57 @@ const VideoCard = ({
   onPress: () => void;
 }) => {
   const poster = getPoster(audio);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () =>
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 60,
-      bounciness: 2,
-    }).start();
-  const onPressOut = () =>
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 60,
-      bounciness: 4,
-    }).start();
 
   return (
-    <Animated.View style={[s.card, { transform: [{ scale: scaleAnim }] }]}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-      >
-        <View style={s.thumbWrap}>
-          {poster ? (
-            <Image
-              source={{ uri: poster }}
-              style={s.thumb}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[s.thumb, s.thumbEmpty]}>
-              <FontAwesome5
-                name="film"
-                iconStyle="solid"
-                size={36}
-                color={C.border}
-              />
-            </View>
-          )}
-          <View style={s.thumbOverlay} />
-          <View style={s.playCircle}>
+    <Pressable style={s.card} onPress={onPress}>
+      <View style={s.thumbWrap}>
+        {poster ? (
+          <Image source={{ uri: poster }} style={s.thumb} resizeMode="cover" />
+        ) : (
+          <View style={[s.thumb, s.thumbEmpty]}>
             <FontAwesome5
-              name="play"
+              name="film"
               iconStyle="solid"
-              size={18}
-              color="#fff"
-              style={{ marginLeft: 3 }}
+              size={32}
+              color={C.border}
             />
           </View>
-          {audio.duration ? (
-            <View style={s.durationBadge}>
-              <Text style={s.durationText}>{fmt(audio.duration)}</Text>
-            </View>
-          ) : null}
-          <View style={s.liveBadge}>
-            <View style={s.liveDot} />
-            <Text style={s.liveText}>MV</Text>
-          </View>
+        )}
+        <View style={s.thumbOverlay} />
+        <View style={s.playCircle}>
+          <FontAwesome5 name="play" iconStyle="solid" size={14} color="#fff" />
         </View>
+        {audio.duration ? (
+          <View style={s.durationBadge}>
+            <Text style={s.durationText}>{fmt(audio.duration)}</Text>
+          </View>
+        ) : null}
+      </View>
 
-        <View style={s.cardBody}>
-          <View style={s.cardLeft}>
-            <View style={s.avatarSmall}>
-              {poster ? (
-                <Image
-                  source={{ uri: poster }}
-                  style={StyleSheet.absoluteFill}
-                  borderRadius={16}
-                />
-              ) : (
-                <FontAwesome5
-                  name="user"
-                  iconStyle="solid"
-                  size={10}
-                  color={C.sub}
-                />
-              )}
-            </View>
-          </View>
-          <View style={s.cardInfo}>
-            <Text style={s.cardTitle} numberOfLines={2}>
-              {audio.title}
+      <View style={s.cardBody}>
+        <View style={s.cardInfo}>
+          <Text style={s.cardTitle} numberOfLines={1}>
+            {audio.title}
+          </Text>
+          <View style={s.cardMeta}>
+            <Text style={s.cardArtist} numberOfLines={1}>
+              {audio.about || 'SonicX'}
             </Text>
-            <View style={s.cardMeta}>
-              <Text style={s.cardArtist} numberOfLines={1}>
-                {audio.about || 'SonicX'}
-              </Text>
-              {audio.category ? (
-                <>
-                  <View style={s.metaDot} />
-                  <View style={s.catBadge}>
-                    <Text style={s.catBadgeText}>{audio.category}</Text>
-                  </View>
-                </>
-              ) : null}
-            </View>
-            <View style={s.cardStats}>
-              <View style={s.statChip}>
-                <FontAwesome5
-                  name="eye"
-                  iconStyle="solid"
-                  size={9}
-                  color={C.sub}
-                />
-                <Text style={s.statChipText}>
-                  {(
-                    (audio.likes?.length ?? 0) * 137 +
-                    index * 2341
-                  ).toLocaleString()}
-                </Text>
-              </View>
-              <View style={s.statChip}>
-                <FontAwesome5
-                  name="heart"
-                  iconStyle="solid"
-                  size={9}
-                  color={C.sub}
-                />
-                <Text style={s.statChipText}>{audio.likes?.length ?? 0}</Text>
-              </View>
-            </View>
+            {audio.category && (
+              <Text style={s.catText}>• {audio.category}</Text>
+            )}
           </View>
-          <Pressable style={s.moreBtn} hitSlop={10}>
-            <FontAwesome5
-              name="ellipsis-v"
-              iconStyle="solid"
-              size={13}
-              color={C.sub}
-            />
-          </Pressable>
         </View>
-      </Pressable>
-    </Animated.View>
+        <View style={s.cardStats}>
+          <View style={s.statItem}>
+            <FontAwesome5 name="eye" iconStyle="solid" size={10} color={C.sub} />
+            <Text style={s.statText}>
+              {((audio.likes?.length ?? 0) * 137 + index * 42).toLocaleString()}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 };
 
@@ -210,27 +124,8 @@ const Videos = ({ navigation }: any) => {
   const [activeFilter, setActiveFilter] = useState('Tất cả');
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  const headerAnim = useRef(new Animated.Value(0)).current;
-  const searchBorderAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.timing(headerAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-    loadVideos();
-  }, []);
-
-  useEffect(() => {
-    Animated.timing(searchBorderAnim, {
-      toValue: searchFocused ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [searchFocused]);
-
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getLatestMusic();
@@ -242,7 +137,11 @@ const Videos = ({ navigation }: any) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadVideos();
+  }, [loadVideos]);
 
   const applyFilter = (filter: string, query: string, list: Audio[]) => {
     let result = [...list];
@@ -275,87 +174,57 @@ const Videos = ({ navigation }: any) => {
     applyFilter(activeFilter, q, videos);
   };
 
-  const searchBorder = searchBorderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [C.border, C.accent],
-  });
-
   const featuredVideo = filtered[0];
   const restVideos = filtered.slice(1);
 
   if (loading) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={C.accent} />
-          <Text style={s.loadingText}>Đang tải video...</Text>
-        </View>
+        <ActivityIndicator
+          size="large"
+          color={C.accent}
+          style={{ marginTop: 100 }}
+        />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <Animated.View
-        style={[
-          s.header,
-          {
-            opacity: headerAnim,
-            transform: [
-              {
-                translateY: headerAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-16, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
+      <View style={s.header}>
         <View style={s.headerTop}>
           <View>
-            <Text style={s.headerEyebrow}>SonicX</Text>
-            <Text style={s.headerTitle}>Video nhạc</Text>
+            <Text style={s.headerEyebrow}>DISCOVER</Text>
+            <Text style={s.headerTitle}>Videos</Text>
           </View>
           <Pressable style={s.iconBtn} onPress={loadVideos}>
             <FontAwesome5
               name="sync-alt"
               iconStyle="solid"
               size={14}
-              color={C.sub}
+              color={C.text}
             />
           </Pressable>
         </View>
 
-        <Animated.View style={[s.searchBar, { borderColor: searchBorder }]}>
-          <FontAwesome5
-            name="search"
-            iconStyle="solid"
-            size={13}
-            color={searchFocused ? C.accent : C.sub}
-          />
+        <View
+          style={[
+            s.searchBar,
+            searchFocused && { borderColor: C.accent, backgroundColor: C.card },
+          ]}
+        >
+          <FontAwesome5 name="search" iconStyle="solid" size={14} color={C.sub} />
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm video, nghệ sĩ..."
+            placeholder="Tìm kiếm video..."
             placeholderTextColor={C.sub}
             value={search}
             onChangeText={handleSearch}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            returnKeyType="search"
           />
-          {search.length > 0 && (
-            <Pressable onPress={() => handleSearch('')} hitSlop={8}>
-              <FontAwesome5
-                name="times-circle"
-                iconStyle="solid"
-                size={13}
-                color={C.sub}
-              />
-            </Pressable>
-          )}
-        </Animated.View>
-      </Animated.View>
+        </View>
+      </View>
 
       <FlatList
         data={restVideos}
@@ -364,15 +233,15 @@ const Videos = ({ navigation }: any) => {
         contentContainerStyle={s.listContent}
         ListHeaderComponent={
           <View>
-            <FlatList
-              data={FILTERS}
-              keyExtractor={item => item}
+            <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={s.filterScroll}
               contentContainerStyle={s.filterContent}
-              renderItem={({ item }) => (
+            >
+              {FILTERS.map(item => (
                 <Pressable
+                  key={item}
                   style={[
                     s.filterChip,
                     activeFilter === item && s.filterChipActive,
@@ -388,15 +257,11 @@ const Videos = ({ navigation }: any) => {
                     {item}
                   </Text>
                 </Pressable>
-              )}
-            />
+              ))}
+            </ScrollView>
 
             {featuredVideo && (
-              <View style={s.featuredWrap}>
-                <View style={s.featuredLabel}>
-                  <View style={s.featuredDot} />
-                  <Text style={s.featuredLabelText}>NỔI BẬT</Text>
-                </View>
+              <View style={s.featuredSection}>
                 <Pressable
                   style={s.featuredCard}
                   onPress={() =>
@@ -404,74 +269,32 @@ const Videos = ({ navigation }: any) => {
                   }
                 >
                   <View style={s.featuredThumbWrap}>
-                    {getPoster(featuredVideo) ? (
-                      <Image
-                        source={{ uri: getPoster(featuredVideo) }}
-                        style={s.featuredThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[s.featuredThumb, s.thumbEmpty]}>
-                        <FontAwesome5
-                          name="film"
-                          iconStyle="solid"
-                          size={48}
-                          color={C.border}
-                        />
+                    <Image
+                      source={{ uri: getPoster(featuredVideo) }}
+                      style={s.featuredThumb}
+                    />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(8,9,18,0.8)', C.bg]}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={s.featuredInfo}>
+                      <View style={s.featuredBadge}>
+                        <Text style={s.featuredBadgeText}>FEATURED</Text>
                       </View>
-                    )}
-                    <View style={s.featuredOverlay} />
-                    <View style={s.featuredPlayBtn}>
+                      <Text style={s.featuredTitle} numberOfLines={2}>
+                        {featuredVideo.title}
+                      </Text>
+                      <Text style={s.featuredArtist}>
+                        {featuredVideo.about || 'SonicX'}
+                      </Text>
+                    </View>
+                    <View style={s.featuredPlay}>
                       <FontAwesome5
                         name="play"
                         iconStyle="solid"
-                        size={22}
+                        size={20}
                         color="#fff"
-                        style={{ marginLeft: 3 }}
                       />
-                    </View>
-                    {featuredVideo.duration ? (
-                      <View style={s.durationBadge}>
-                        <Text style={s.durationText}>
-                          {fmt(featuredVideo.duration)}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={s.featuredBody}>
-                    <Text style={s.featuredTitle} numberOfLines={2}>
-                      {featuredVideo.title}
-                    </Text>
-                    <Text style={s.featuredArtist} numberOfLines={1}>
-                      {featuredVideo.about || 'SonicX'}
-                    </Text>
-                    <View style={s.featuredStats}>
-                      <View style={s.statChip}>
-                        <FontAwesome5
-                          name="eye"
-                          iconStyle="solid"
-                          size={10}
-                          color={C.sub}
-                        />
-                        <Text style={s.statChipText}>
-                          {(
-                            (featuredVideo.likes?.length ?? 0) * 137 +
-                            2341
-                          ).toLocaleString()}{' '}
-                          lượt xem
-                        </Text>
-                      </View>
-                      <View style={s.statChip}>
-                        <FontAwesome5
-                          name="heart"
-                          iconStyle="solid"
-                          size={10}
-                          color={C.sub}
-                        />
-                        <Text style={s.statChipText}>
-                          {featuredVideo.likes?.length ?? 0}
-                        </Text>
-                      </View>
                     </View>
                   </View>
                 </Pressable>
@@ -480,7 +303,6 @@ const Videos = ({ navigation }: any) => {
 
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Tất cả video</Text>
-              <Text style={s.sectionCount}>{filtered.length} video</Text>
             </View>
           </View>
         }
@@ -491,20 +313,6 @@ const Videos = ({ navigation }: any) => {
             onPress={() => navigation.navigate('MusicPlayer', { audio: item })}
           />
         )}
-        ListEmptyComponent={
-          <View style={s.emptyWrap}>
-            <View style={s.emptyIcon}>
-              <FontAwesome5
-                name="film"
-                iconStyle="solid"
-                size={32}
-                color={C.accent}
-              />
-            </View>
-            <Text style={s.emptyTitle}>Không tìm thấy video</Text>
-            <Text style={s.emptySub}>Thử tìm kiếm với từ khóa khác</Text>
-          </View>
-        }
       />
     </SafeAreaView>
   );
@@ -512,314 +320,147 @@ const Videos = ({ navigation }: any) => {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-  },
-  loadingText: { fontFamily: 'Inter', fontSize: 14, color: C.sub },
-
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14 },
+  header: { paddingHorizontal: 24, paddingTop: 12, marginBottom: 20 },
   headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   headerEyebrow: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '900',
     color: C.accent,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: 3,
+    letterSpacing: 2,
   },
-  headerTitle: {
-    fontFamily: 'Inter',
-    fontSize: 26,
-    fontWeight: '700',
-    color: C.text,
-    letterSpacing: -0.5,
-  },
+  headerTitle: { fontSize: 32, fontWeight: '900', color: C.text },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
     backgroundColor: C.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 20,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: C.text,
-    paddingVertical: 0,
-  },
-
-  filterScroll: { marginBottom: 20 },
-  filterContent: { gap: 8, paddingRight: 4 },
-  filterChip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 22,
+    height: 52,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  searchInput: { flex: 1, color: C.text, fontSize: 15 },
+
+  filterScroll: { marginBottom: 24 },
+  filterContent: { paddingHorizontal: 24, gap: 10 },
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
   },
   filterChipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  filterChipText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '500',
-    color: C.sub,
-  },
-  filterChipTextActive: { color: '#fff', fontWeight: '600' },
+  filterChipText: { fontSize: 13, fontWeight: '800', color: C.sub },
+  filterChipTextActive: { color: '#fff' },
 
-  featuredWrap: { marginBottom: 24 },
-  featuredLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  featuredSection: { marginBottom: 32 },
+  featuredCard: { width: '100%', height: 260 },
+  featuredThumbWrap: { width: '100%', height: '100%', position: 'relative' },
+  featuredThumb: { width: '100%', height: '100%', opacity: 0.7 },
+  featuredInfo: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 80,
+    zIndex: 2,
+  },
+  featuredBadge: {
+    backgroundColor: C.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
     marginBottom: 12,
   },
-  featuredDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.red },
-  featuredLabelText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.red,
-    letterSpacing: 1.2,
-  },
-  featuredCard: {
-    backgroundColor: C.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-  },
-  featuredThumbWrap: { width: '100%', height: THUMB_HEIGHT + 20 },
-  featuredThumb: { width: '100%', height: '100%' },
-  featuredOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
-  featuredPlayBtn: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  featuredBody: { padding: 16 },
+  featuredBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   featuredTitle: {
-    fontFamily: 'Inter',
-    fontSize: 17,
-    fontWeight: '700',
-    color: C.text,
-    marginBottom: 4,
-    lineHeight: 24,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#fff',
+    lineHeight: 28,
+    marginBottom: 6,
   },
-  featuredArtist: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    color: C.sub,
-    marginBottom: 10,
-  },
-  featuredStats: { flexDirection: 'row', gap: 14 },
-
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontFamily: 'Inter',
-    fontSize: 17,
-    fontWeight: '700',
-    color: C.text,
-  },
-  sectionCount: { fontFamily: 'Inter', fontSize: 13, color: C.sub },
-
-  listContent: { paddingHorizontal: 20, paddingBottom: 130 },
-
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  thumbWrap: { width: '100%', height: THUMB_HEIGHT, position: 'relative' },
-  thumb: { width: '100%', height: '100%' },
-  thumbEmpty: {
-    backgroundColor: C.card,
-    alignItems: 'center',
+  featuredArtist: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  featuredPlay: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    backgroundColor: C.accent,
     justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
+
+  sectionHeader: { paddingHorizontal: 24, marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: C.text },
+
+  listContent: { paddingBottom: 120 },
+  card: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    gap: 16,
+  },
+  thumbWrap: { width: 120, height: 80, position: 'relative' },
+  thumb: { width: '100%', height: '100%', backgroundColor: C.surface },
+  thumbEmpty: { justifyContent: 'center', alignItems: 'center' },
   thumbOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   playCircle: {
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginTop: -22,
-    marginLeft: -22,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(108,99,255,0.85)',
-    alignItems: 'center',
+    width: 36,
+    height: 36,
+    marginTop: -18,
+    marginLeft: -18,
+    backgroundColor: C.accent,
     justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
   },
   durationBadge: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  durationText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  liveBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  liveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: C.accent,
-  },
-  liveText: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-
-  cardBody: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 12,
-    gap: 10,
-  },
-  cardLeft: { paddingTop: 2 },
-  avatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: C.card,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardInfo: { flex: 1 },
-  cardTitle: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
-    color: C.text,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  cardArtist: { fontFamily: 'Inter', fontSize: 12, color: C.sub },
-  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.sub },
-  catBadge: {
-    paddingHorizontal: 7,
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingHorizontal: 4,
     paddingVertical: 2,
-    backgroundColor: C.accentDim,
-    borderRadius: 6,
   },
-  catBadgeText: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '500',
-    color: C.accent,
-  },
-  cardStats: { flexDirection: 'row', gap: 12 },
-  statChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statChipText: { fontFamily: 'Inter', fontSize: 11, color: C.sub },
-  moreBtn: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  durationText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 
-  emptyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 64,
-    gap: 12,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: C.accentDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  emptyTitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '600',
-    color: C.text,
-  },
-  emptySub: { fontFamily: 'Inter', fontSize: 13, color: C.sub },
+  cardBody: { flex: 1, justifyContent: 'center' },
+  cardInfo: { marginBottom: 6 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: C.text },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardArtist: { fontSize: 13, color: C.sub, fontWeight: '600' },
+  catText: { fontSize: 13, color: C.sub, fontWeight: '600' },
+  cardStats: { flexDirection: 'row', gap: 12 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statText: { fontSize: 11, color: C.sub, fontWeight: '600' },
 });
 
 export default Videos;

@@ -22,7 +22,7 @@ import * as yup from 'yup';
 import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
 import SignInBtn from '@components/form/SignInBtn';
 import Toast from 'react-native-toast-message';
-import { appLogin } from '../../../App';
+import { appLogin } from '../../utils/auth';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 const loginSchema = yup.object({
@@ -66,7 +66,7 @@ const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [glow]);
 
   const borderColor = glow.interpolate({
     inputRange: [0, 1],
@@ -132,7 +132,7 @@ const Login: FC<Props> = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   return (
     <SafeAreaView style={styles.container}>

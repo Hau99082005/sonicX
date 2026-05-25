@@ -73,7 +73,7 @@ const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [glow]);
 
   const borderColor = glow.interpolate({
     inputRange: [0, 1],
@@ -139,7 +139,7 @@ const Register: FC<Props> = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   return (
     <SafeAreaView style={styles.container}>

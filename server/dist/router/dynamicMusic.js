@@ -1,0 +1,24 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const fileParser_1 = __importDefault(require("../middleware/fileParser"));
+const dynamicMusic_1 = require("../controllers/dynamicMusic");
+const router = (0, express_1.Router)();
+router.get("/rules/default", dynamicMusic_1.getDefaultRules);
+router.post("/profiles", auth_1.mustAuth, auth_1.isVerified, dynamicMusic_1.createProfile);
+router.get("/profiles", auth_1.mustAuth, dynamicMusic_1.getProfiles);
+router.get("/profiles/:profileId", auth_1.mustAuth, dynamicMusic_1.getProfileById);
+router.patch("/profiles/:profileId", auth_1.mustAuth, auth_1.isVerified, dynamicMusic_1.updateProfile);
+router.delete("/profiles/:profileId", auth_1.mustAuth, auth_1.isVerified, dynamicMusic_1.deleteProfile);
+router.post("/profiles/:profileId/reset", auth_1.mustAuth, auth_1.isVerified, dynamicMusic_1.resetProfileToDefault);
+router.get("/profiles/:profileId/resolve/:audioId", auth_1.mustAuth, dynamicMusic_1.resolveMix);
+router.patch("/sessions/:sessionId/end", auth_1.mustAuth, dynamicMusic_1.endSession);
+router.get("/sessions", auth_1.mustAuth, dynamicMusic_1.getSessionHistory);
+router.post("/ambient", auth_1.mustAuth, auth_1.isVerified, fileParser_1.default, dynamicMusic_1.createAmbientSound);
+router.get("/ambient", auth_1.mustAuth, dynamicMusic_1.getAmbientSounds);
+router.delete("/ambient/:soundId", auth_1.mustAuth, auth_1.isVerified, dynamicMusic_1.deleteAmbientSound);
+exports.default = router;

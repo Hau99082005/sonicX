@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,29 +15,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
-import { getLatestMusic, searchMusic, toggleFavorite, Audio } from '@api/music';
+import { getLatestMusic, Audio } from '@api/music';
 import { usePlayer } from '../../context/PlayerContext';
 import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
-const ITEM_WIDTH = (width - 52) / 2;
 
 const C = {
-  bg: '#0D0F1E',
-  surface: '#161829',
-  card: '#1C1F35',
-  border: '#1E2140',
+  bg: '#080912',
+  surface: '#121421',
+  card: '#1A1D2E',
+  border: 'rgba(255, 255, 255, 0.06)',
   text: '#FFFFFF',
-  sub: '#8A8FAD',
-  accent: '#6C63FF',
-  accentDim: 'rgba(108,99,255,0.12)',
-  accentGlow: 'rgba(108,99,255,0.25)',
+  sub: '#94A3B8',
+  accent: '#8B5CF6',
+  accentGradient: ['#8B5CF6', '#DB2777'],
   heart: '#FF5370',
-  gold: '#F59E0B',
-  green: '#10B981',
 };
 
-const BAR_HEIGHTS = [10, 16, 12];
 const BAR_DELAYS = [0, 150, 80];
 const BAR_DURATIONS = [500, 380, 460];
 
@@ -50,7 +45,7 @@ const MusicBars = ({
   size?: number;
   playing?: boolean;
 }) => {
-  const anims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0.3))).current;
+  const anims = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
 
   useEffect(() => {
     if (!playing) {
@@ -82,30 +77,27 @@ const MusicBars = ({
     );
     loops.forEach(l => l.start());
     return () => loops.forEach(l => l.stop());
-  }, [playing]);
+  }, [playing, anims]);
 
-  const barWidth = size * 0.18;
-  const maxH = size;
+  const barW = Math.max(2, size * 0.18);
 
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'flex-end',
-        gap: barWidth * 0.8,
-        height: maxH,
+        gap: barW * 0.8,
+        height: size,
       }}
     >
       {anims.map((anim, i) => (
         <Animated.View
           key={i}
           style={{
-            width: barWidth + 1,
-            height: maxH,
-            borderRadius: 2,
+            width: barW,
+            height: size,
             backgroundColor: color,
             transform: [{ scaleY: anim }],
-            transformOrigin: 'bottom',
           }}
         />
       ))}
@@ -115,18 +107,6 @@ const MusicBars = ({
 
 type SortKey = 'newest' | 'title' | 'likes' | 'duration';
 type ViewMode = 'list' | 'grid';
-
-const fmt = (s?: number) => {
-  if (!s || isNaN(s)) return '';
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-};
-
-const SORT_OPTIONS: { key: SortKey; label: string; icon: any }[] = [
-  { key: 'newest', label: 'Mới nhất', icon: 'clock' },
-  { key: 'title', label: 'Tên A–Z', icon: 'sort-alpha-down' },
-  { key: 'likes', label: 'Yêu thích nhất', icon: 'fire' },
-  { key: 'duration', label: 'Thời lượng', icon: 'hourglass-half' },
-];
 
 const CATEGORIES = [
   'Tất cả',
@@ -138,6 +118,100 @@ const CATEGORIES = [
   'Rock',
   'Indie',
 ];
+const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
+  { key: 'newest', label: 'Mới nhất', icon: 'clock' },
+  { key: 'title', label: 'Tên A–Z', icon: 'sort-alpha-down' },
+  { key: 'likes', label: 'Yêu thích', icon: 'fire' },
+  { key: 'duration', label: 'Thời lượng', icon: 'hourglass-half' },
+];
+
+const GridItem = ({
+  audio,
+  onPress,
+  isPlaying,
+  isActive,
+}: {
+  audio: Audio;
+  onPress: () => void;
+  isPlaying: boolean;
+  isActive: boolean;
+}) => {
+  const poster =
+    typeof audio.poster === 'string'
+      ? audio.poster
+      : (audio.poster as any)?.url ?? audio.image ?? '';
+  return (
+    <Pressable style={s.gridCard} onPress={onPress}>
+      <View style={s.gridImgWrap}>
+        <Image source={{ uri: poster }} style={s.gridImg} />
+        {isActive && (
+          <View style={s.gridOverlay}>
+            <MusicBars size={20} playing={isPlaying} color="#fff" />
+          </View>
+        )}
+      </View>
+      <View style={s.gridInfo}>
+        <Text
+          style={[s.gridTitle, isActive && { color: C.accent }]}
+          numberOfLines={1}
+        >
+          {audio.title}
+        </Text>
+        <Text style={s.gridSub} numberOfLines={1}>
+          {audio.about || 'SonicX'}
+        </Text>
+      </View>
+    </Pressable>
+  );
+};
+
+const ListItem = ({
+  audio,
+  onPress,
+  isPlaying,
+  isActive,
+}: {
+  audio: Audio;
+  onPress: () => void;
+  isPlaying: boolean;
+  isActive: boolean;
+}) => {
+  const poster =
+    typeof audio.poster === 'string'
+      ? audio.poster
+      : (audio.poster as any)?.url ?? audio.image ?? '';
+  return (
+    <Pressable style={s.listItem} onPress={onPress}>
+      <View style={s.listImgWrap}>
+        <Image source={{ uri: poster }} style={s.listImg} />
+        {isActive && (
+          <View style={s.listOverlay}>
+            <MusicBars size={12} playing={isPlaying} color="#fff" />
+          </View>
+        )}
+      </View>
+      <View style={s.listInfo}>
+        <Text
+          style={[s.listTitle, isActive && { color: C.accent }]}
+          numberOfLines={1}
+        >
+          {audio.title}
+        </Text>
+        <Text style={s.listSub} numberOfLines={1}>
+          {audio.about || 'SonicX'}
+        </Text>
+      </View>
+      <View style={s.listActions}>
+        <FontAwesome5
+          name="ellipsis-v"
+          iconStyle="solid"
+          size={12}
+          color={C.sub}
+        />
+      </View>
+    </Pressable>
+  );
+};
 
 const Library = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
@@ -145,38 +219,12 @@ const Library = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredMusics, setFilteredMusics] = useState<Audio[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [showSort, setShowSort] = useState(false);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [searchFocused, setSearchFocused] = useState(false);
   const player = usePlayer();
 
-  const searchAnim = useRef(new Animated.Value(0)).current;
-  const headerAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(headerAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-    loadMusics();
-  }, []);
-
-  useEffect(() => {
-    Animated.timing(searchAnim, {
-      toValue: searchFocused ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [searchFocused]);
-
-  useEffect(() => {
-    applyFilters(musics, searchQuery, activeCategory, sortKey);
-  }, [sortKey, activeCategory]);
-
-  const loadMusics = async () => {
+  const loadMusics = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getLatestMusic();
@@ -188,7 +236,15 @@ const Library = ({ navigation }: any) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortKey]);
+
+  useEffect(() => {
+    loadMusics();
+  }, [loadMusics]);
+
+  useEffect(() => {
+    applyFilters(musics, searchQuery, activeCategory, sortKey);
+  }, [sortKey, activeCategory, searchQuery, musics]);
 
   const applyFilters = (
     list: Audio[],
@@ -218,862 +274,325 @@ const Library = ({ navigation }: any) => {
     setFilteredMusics(result);
   };
 
-  const handleSearch = useCallback(
-    async (q: string) => {
-      setSearchQuery(q);
-      if (!q.trim()) {
-        applyFilters(musics, '', activeCategory, sortKey);
-        return;
-      }
-      try {
-        const res = await searchMusic(q);
-        setFilteredMusics(res.data.audios ?? []);
-      } catch {
-        applyFilters(musics, q, activeCategory, sortKey);
-      }
-    },
-    [musics, activeCategory, sortKey],
-  );
-
-  const handleToggleFavorite = useCallback(async (audio: Audio) => {
-    try {
-      const res = await toggleFavorite(audio._id);
-      setFavorites(prev => {
-        const next = new Set(prev);
-        if (res.data.status === 'added') next.add(audio._id);
-        else next.delete(audio._id);
-        return next;
-      });
-    } catch {}
-  }, []);
-
   const handlePlay = (audio: Audio) => {
+    player.play(audio);
     navigation.navigate('MusicPlayer', { audio });
   };
 
-  const posterUrl = (audio: Audio) =>
-    typeof audio.poster === 'string'
-      ? audio.poster
-      : (audio.poster as any)?.url ?? audio.image ?? '';
-
-  const searchBorder = searchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [C.border, C.accent],
-  });
-
-  const SortModal = () => (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={showSort}
-      onRequestClose={() => setShowSort(false)}
-    >
-      <Pressable style={s.overlay} onPress={() => setShowSort(false)}>
-        <View style={s.sheet}>
-          <View style={s.sheetHandle} />
-          <Text style={s.sheetTitle}>Sắp xếp theo</Text>
-          {SORT_OPTIONS.map(opt => (
-            <Pressable
-              key={opt.key}
-              style={[s.sheetRow, sortKey === opt.key && s.sheetRowActive]}
-              onPress={() => {
-                setSortKey(opt.key);
-                setShowSort(false);
-              }}
-            >
-              <View
-                style={[
-                  s.sheetIconWrap,
-                  sortKey === opt.key && s.sheetIconWrapActive,
-                ]}
-              >
-                <FontAwesome5
-                  name={opt.icon}
-                  iconStyle="solid"
-                  size={13}
-                  color={sortKey === opt.key ? C.accent : C.sub}
-                />
-              </View>
-              <Text
-                style={[
-                  s.sheetLabel,
-                  sortKey === opt.key && {
-                    color: C.text,
-                    fontFamily: 'Inter-SemiBold',
-                  },
-                ]}
-              >
-                {opt.label}
-              </Text>
-              {sortKey === opt.key && (
-                <View style={s.sheetCheck}>
-                  <FontAwesome5
-                    name="check"
-                    iconStyle="solid"
-                    size={10}
-                    color={C.accent}
-                  />
-                </View>
-              )}
-            </Pressable>
-          ))}
-        </View>
-      </Pressable>
-    </Modal>
-  );
-
-  const GridItem = ({ audio }: { audio: Audio }) => {
-    const url = posterUrl(audio);
-    const isFav = favorites.has(audio._id);
-    const isActive = player.currentAudio?._id === audio._id;
-    return (
-      <Pressable style={s.gridItem} onPress={() => handlePlay(audio)}>
-        <View style={[s.gridThumb, isActive && s.gridThumbActive]}>
-          {url ? (
-            <Image source={{ uri: url }} style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={s.thumbPlaceholder}>
-              <FontAwesome5
-                name="music"
-                iconStyle="solid"
-                size={24}
-                color={C.border}
-              />
-            </View>
-          )}
-          {isActive && (
-            <View style={s.activeOverlay}>
-              <View style={s.activeIndicator}>
-                <MusicBars
-                  color={C.accent}
-                  size={18}
-                  playing={player.isPlaying}
-                />
-              </View>
-            </View>
-          )}
-          <Pressable
-            style={s.favPill}
-            onPress={() => handleToggleFavorite(audio)}
-            hitSlop={8}
-          >
-            <FontAwesome5
-              name="heart"
-              iconStyle={isFav ? 'solid' : 'regular'}
-              size={11}
-              color={isFav ? C.heart : '#fff'}
-            />
-          </Pressable>
-        </View>
-        <Text style={s.gridTitle} numberOfLines={2}>
-          {audio.title}
-        </Text>
-        {audio.category && (
-          <Text style={s.gridSub} numberOfLines={1}>
-            {audio.category}
-          </Text>
-        )}
-      </Pressable>
-    );
-  };
-
-  const ListItem = ({ audio, index }: { audio: Audio; index: number }) => {
-    const url = posterUrl(audio);
-    const isFav = favorites.has(audio._id);
-    const isActive = player.currentAudio?._id === audio._id;
-    return (
-      <Pressable
-        style={[s.row, isActive && s.rowActive]}
-        onPress={() => handlePlay(audio)}
-      >
-        <Text style={s.rowIdx}>{String(index + 1).padStart(2, '0')}</Text>
-        <View style={s.rowThumb}>
-          {url ? (
-            <Image
-              source={{ uri: url }}
-              style={StyleSheet.absoluteFill}
-              borderRadius={10}
-            />
-          ) : (
-            <View style={s.thumbPlaceholder}>
-              <FontAwesome5
-                name="music"
-                iconStyle="solid"
-                size={14}
-                color={C.border}
-              />
-            </View>
-          )}
-          {isActive && (
-            <View style={s.activeOverlay}>
-              <MusicBars
-                color={C.accent}
-                size={14}
-                playing={player.isPlaying}
-              />
-            </View>
-          )}
-        </View>
-        <View style={s.rowInfo}>
-          <Text
-            style={[s.rowTitle, isActive && { color: C.accent }]}
-            numberOfLines={1}
-          >
-            {audio.title}
-          </Text>
-          <View style={s.rowMeta}>
-            {audio.category && (
-              <View style={s.badge}>
-                <Text style={s.badgeText}>{audio.category}</Text>
-              </View>
-            )}
-            {audio.likes && audio.likes.length > 0 && (
-              <View style={s.chip}>
-                <FontAwesome5
-                  name="heart"
-                  iconStyle="solid"
-                  size={8}
-                  color={C.heart}
-                />
-                <Text style={s.chipText}>{audio.likes.length}</Text>
-              </View>
-            )}
-            {!!audio.duration && (
-              <View style={s.chip}>
-                <FontAwesome5
-                  name="clock"
-                  iconStyle="regular"
-                  size={8}
-                  color={C.sub}
-                />
-                <Text style={s.chipText}>{fmt(audio.duration)}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-        <Pressable
-          onPress={() => handleToggleFavorite(audio)}
-          hitSlop={12}
-          style={s.rowAction}
-        >
-          <FontAwesome5
-            name="heart"
-            iconStyle={isFav ? 'solid' : 'regular'}
-            size={15}
-            color={isFav ? C.heart : C.sub}
-          />
-        </Pressable>
-        <Pressable
-          onPress={() => handlePlay(audio)}
-          hitSlop={12}
-          style={s.playBtn}
-        >
-          <FontAwesome5
-            name={isActive && player.isPlaying ? 'pause' : 'play'}
-            iconStyle="solid"
-            size={11}
-            color="#fff"
-          />
-        </Pressable>
-      </Pressable>
-    );
-  };
-
-  const ListHeader = () => (
-    <View>
-      <View style={s.statsRow}>
-        <View style={[s.statCard, { borderColor: C.accentGlow }]}>
-          <View style={[s.statIcon, { backgroundColor: C.accentDim }]}>
-            <FontAwesome5
-              name="music"
-              iconStyle="solid"
-              size={14}
-              color={C.accent}
-            />
-          </View>
-          <Text style={s.statNum}>{musics.length}</Text>
-          <Text style={s.statLbl}>Bài hát</Text>
-        </View>
-        <View style={[s.statCard, { borderColor: 'rgba(255,83,112,0.2)' }]}>
-          <View
-            style={[s.statIcon, { backgroundColor: 'rgba(255,83,112,0.1)' }]}
-          >
-            <FontAwesome5
-              name="heart"
-              iconStyle="solid"
-              size={14}
-              color={C.heart}
-            />
-          </View>
-          <Text style={s.statNum}>{favorites.size}</Text>
-          <Text style={s.statLbl}>Yêu thích</Text>
-        </View>
-        <View style={[s.statCard, { borderColor: 'rgba(245,158,11,0.2)' }]}>
-          <View
-            style={[s.statIcon, { backgroundColor: 'rgba(245,158,11,0.1)' }]}
-          >
-            <FontAwesome5
-              name="layer-group"
-              iconStyle="solid"
-              size={14}
-              color={C.gold}
-            />
-          </View>
-          <Text style={s.statNum}>
-            {new Set(musics.map(a => a.category).filter(Boolean)).size}
-          </Text>
-          <Text style={s.statLbl}>Thể loại</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={s.catScroll}
-        contentContainerStyle={s.catContent}
-      >
-        {CATEGORIES.map(cat => (
-          <Pressable
-            key={cat}
-            style={[s.catChip, activeCategory === cat && s.catChipActive]}
-            onPress={() => {
-              setActiveCategory(cat);
-              applyFilters(musics, searchQuery, cat, sortKey);
-            }}
-          >
-            <Text
-              style={[
-                s.catChipText,
-                activeCategory === cat && s.catChipTextActive,
-              ]}
-            >
-              {cat}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      <View style={s.toolbar}>
-        <Text style={s.toolbarCount}>
-          <Text style={{ color: C.text, fontFamily: 'Inter-SemiBold' }}>
-            {filteredMusics.length}
-          </Text>
-          {'  bài hát'}
-        </Text>
-        <View style={s.toolbarActions}>
-          <Pressable style={s.toolBtn} onPress={() => setShowSort(true)}>
-            <FontAwesome5
-              name="sliders-h"
-              iconStyle="solid"
-              size={13}
-              color={C.sub}
-            />
-          </Pressable>
-          <Pressable
-            style={[s.toolBtn, viewMode === 'grid' && s.toolBtnActive]}
-            onPress={() => setViewMode(v => (v === 'list' ? 'grid' : 'list'))}
-          >
-            <FontAwesome5
-              name={viewMode === 'grid' ? 'list' : 'th-large'}
-              iconStyle="solid"
-              size={13}
-              color={viewMode === 'grid' ? C.accent : C.sub}
-            />
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={C.accent} />
-          <Text style={s.loadingText}>Đang tải thư viện...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
-      <SortModal />
-
-      <Animated.View
-        style={[
-          s.header,
-          {
-            opacity: headerAnim,
-            transform: [
-              {
-                translateY: headerAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-16, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <View style={s.headerTop}>
-          <View>
-            <Text style={s.headerEyebrow}>SonicX</Text>
-            <Text style={s.headerTitle}>Thư viện nhạc</Text>
-          </View>
-          <Pressable style={s.iconBtn} onPress={loadMusics}>
+    <SafeAreaView style={s.root} edges={['top']}>
+      <View style={s.header}>
+        <View>
+          <Text style={s.headerEyebrow}>THƯ VIỆN</Text>
+          <Text style={s.headerTitle}>Bộ sưu tập</Text>
+        </View>
+        <View style={s.headerActions}>
+          <Pressable
+            style={s.iconBtn}
+            onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+          >
             <FontAwesome5
-              name="sync-alt"
+              name={viewMode === 'list' ? 'th-large' : 'list'}
               iconStyle="solid"
-              size={15}
-              color={C.sub}
+              size={16}
+              color={C.text}
+            />
+          </Pressable>
+          <Pressable style={s.iconBtn} onPress={() => setShowSort(true)}>
+            <FontAwesome5
+              name="sort-amount-down"
+              iconStyle="solid"
+              size={16}
+              color={C.text}
             />
           </Pressable>
         </View>
+      </View>
 
-        <Animated.View style={[s.searchBar, { borderColor: searchBorder }]}>
+      <View style={s.topControls}>
+        <View style={s.searchBox}>
           <FontAwesome5
             name="search"
             iconStyle="solid"
-            size={13}
-            color={searchFocused ? C.accent : C.sub}
+            size={14}
+            color={C.sub}
           />
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm tên bài hát, thể loại..."
+            placeholder="Tìm kiếm trong thư viện..."
             placeholderTextColor={C.sub}
             value={searchQuery}
-            onChangeText={handleSearch}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            returnKeyType="search"
+            onChangeText={setSearchQuery}
           />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => handleSearch('')} hitSlop={8}>
-              <FontAwesome5
-                name="times-circle"
-                iconStyle="solid"
-                size={13}
-                color={C.sub}
-              />
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.catScroll}
+          contentContainerStyle={s.catContent}
+        >
+          {CATEGORIES.map(cat => (
+            <Pressable
+              key={cat}
+              style={[s.catChip, activeCategory === cat && s.catChipActive]}
+              onPress={() => setActiveCategory(cat)}
+            >
+              <Text
+                style={[s.catText, activeCategory === cat && s.catTextActive]}
+              >
+                {cat}
+              </Text>
             </Pressable>
-          )}
-        </Animated.View>
-      </Animated.View>
+          ))}
+        </ScrollView>
+      </View>
 
-      {viewMode === 'grid' ? (
-        <FlatList
-          key="grid"
-          data={filteredMusics}
-          keyExtractor={item => item._id}
-          numColumns={2}
-          ListHeaderComponent={<ListHeader />}
-          renderItem={({ item }) => <GridItem audio={item} />}
-          contentContainerStyle={s.gridContent}
-          showsVerticalScrollIndicator={false}
-          columnWrapperStyle={s.gridRow}
-          ListEmptyComponent={<EmptyState />}
-        />
+      {loading ? (
+        <ActivityIndicator color={C.accent} style={s.loader} />
       ) : (
         <FlatList
-          key="list"
           data={filteredMusics}
-          keyExtractor={item => item._id}
-          ListHeaderComponent={<ListHeader />}
-          renderItem={({ item, index }) => (
-            <ListItem audio={item} index={index} />
-          )}
+          keyExtractor={(item, index) => item._id || index.toString()}
+          renderItem={({ item }) =>
+            viewMode === 'grid' ? (
+              <GridItem
+                audio={item}
+                onPress={() => handlePlay(item)}
+                isPlaying={player.isPlaying}
+                isActive={player.currentAudio?._id === item._id}
+              />
+            ) : (
+              <ListItem
+                audio={item}
+                onPress={() => handlePlay(item)}
+                isPlaying={player.isPlaying}
+                isActive={player.currentAudio?._id === item._id}
+              />
+            )
+          }
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          key={viewMode}
           contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={<EmptyState />}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <FontAwesome5
+                name="music"
+                iconStyle="solid"
+                size={40}
+                color={C.border}
+              />
+              <Text style={s.emptyText}>Không tìm thấy bài hát nào</Text>
+            </View>
+          }
         />
       )}
+
+      <Modal transparent visible={showSort} animationType="slide">
+        <Pressable style={s.overlay} onPress={() => setShowSort(false)}>
+          <View style={s.sheet}>
+            <View style={s.sheetHandle} />
+            <Text style={s.sheetTitle}>Sắp xếp theo</Text>
+            <View style={s.sheetGrid}>
+              {SORT_OPTIONS.map(opt => (
+                <Pressable
+                  key={opt.key}
+                  style={[
+                    s.sheetCard,
+                    sortKey === opt.key && s.sheetCardActive,
+                  ]}
+                  onPress={() => {
+                    setSortKey(opt.key);
+                    setShowSort(false);
+                  }}
+                >
+                  <View
+                    style={[
+                      s.sheetIconWrap,
+                      sortKey === opt.key && s.sheetIconActive,
+                    ]}
+                  >
+                    <FontAwesome5
+                      name={opt.icon as any}
+                      iconStyle="solid"
+                      size={18}
+                      color={sortKey === opt.key ? '#fff' : C.sub}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      s.sheetLabel,
+                      sortKey === opt.key && { color: C.accent },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
 
-const EmptyState = () => (
-  <View style={s.emptyWrap}>
-    <View style={s.emptyIcon}>
-      <FontAwesome5
-        name="compact-disc"
-        iconStyle="solid"
-        size={36}
-        color={C.accent}
-      />
-    </View>
-    <Text style={s.emptyTitle}>Không tìm thấy bài hát</Text>
-    <Text style={s.emptySub}>Thử tìm kiếm với từ khóa khác</Text>
-  </View>
-);
-
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14 },
-  headerTop: {
+  root: { flex: 1, backgroundColor: C.bg },
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
   headerEyebrow: {
-    fontFamily: 'Inter',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '700',
     color: C.accent,
     letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   headerTitle: {
-    fontFamily: 'Inter',
-    fontSize: 26,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '900',
     color: C.text,
     letterSpacing: -0.5,
   },
+  headerActions: { flexDirection: 'row', gap: 12 },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: C.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-
-  searchBar: {
+  topControls: { gap: 20, marginBottom: 8 },
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    borderRadius: 14,
+    height: 54,
+    marginHorizontal: 20,
+    paddingHorizontal: 16,
+    gap: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
+    borderColor: C.border,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '400',
-    color: C.text,
-    paddingVertical: 0,
+  searchInput: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
+  catScroll: { maxHeight: 42 },
+  catContent: { paddingHorizontal: 20, gap: 10 },
+  catChip: {
+    paddingHorizontal: 20,
+    height: 40,
+    justifyContent: 'center',
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
-  loadingWrap: {
-    flex: 1,
+  catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+  catText: { fontSize: 14, fontWeight: '700', color: C.sub },
+  catTextActive: { color: '#fff' },
+  listContent: { paddingBottom: 140 },
+  gridCard: {
+    width: width / 2,
+    backgroundColor: C.card,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  gridImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: C.surface },
+  gridImg: { width: '100%', height: '100%' },
+  gridOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridInfo: { padding: 16, gap: 4 },
+  gridTitle: { fontSize: 15, fontWeight: '800', color: C.text },
+  gridSub: { fontSize: 13, color: C.sub, fontWeight: '600' },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.03)',
+  },
+  listImgWrap: { width: 64, height: 64, backgroundColor: C.surface },
+  listImg: { width: '100%', height: '100%' },
+  listOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listInfo: { flex: 1, gap: 4 },
+  listTitle: { fontSize: 16, fontWeight: '800', color: C.text },
+  listSub: { fontSize: 14, color: C.sub, fontWeight: '600' },
+  listActions: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
   },
-  loadingText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '400',
-    color: C.sub,
-  },
-
+  loader: { marginTop: 40 },
+  empty: { alignItems: 'center', marginTop: 100, gap: 20 },
+  emptyText: { fontSize: 15, color: C.sub, fontWeight: '600' },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: C.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 36,
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    padding: 24,
+    paddingBottom: 50,
+    gap: 24,
   },
   sheetHandle: {
-    width: 36,
+    width: 40,
     height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 2,
-    backgroundColor: C.border,
     alignSelf: 'center',
-    marginBottom: 20,
   },
   sheetTitle: {
-    fontFamily: 'Inter',
-    fontSize: 17,
-    fontWeight: '700',
-    color: C.text,
-    marginBottom: 8,
-  },
-  sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  sheetRowActive: { borderBottomColor: 'transparent' },
-  sheetIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: C.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetIconWrapActive: { backgroundColor: C.accentDim },
-  sheetLabel: {
-    fontFamily: 'Inter',
-    fontSize: 15,
-    fontWeight: '400',
-    color: C.sub,
-    flex: 1,
-  },
-  sheetCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: C.accentDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 6,
-    borderWidth: 1,
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statNum: {
-    fontFamily: 'Inter',
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '900',
     color: C.text,
+    textAlign: 'left',
   },
-  statLbl: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '400',
-    color: C.sub,
-  },
-
-  catScroll: { marginBottom: 16 },
-  catContent: { gap: 8, paddingRight: 4 },
-  catChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 22,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  catChipText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '500',
-    color: C.sub,
-  },
-  catChipTextActive: { color: '#fff', fontFamily: 'Inter', fontWeight: '600' },
-
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  toolbarCount: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '400',
-    color: C.sub,
-  },
-  toolbarActions: { flexDirection: 'row', gap: 8 },
-  toolBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolBtnActive: { backgroundColor: C.accentDim, borderColor: C.accent },
-
-  listContent: { paddingHorizontal: 20, paddingBottom: 130 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    marginBottom: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    gap: 10,
-  },
-  rowActive: { borderColor: C.accent, backgroundColor: C.accentDim },
-  rowIdx: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: C.sub,
-    width: 22,
-    textAlign: 'center',
-  },
-  rowThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
+  sheetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  sheetCard: {
+    width: (width - 48 - 12) / 2,
     backgroundColor: C.card,
-    overflow: 'hidden',
-  },
-  rowInfo: { flex: 1 },
-  rowTitle: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
-    color: C.text,
-    marginBottom: 5,
-  },
-  rowMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: C.accentDim,
-    borderRadius: 6,
-  },
-  badgeText: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '500',
-    color: C.accent,
-  },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  chipText: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '400',
-    color: C.sub,
-  },
-  rowAction: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-
-  gridContent: { paddingHorizontal: 16, paddingBottom: 130 },
-  gridRow: { gap: 12, marginBottom: 12 },
-  gridItem: { width: ITEM_WIDTH },
-  gridThumb: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH,
-    borderRadius: 14,
-    backgroundColor: C.surface,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  gridThumbActive: { borderWidth: 2, borderColor: C.accent },
-  activeOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeIndicator: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: C.accentDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  favPill: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridTitle: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '600',
-    color: C.text,
-    marginBottom: 2,
-  },
-  gridSub: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '400',
-    color: C.sub,
-  },
-
-  thumbPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-  emptyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 64,
+    padding: 16,
     gap: 12,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: C.accentDim,
+  sheetCardActive: {
+    borderColor: C.accent,
+    backgroundColor: 'rgba(124,58,237,0.05)',
+  },
+  sheetIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
-  emptyTitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '600',
-    color: C.text,
-  },
-  emptySub: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '400',
-    color: C.sub,
-  },
+  sheetIconActive: { backgroundColor: C.accent },
+  sheetLabel: { fontSize: 14, fontWeight: '800', color: C.sub },
 });
 
 export default Library;

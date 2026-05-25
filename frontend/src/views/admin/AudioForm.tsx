@@ -108,7 +108,7 @@ const AudioForm = ({ route, navigation }: any) => {
         Toast.show({ type: 'success', text1: 'Thành công', text2: 'Đã thêm âm thanh mới' });
       }
       navigation.goBack();
-    } catch (error) {
+    } catch {
       Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Đã có lỗi xảy ra' });
     } finally {
       setLoading(false);

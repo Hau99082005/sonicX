@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLatestUploads = exports.deleteAudio = exports.getAudio = exports.updateAudio = exports.createAudio = void 0;
+exports.getLatestUploads = exports.getLyrics = exports.getSimilarAudios = exports.deleteAudio = exports.getAudio = exports.updateAudio = exports.createAudio = void 0;
 const cloud_1 = __importDefault(require("../cloud"));
 const audio_1 = __importDefault(require("../models/audio"));
 const mongoose_1 = require("mongoose");
@@ -106,7 +106,18 @@ const updateAudio = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
 });
 exports.updateAudio = updateAudio;
 const getAudio = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const audio = yield audio_1.default.find({}).sort({ createdAt: -1 });
+    const list = yield audio_1.default.find({}).sort({ createdAt: -1 });
+    const audio = list.map(item => ({
+        _id: item._id,
+        title: item.title,
+        about: item.about,
+        category: item.category,
+        file: item.file,
+        poster: item.poster,
+        likes: item.likes,
+        lyrics: item.lyrics,
+        createdAt: item.createdAt,
+    }));
     res.status(200).json({ audio });
 });
 exports.getAudio = getAudio;
@@ -114,7 +125,7 @@ const deleteAudio = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     var _a;
     const ownerId = new mongoose_1.Types.ObjectId(req.user.id);
     const audioId = new mongoose_1.Types.ObjectId(req.params.audioId);
-    const audio = yield audio_1.default.findOneAndDelete({ owner: ownerId, _id: audioId });
+    const audio = yield audio_1.default.findOneAndDelete({ _id: audioId, owner: ownerId });
     if (!audio)
         return res.status(404).json({ error: "Âm thanh không tồn tại hoặc không có quyền truy cập!" });
     if (audio.file.publicId) {
@@ -126,13 +137,49 @@ const deleteAudio = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     res.status(200).json({ message: "Âm thanh đã được xóa thành công!", audioId });
 });
 exports.deleteAudio = deleteAudio;
+const getSimilarAudios = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { audioId } = req.params;
+    const { category } = req.query;
+    const filter = { _id: { $ne: audioId } };
+    if (category)
+        filter.category = category;
+    const list = yield audio_1.default.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('owner');
+    const audios = list.map(item => {
+        var _a;
+        return ({
+            _id: item._id,
+            title: item.title,
+            about: item.about,
+            category: item.category,
+            file: item.file.url,
+            poster: (_a = item.poster) === null || _a === void 0 ? void 0 : _a.url,
+            duration: item.duration,
+            likes: item.likes,
+            owner: { name: item.owner.name, id: item.owner._id },
+        });
+    });
+    res.json({ audios });
+});
+exports.getSimilarAudios = getSimilarAudios;
+const getLyrics = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { audioId } = req.params;
+    const audio = yield audio_1.default.findById(audioId).select('lyrics');
+    if (!audio)
+        return res.status(404).json({ error: 'Không tìm thấy bài hát!' });
+    res.json({ lyrics: (_a = audio.lyrics) !== null && _a !== void 0 ? _a : null });
+});
+exports.getLyrics = getLyrics;
 const getLatestUploads = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const list = yield audio_1.default.find().sort("-createdAt")
         .limit(10).populate("owner");
     const audios = list.map((item) => {
         var _a;
         return {
-            id: item._id,
+            _id: item._id,
             title: item.title,
             about: item.about,
             category: item.category,

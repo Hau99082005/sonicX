@@ -1,4 +1,3 @@
-import colors from '@utils/colors';
 import { FC } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 

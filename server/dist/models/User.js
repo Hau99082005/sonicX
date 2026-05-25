@@ -15,17 +15,17 @@ const userSchema = new mongoose_1.Schema({
     name: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
     },
     email: {
         type: String,
         required: true,
         trim: true,
-        unique: true
+        unique: true,
     },
     password: {
         type: String,
-        required: true
+        required: true,
     },
     avatar: {
         type: {
@@ -38,23 +38,39 @@ const userSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
-    favorites: [{
+    phone: {
+        type: String,
+        trim: true,
+        unique: true,
+        sparse: true,
+    },
+    phoneVerified: {
+        type: Boolean,
+        default: false,
+    },
+    favorites: [
+        {
             type: mongoose_1.Schema.Types.ObjectId,
-            ref: "Audio"
-        }],
-    followers: [{
+            ref: "Audio",
+        },
+    ],
+    followers: [
+        {
             type: mongoose_1.Schema.Types.ObjectId,
-            ref: "User"
-        }],
-    followings: [{
+            ref: "User",
+        },
+    ],
+    followings: [
+        {
             type: mongoose_1.Schema.Types.ObjectId,
-            ref: "User"
-        }],
-    token: [String]
+            ref: "User",
+        },
+    ],
+    token: [String],
 }, { timestamps: true });
-userSchema.pre('save', function () {
+userSchema.pre("save", function () {
     return __awaiter(this, void 0, void 0, function* () {
-        if (this.isModified('password')) {
+        if (this.isModified("password")) {
             this.password = yield (0, bcryptjs_1.hash)(this.password, 10);
         }
     });

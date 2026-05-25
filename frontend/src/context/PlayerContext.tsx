@@ -35,6 +35,9 @@ export const usePlayer = (): PlayerContextValue => {
 };
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // #region debug-point H1:provider-init
+  fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"invalid-hook-call",runId:"pre",hypothesisId:"H1",location:"PlayerContext.tsx:38",msg:"[DEBUG] PlayerProvider init"})}).catch(()=>{});
+  // #endregion
   const videoRef = useRef<any>(null);
   const durationRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);

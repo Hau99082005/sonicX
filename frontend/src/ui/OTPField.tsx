@@ -1,10 +1,10 @@
 import colors from '@utils/colors';
 import { FC } from 'react';
-import { Text, StyleSheet, View, TextInput } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
 
 interface Props {}
 
-const OTPField: FC<Props> = props => {
+const OTPField: FC<Props> = () => {
   return <TextInput style={styles.input} />;
 };
 const styles = StyleSheet.create({

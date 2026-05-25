@@ -15,4 +15,6 @@ router.patch("/:audioId", auth_1.mustAuth, auth_1.isVerified, fileParser_1.defau
 router.get("/", auth_1.mustAuth, audio_1.getAudio);
 router.delete("/:audioId", auth_1.mustAuth, auth_1.isVerified, audio_1.deleteAudio);
 router.get("/latest", audio_1.getLatestUploads);
+router.get("/similar/:audioId", auth_1.mustAuth, audio_1.getSimilarAudios);
+router.get("/:audioId/lyrics", auth_1.mustAuth, audio_1.getLyrics);
 exports.default = router;

@@ -34,7 +34,7 @@ const AdminDashboard = ({ navigation }: any) => {
       setLoading(true);
       const { data } = await getAllAudios();
       setAudios(data.audio);
-    } catch (error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: 'Lỗi',
@@ -65,7 +65,7 @@ const AdminDashboard = ({ navigation }: any) => {
               text1: 'Thành công',
               text2: 'Đã xóa âm thanh',
             });
-          } catch (error) {
+          } catch {
             Toast.show({
               type: 'error',
               text1: 'Lỗi',
@@ -106,7 +106,7 @@ const AdminDashboard = ({ navigation }: any) => {
           style={styles.actionBtn}
         >
           <FontAwesome5
-            name="trash-alt"
+            name="trash"
             iconStyle="solid"
             size={18}
             color={C.danger}
@@ -147,7 +147,7 @@ const AdminDashboard = ({ navigation }: any) => {
       ) : (
         <FlatList
           data={audios}
-          keyExtractor={item => item._id}
+          keyExtractor={(item, index) => item._id || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={

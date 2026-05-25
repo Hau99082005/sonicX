@@ -13,29 +13,64 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
+import LinearGradient from 'react-native-linear-gradient';
 import { getLatestMusic, Audio } from '@api/music';
 import { getUser } from '@utils/storage';
 import Toast from 'react-native-toast-message';
 import { usePlayer } from '../../context/PlayerContext';
 
 const { width } = Dimensions.get('window');
-const RECENT_CARD = (width - 20 * 2 - 12 * 2) / 3;
 
 const C = {
-  bg: '#0D0F1E',
-  surface: '#161829',
-  border: '#1E2140',
+  bg: '#080912',
+  surface: '#121421',
+  card: '#1A1D2E',
+  border: 'rgba(255,255,255,0.06)',
   text: '#FFFFFF',
-  sub: '#8A8FAD',
-  accent: '#6C63FF',
+  sub: '#94A3B8',
+  accent: '#7C3AED',
+  accentGradient: ['#7C3AED', '#DB2777'],
   gold: '#F59E0B',
 };
+
+const STORIES = [
+  {
+    id: '1',
+    title: 'New Hits',
+    image:
+      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
+  },
+  {
+    id: '2',
+    title: 'Top 50',
+    image:
+      'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=200&h=200&fit=crop',
+  },
+  {
+    id: '3',
+    title: 'Relax',
+    image:
+      'https://images.unsplash.com/photo-1514525253344-99a4299946bc?w=200&h=200&fit=crop',
+  },
+  {
+    id: '4',
+    title: 'Workout',
+    image:
+      'https://images.unsplash.com/photo-1534361960057-19889db9621e?w=200&h=200&fit=crop',
+  },
+  {
+    id: '5',
+    title: 'Jazz',
+    image:
+      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop',
+  },
+];
 
 const BAR_DELAYS = [0, 150, 80];
 const BAR_DURATIONS = [500, 380, 460];
 
 const MusicBars = ({
-  color = C.accent,
+  color = '#fff',
   size = 14,
   playing = true,
 }: {
@@ -75,7 +110,7 @@ const MusicBars = ({
     );
     loops.forEach(l => l.start());
     return () => loops.forEach(l => l.stop());
-  }, [playing]);
+  }, [playing, anims]);
 
   const barW = Math.max(2, size * 0.18);
 
@@ -92,18 +127,41 @@ const MusicBars = ({
         <Animated.View
           key={i}
           style={{
-            width: barW + 1,
+            width: barW,
             height: size,
-            borderRadius: 2,
             backgroundColor: color,
             transform: [{ scaleY: anim }],
-            transformOrigin: 'bottom',
           }}
         />
       ))}
     </View>
   );
 };
+
+const StoryBar = () => (
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={styles.storyContent}
+    style={styles.storyScroll}
+  >
+    {STORIES.map(story => (
+      <Pressable key={story.id} style={styles.storyItem}>
+        <LinearGradient
+          colors={['#7C3AED', '#DB2777']}
+          style={styles.storyRing}
+        >
+          <View style={styles.storyInner}>
+            <Image source={{ uri: story.image }} style={styles.storyImg} />
+          </View>
+        </LinearGradient>
+        <Text style={styles.storyTitle} numberOfLines={1}>
+          {story.title}
+        </Text>
+      </Pressable>
+    ))}
+  </ScrollView>
+);
 
 const Home = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
@@ -147,13 +205,8 @@ const Home = ({ navigation }: any) => {
       ? audio.poster
       : (audio.poster as any)?.url ?? audio.image ?? '';
 
-  const formatStreams = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k / lượt nghe`;
-    return `${n} / lượt nghe`;
-  };
-
-  const recentTracks = audios.slice(0, 3);
-  const recommended = audios.slice(3);
+  const recentTracks = audios.slice(0, 4);
+  const recommended = audios.slice(4);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -162,215 +215,196 @@ const Home = ({ navigation }: any) => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.header}>
-          <Pressable
-            style={styles.avatarWrap}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <Image
-              source={{
-                uri:
-                  user?.avatar ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    user?.name || 'U',
-                  )}&background=1E2235&color=F1F5F9&size=200`,
-              }}
-              style={styles.avatar}
-            />
-          </Pressable>
-
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerName}>{user?.name ?? 'Người dùng'}</Text>
-            <View style={styles.memberRow}>
-              <FontAwesome5
-                name="star"
-                iconStyle="solid"
-                size={10}
-                color={C.gold}
-              />
-              <Text style={styles.memberText}>Thành viên Vàng</Text>
-            </View>
+          <View>
+            <Text style={styles.headerGreeting}>Chào buổi sáng,</Text>
+            <Text style={styles.headerName}>{user?.name ?? 'SonicX User'}</Text>
           </View>
-
-          <Pressable style={styles.bellBtn} hitSlop={10}>
-            <FontAwesome5
-              name="bell"
-              iconStyle="regular"
-              size={20}
-              color={C.text}
-            />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.iconBtn}>
+              <FontAwesome5
+                name="bell"
+                iconStyle="solid"
+                size={18}
+                color={C.text}
+              />
+            </Pressable>
+            <Pressable
+              style={styles.avatarWrap}
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <Image
+                source={{
+                  uri:
+                    user?.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      user?.name || 'U',
+                    )}&background=1E2235&color=F1F5F9&size=200`,
+                }}
+                style={styles.avatar}
+              />
+            </Pressable>
+          </View>
         </View>
 
-        <View style={styles.heroRow}>
-          <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>Nghe những</Text>
-            <Text style={styles.heroTitle}>bản nhạc mới</Text>
-          </View>
+        <View style={styles.searchContainer}>
           <View style={styles.searchBox}>
             <FontAwesome5
               name="search"
               iconStyle="solid"
-              size={13}
+              size={14}
               color={C.sub}
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Tìm kiếm"
+              placeholder="Tìm kiếm bài hát, nghệ sĩ..."
               placeholderTextColor={C.sub}
               value={search}
               onChangeText={setSearch}
-              returnKeyType="search"
             />
           </View>
+        </View>
+
+        <StoryBar />
+
+        <View style={styles.heroSection}>
+          <LinearGradient
+            colors={['#2E1065', '#0F172A']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroInfo}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>TRENDING</Text>
+              </View>
+              <Text style={styles.heroTitle}>Khám phá âm nhạc độc bản</Text>
+              <Text style={styles.heroSub}>
+                Dành riêng cho phong cách của bạn
+              </Text>
+              <Pressable style={styles.heroBtn}>
+                <Text style={styles.heroBtnText}>Nghe ngay</Text>
+              </Pressable>
+            </View>
+            <View style={styles.heroImgContainer}>
+              <Image
+                source={{
+                  uri: 'https://images.unsplash.com/photo-1459749411177-042180ce673b?w=400&h=400&fit=crop',
+                }}
+                style={styles.heroImg}
+              />
+              <LinearGradient
+                colors={['transparent', '#0F172A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          </LinearGradient>
         </View>
 
         {loading ? (
           <ActivityIndicator color={C.accent} style={styles.loader} />
         ) : (
           <>
-            {recentTracks.length > 0 && (
-              <View style={styles.section}>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Nghe gần đây</Text>
-                <View style={styles.recentRow}>
-                  {recentTracks.map(item => {
-                    const poster = getPoster(item);
-                    const isActive = player.currentAudio?._id === item._id;
-                    return (
-                      <Pressable
-                        key={String(item._id)}
-                        style={styles.recentCard}
-                        onPress={() => handlePlay(item)}
-                      >
-                        <View style={styles.recentImgWrap}>
-                          {poster ? (
-                            <Image
-                              source={{ uri: poster }}
-                              style={styles.recentImg}
+                <Pressable>
+                  <Text style={styles.seeAll}>Tất cả</Text>
+                </Pressable>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {recentTracks.map((item, index) => {
+                  const poster = getPoster(item);
+                  const isActive = player.currentAudio?._id === item._id;
+                  return (
+                    <Pressable
+                      key={item._id || index}
+                      style={styles.recentCard}
+                      onPress={() => handlePlay(item)}
+                    >
+                      <View style={styles.recentImgWrap}>
+                        <Image
+                          source={{ uri: poster }}
+                          style={styles.recentImg}
+                        />
+                        {isActive && (
+                          <View style={styles.activeOverlay}>
+                            <MusicBars
+                              color="#fff"
+                              size={20}
+                              playing={player.isPlaying}
                             />
-                          ) : (
-                            <View
-                              style={[styles.recentImg, styles.recentImgEmpty]}
-                            >
-                              <FontAwesome5
-                                name="music"
-                                iconStyle="solid"
-                                size={22}
-                                color={C.border}
-                              />
-                            </View>
-                          )}
-                          {isActive && (
-                            <View style={styles.activeOverlay}>
-                              <MusicBars
-                                color={C.accent}
-                                size={18}
-                                playing={player.isPlaying}
-                              />
-                            </View>
-                          )}
-                        </View>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.trackName} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.artistName} numberOfLines={1}>
+                        {item.about || 'SonicX'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Gợi ý cho bạn</Text>
+                <Pressable>
+                  <Text style={styles.seeAll}>Khám phá</Text>
+                </Pressable>
+              </View>
+              <View style={styles.gridContainer}>
+                {recommended.map((item, index) => {
+                  const poster = getPoster(item);
+                  const isActive = player.currentAudio?._id === item._id;
+                  return (
+                    <Pressable
+                      key={item._id || index}
+                      style={styles.gridCard}
+                      onPress={() => handlePlay(item)}
+                    >
+                      <View style={styles.gridImgWrap}>
+                        <Image
+                          source={{ uri: poster }}
+                          style={styles.gridImg}
+                        />
+                        {isActive && (
+                          <View style={styles.gridOverlay}>
+                            <MusicBars
+                              size={16}
+                              playing={player.isPlaying}
+                              color="#fff"
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.gridInfo}>
                         <Text
                           style={[
-                            styles.recentTitle,
+                            styles.gridTitle,
                             isActive && { color: C.accent },
                           ]}
                           numberOfLines={1}
                         >
                           {item.title}
                         </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                        <Text style={styles.gridSub} numberOfLines={1}>
+                          {item.about || 'SonicX'}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
-            )}
-
-            {recommended.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Gợi ý cho bạn</Text>
-                <View style={styles.recommendList}>
-                  {recommended.map(item => {
-                    const poster = getPoster(item);
-                    const streams = item.likes?.length ?? 0;
-                    const isActive = player.currentAudio?._id === item._id;
-                    return (
-                      <Pressable
-                        key={String(item._id)}
-                        style={[
-                          styles.recommendCard,
-                          isActive && styles.recommendCardActive,
-                        ]}
-                        onPress={() => handlePlay(item)}
-                      >
-                        <View style={styles.recommendImgWrap}>
-                          {poster ? (
-                            <Image
-                              source={{ uri: poster }}
-                              style={styles.recommendImg}
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.recommendImg,
-                                styles.recommendImgEmpty,
-                              ]}
-                            >
-                              <FontAwesome5
-                                name="music"
-                                iconStyle="solid"
-                                size={28}
-                                color={C.border}
-                              />
-                            </View>
-                          )}
-                          {isActive && (
-                            <View style={styles.activeOverlay}>
-                              <MusicBars
-                                color={C.accent}
-                                size={16}
-                                playing={player.isPlaying}
-                              />
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.recommendInfo}>
-                          <Text
-                            style={[
-                              styles.recommendTitle,
-                              isActive && { color: C.accent },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text
-                            style={styles.recommendArtist}
-                            numberOfLines={1}
-                          >
-                            {item.about || 'SonicX'}
-                          </Text>
-                          <Text style={styles.recommendStreams}>
-                            {formatStreams(streams)}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {audios.length === 0 && (
-              <View style={styles.emptyWrap}>
-                <FontAwesome5
-                  name="music"
-                  iconStyle="solid"
-                  size={40}
-                  color={C.border}
-                />
-                <Text style={styles.emptyText}>Chưa có bài hát nào</Text>
-              </View>
-            )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -384,221 +418,269 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   scrollContent: {
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    marginBottom: 20,
   },
-  avatarWrap: {
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: C.surface,
-    borderWidth: 2,
-    borderColor: C.accent,
-  },
-  headerInfo: {
-    flex: 1,
-    gap: 3,
+  headerGreeting: {
+    fontSize: 14,
+    color: C.sub,
+    marginBottom: 2,
   },
   headerName: {
-    fontFamily: 'Inter',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: C.text,
-    lineHeight: 20,
   },
-  memberRow: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  memberText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '400',
-    color: C.gold,
-  },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
     gap: 16,
   },
-  heroTextWrap: {
-    flex: 1,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    backgroundColor: C.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 20,
   },
-  heroTitle: {
-    fontFamily: 'Inter',
-    fontSize: 22,
-    fontWeight: '700',
-    color: C.text,
-    lineHeight: 30,
+  avatarWrap: {
+    width: 44,
+    height: 44,
+    borderWidth: 2,
+    borderRadius: 22,
+    borderColor: C.accent,
+    padding: 2,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  searchContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-    width: 130,
+    paddingHorizontal: 16,
+    height: 52,
+    gap: 12,
     borderWidth: 1,
     borderColor: C.border,
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '400',
     color: C.text,
-    padding: 0,
-    margin: 0,
+    fontSize: 15,
   },
-  loader: {
-    marginTop: 80,
+  storyScroll: {
+    marginBottom: 28,
+  },
+  storyContent: {
+    paddingHorizontal: 24,
+    gap: 18,
+  },
+  storyItem: {
+    alignItems: 'center',
+    gap: 8,
+    width: 68,
+  },
+  storyRing: {
+    width: 68,
+    height: 68,
+    padding: 2,
+    borderRadius: 34,
+  },
+  storyInner: {
+    flex: 1,
+    backgroundColor: C.bg,
+    padding: 2,
+    borderRadius: 32,
+  },
+  storyImg: {
+    flex: 1,
+    borderRadius: 30,
+  },
+  storyTitle: {
+    fontSize: 11,
+    color: C.sub,
+    fontWeight: '500',
+  },
+  heroSection: {
+    marginBottom: 36,
+  },
+  heroCard: {
+    height: 220,
+    padding: 24,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  heroInfo: {
+    flex: 1.5,
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  badge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  heroTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#fff',
+    lineHeight: 38,
+    marginBottom: 10,
+  },
+  heroSub: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 24,
+    fontWeight: '500',
+  },
+  heroBtn: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+  },
+  heroBtnText: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  heroImgContainer: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 1,
+  },
+  heroImg: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.5,
   },
   section: {
+    marginBottom: 40,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 32,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontFamily: 'Inter',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '900',
     color: C.text,
-    marginBottom: 18,
+    letterSpacing: -0.5,
   },
-  recentRow: {
-    flexDirection: 'row',
-    gap: 12,
+  seeAll: {
+    fontSize: 14,
+    color: C.accent,
+    fontWeight: '800',
+  },
+  horizontalScroll: {
+    paddingHorizontal: 20,
+    gap: 16,
   },
   recentCard: {
-    width: RECENT_CARD,
-    alignItems: 'center',
-    gap: 10,
+    width: 150,
+    gap: 12,
   },
   recentImgWrap: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  recentImg: {
-    width: RECENT_CARD,
-    height: RECENT_CARD,
-    borderRadius: 12,
+    width: 150,
+    height: 150,
     backgroundColor: C.surface,
   },
-  recentImgEmpty: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  recentImg: {
+    width: '100%',
+    height: '100%',
   },
   activeOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
-  },
-  recentTitle: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '500',
-    color: C.text,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  recommendList: {
-    gap: 20,
-  },
-  recommendCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
   },
-  recommendCardActive: {
-    backgroundColor: 'rgba(108,99,255,0.08)',
-    borderRadius: 12,
-    padding: 8,
-    marginHorizontal: -8,
+  trackName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.text,
   },
-  recommendImgWrap: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
-    borderRadius: 10,
-    overflow: 'hidden',
+  artistName: {
+    fontSize: 14,
+    color: C.sub,
+    fontWeight: '600',
   },
-  recommendImg: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
+  gridContainer: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 24,
+  },
+  gridCard: {
+    width: (width - 40 - 16) / 2,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 0,
+  },
+  gridImgWrap: {
+    width: '100%',
+    aspectRatio: 1,
     backgroundColor: C.surface,
   },
-  recommendImgEmpty: {
+  gridImg: {
+    width: '100%',
+    height: '100%',
+  },
+  gridOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  recommendInfo: {
-    flex: 1,
+  gridInfo: {
+    padding: 12,
     gap: 4,
   },
-  recommendTitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '700',
+  gridTitle: {
+    fontSize: 15,
+    fontWeight: '800',
     color: C.text,
-    lineHeight: 22,
   },
-  recommendArtist: {
-    fontFamily: 'Inter',
+  gridSub: {
     fontSize: 13,
-    fontWeight: '400',
     color: C.sub,
-    lineHeight: 18,
+    fontWeight: '600',
   },
-  recommendStreams: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '400',
-    color: C.sub,
-    lineHeight: 17,
-  },
-  emptyWrap: {
-    alignItems: 'center',
-    paddingTop: 80,
-    gap: 14,
-  },
-  emptyText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '400',
-    color: C.sub,
+  loader: {
+    marginTop: 40,
   },
 });
 

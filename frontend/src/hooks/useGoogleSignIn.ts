@@ -6,14 +6,20 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { googleSignInApi } from '@api/auth';
 import Toast from 'react-native-toast-message';
-import { appLogin } from '../../App';
+import { appLogin } from '../utils/auth';
 import Config from 'react-native-config';
 
-GoogleSignin.configure({
-  webClientId: Config.GOOGLE_WEB_CLIENT_ID,
-  offlineAccess: true,
-  forceCodeForRefreshToken: true,
-});
+const GOOGLE_WEB_CLIENT_ID = Config.GOOGLE_WEB_CLIENT_ID || '739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com';
+
+try {
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    offlineAccess: true,
+    forceCodeForRefreshToken: true,
+  });
+} catch (error) {
+  console.error('GoogleSignin configure error:', error);
+}
 
 export const useGoogleSignIn = () => {
   const [loading, setLoading] = useState(false);

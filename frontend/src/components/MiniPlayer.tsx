@@ -11,23 +11,19 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
+import { BlurView } from '@react-native-community/blur';
 import { usePlayer } from '../context/PlayerContext';
 
 const C = {
-  bg: '#0D0F1E',
-  card: '#13162B',
-  border: '#1E2140',
+  bg: 'rgba(18, 20, 33, 0.8)',
+  surface: '#121421',
+  card: '#1A1D2E',
+  border: 'rgba(255, 255, 255, 0.1)',
   text: '#FFFFFF',
-  sub: '#8A8FAD',
-  accent: '#6C63FF',
-  surface: '#1A1D35',
+  sub: '#94A3B8',
+  accent: '#7C3AED',
   danger: '#EF4444',
   green: '#22C55E',
-};
-
-const fmt = (s: number) => {
-  if (!s || isNaN(s)) return '0:00';
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 };
 
 const fmtSleep = (s: number) => {
@@ -51,8 +47,6 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
     position,
     duration,
     togglePlay,
-    seek,
-    durationRef,
     rate,
     setRate,
     sleepMinutes,
@@ -72,7 +66,7 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
     if (currentAudio) {
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 14 }).start();
     }
-  }, [currentAudio]);
+  }, [currentAudio, slideAnim]);
 
   useEffect(() => {
     if (isPlaying && !isLoading) {
@@ -89,35 +83,22 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
       rotation.stopAnimation(val => { rotationDeg.current = val; });
     }
     return () => { rotationAnim.current?.stop(); };
-  }, [isPlaying, isLoading]);
+  }, [isPlaying, isLoading, rotation]);
 
   const spin = rotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'], extrapolate: 'extend' });
 
   if (!currentAudio) return null;
 
-  const poster =
-    typeof currentAudio.poster === 'string'
-      ? currentAudio.poster
-      : (currentAudio.poster as any)?.url ?? currentAudio.image ?? '';
-
+  const poster = typeof currentAudio.poster === 'string' ? currentAudio.poster : (currentAudio.poster as any)?.url ?? currentAudio.image ?? '';
   const pct = duration > 0 ? Math.min(position / duration, 1) : 0;
 
   return (
     <>
       <Animated.View style={[styles.wrapper, { transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${pct * 100}%` as any }]} />
-        </View>
-
+        <BlurView style={StyleSheet.absoluteFill} blurType="dark" blurAmount={25} overlayColor="transparent" />
         <Pressable style={styles.card} onPress={onPress}>
           <Animated.View style={[styles.artWrap, { transform: [{ rotate: spin }] }]}>
-            {poster ? (
-              <Image source={{ uri: poster }} style={styles.art} />
-            ) : (
-              <View style={[styles.art, styles.artEmpty]}>
-                <FontAwesome5 name="music" iconStyle="solid" size={18} color={C.border} />
-              </View>
-            )}
+            <Image source={{ uri: poster }} style={styles.art} />
           </Animated.View>
 
           <View style={styles.info}>
@@ -125,78 +106,45 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
             <Text style={styles.artist} numberOfLines={1}>{currentAudio.about || 'SonicX'}</Text>
           </View>
 
-          <View style={styles.extraBtns}>
-            <Pressable
-              style={[styles.extraBtn, sleepRemaining !== null && styles.extraBtnActive]}
-              hitSlop={8}
+          <View style={styles.actions}>
+            <Pressable 
+              style={[styles.actionBtn, sleepRemaining !== null && styles.activeAction]} 
               onPress={e => { e.stopPropagation(); setShowSleep(true); }}
             >
-              <FontAwesome5
-                name="moon"
-                iconStyle="solid"
-                size={13}
-                color={sleepRemaining !== null ? C.accent : C.sub}
-              />
-              {sleepRemaining !== null && (
-                <Text style={styles.sleepBadge}>{fmtSleep(sleepRemaining)}</Text>
-              )}
+              <FontAwesome5 name="moon" size={12} color={sleepRemaining !== null ? C.accent : C.sub} />
+              {sleepRemaining !== null && <Text style={styles.activeText}>{fmtSleep(sleepRemaining)}</Text>}
             </Pressable>
 
-            <Pressable
-              style={[styles.extraBtn, rate !== 1 && styles.extraBtnActive]}
-              hitSlop={8}
+            <Pressable 
+              style={[styles.actionBtn, rate !== 1 && styles.activeAction]} 
               onPress={e => { e.stopPropagation(); setShowSpeed(true); }}
             >
-              <Text style={[styles.rateLabel, rate !== 1 && { color: C.accent }]}>
-                {rate === 1 ? '1×' : `${rate}×`}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.controls}>
-            <Pressable hitSlop={10} onPress={e => { e.stopPropagation(); seek(0); }} style={styles.ctrlBtn}>
-              <FontAwesome5 name="step-backward" iconStyle="solid" size={16} color={C.text} />
+              <Text style={[styles.rateText, rate !== 1 && { color: C.accent }]}>{rate}x</Text>
             </Pressable>
 
-            <Pressable hitSlop={10} onPress={e => { e.stopPropagation(); togglePlay(); }} style={styles.playBtn}>
+            <TouchableOpacity style={styles.playBtn} onPress={e => { e.stopPropagation(); togglePlay(); }}>
               {isLoading ? (
-                <ActivityIndicator size={16} color="#fff" />
+                <ActivityIndicator size={18} color="#fff" />
               ) : (
-                <FontAwesome5
-                  name={isPlaying ? 'pause' : 'play'}
-                  iconStyle="solid"
-                  size={16}
-                  color="#fff"
-                  style={isPlaying ? undefined : { marginLeft: 2 }}
-                />
+                <FontAwesome5 name={isPlaying ? 'pause' : 'play'} iconStyle="solid" size={18} color="#fff" />
               )}
-            </Pressable>
-
-            <Pressable hitSlop={10} onPress={e => { e.stopPropagation(); seek(durationRef.current); }} style={styles.ctrlBtn}>
-              <FontAwesome5 name="step-forward" iconStyle="solid" size={16} color={C.text} />
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </Pressable>
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressFill, { width: `${pct * 100}%` as any }]} />
+        </View>
       </Animated.View>
 
-      <Modal transparent visible={showSpeed} animationType="fade" onRequestClose={() => setShowSpeed(false)}>
+      <Modal transparent visible={showSpeed} animationType="fade">
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowSpeed(false)}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <FontAwesome5 name="tachometer-alt" iconStyle="solid" size={16} color={C.accent} />
-              <Text style={styles.sheetTitle}>Tốc độ phát</Text>
-            </View>
-            <View style={styles.rateGrid}>
+            <Text style={styles.sheetTitle}>Tốc độ phát</Text>
+            <View style={styles.grid}>
               {RATES.map(r => (
-                <Pressable
-                  key={r}
-                  style={[styles.rateChip, rate === r && styles.rateChipActive]}
-                  onPress={() => { setRate(r); setShowSpeed(false); }}
-                >
-                  <Text style={[styles.rateChipText, rate === r && styles.rateChipTextActive]}>
-                    {r === 1 ? '1× Bình thường' : `${r}×`}
-                  </Text>
+                <Pressable key={r} style={[styles.chip, rate === r && styles.activeChip]} onPress={() => { setRate(r); setShowSpeed(false); }}>
+                  <Text style={[styles.chipText, rate === r && styles.activeChipText]}>{r}x</Text>
                 </Pressable>
               ))}
             </View>
@@ -204,41 +152,23 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
         </TouchableOpacity>
       </Modal>
 
-      <Modal transparent visible={showSleep} animationType="fade" onRequestClose={() => setShowSleep(false)}>
+      <Modal transparent visible={showSleep} animationType="fade">
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowSleep(false)}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <FontAwesome5 name="moon" iconStyle="solid" size={16} color={C.accent} />
-              <Text style={styles.sheetTitle}>Hẹn giờ tắt nhạc</Text>
-            </View>
-            {sleepRemaining !== null && (
-              <View style={styles.sleepActiveRow}>
-                <FontAwesome5 name="clock" iconStyle="solid" size={14} color={C.green} />
-                <Text style={styles.sleepActiveText}>Tắt sau {fmtSleep(sleepRemaining)}</Text>
-                <Pressable
-                  style={styles.cancelSleepBtn}
-                  onPress={() => { setSleepTimer(null); setShowSleep(false); }}
-                >
-                  <FontAwesome5 name="times-circle" iconStyle="solid" size={14} color={C.danger} />
-                  <Text style={styles.cancelSleepText}>Hủy</Text>
-                </Pressable>
-              </View>
-            )}
-            <View style={styles.sleepGrid}>
+            <Text style={styles.sheetTitle}>Hẹn giờ tắt</Text>
+            <View style={styles.grid}>
               {SLEEP_OPTIONS.map(m => (
-                <Pressable
-                  key={m}
-                  style={[styles.sleepChip, sleepMinutes === m && styles.sleepChipActive]}
-                  onPress={() => { setSleepTimer(m); setShowSleep(false); }}
-                >
-                  <FontAwesome5 name="moon" iconStyle="solid" size={12} color={sleepMinutes === m ? '#fff' : C.sub} />
-                  <Text style={[styles.sleepChipText, sleepMinutes === m && styles.sleepChipTextActive]}>
-                    {m} phút
-                  </Text>
+                <Pressable key={m} style={[styles.chip, sleepMinutes === m && styles.activeChip]} onPress={() => { setSleepTimer(m); setShowSleep(false); }}>
+                  <Text style={[styles.chipText, sleepMinutes === m && styles.activeChipText]}>{m} phút</Text>
                 </Pressable>
               ))}
             </View>
+            {sleepRemaining !== null && (
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setSleepTimer(null); setShowSleep(false); }}>
+                <Text style={styles.cancelText}>Hủy hẹn giờ</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -248,112 +178,91 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: C.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
-  },
-  progressBar: {
-    height: 2,
-    backgroundColor: C.surface,
-  },
-  progressFill: {
-    height: 2,
-    backgroundColor: C.accent,
+    height: 72,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   card: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: 12,
   },
   artWrap: {
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  art: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: C.surface,
+    padding: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  artEmpty: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  art: {
+    flex: 1,
+    borderRadius: 22,
   },
   info: {
     flex: 1,
-    gap: 3,
-  },
-  title: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.text,
-    lineHeight: 18,
-  },
-  artist: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '400',
-    color: C.sub,
-    lineHeight: 15,
-  },
-  extraBtns: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  extraBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    borderRadius: 6,
-    backgroundColor: C.surface,
-  },
-  extraBtnActive: {
-    backgroundColor: 'rgba(108,99,255,0.15)',
-  },
-  sleepBadge: {
-    fontFamily: 'Inter',
-    fontSize: 9,
-    fontWeight: '700',
-    color: C.accent,
-  },
-  rateLabel: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.sub,
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginLeft: 12,
     gap: 2,
   },
-  ctrlBtn: {
-    width: 34,
-    height: 34,
-    justifyContent: 'center',
+  title: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
+  },
+  artist: {
+    fontSize: 12,
+    color: C.sub,
+  },
+  actions: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  actionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  activeAction: {
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+  },
+  activeText: {
+    fontSize: 10,
+    color: C.accent,
+    fontWeight: '600',
+  },
+  rateText: {
+    fontSize: 12,
+    color: C.sub,
+    fontWeight: '600',
   },
   playBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: C.accent,
-    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
+    justifyContent: 'center',
+  },
+  progressContainer: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: C.accent,
   },
   overlay: {
     flex: 1,
@@ -361,119 +270,64 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: C.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    gap: 20,
   },
   sheetHandle: {
     width: 40,
     height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 2,
-    backgroundColor: C.border,
     alignSelf: 'center',
-    marginBottom: 16,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   sheetTitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: C.text,
+    textAlign: 'center',
   },
-  rateGrid: {
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
+    justifyContent: 'center',
   },
-  rateChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  rateChipActive: {
-    backgroundColor: C.accent,
-    borderColor: C.accent,
-  },
-  rateChipText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '600',
-    color: C.sub,
-  },
-  rateChipTextActive: {
-    color: '#fff',
-  },
-  sleepActiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(34,197,94,0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.2)',
-  },
-  sleepActiveText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '600',
-    color: C.green,
-    flex: 1,
-  },
-  cancelSleepBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cancelSleepText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.danger,
-  },
-  sleepGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  sleepChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: C.surface,
+    borderRadius: 16,
+    backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.border,
+    minWidth: 80,
+    alignItems: 'center',
   },
-  sleepChipActive: {
+  activeChip: {
     backgroundColor: C.accent,
     borderColor: C.accent,
   },
-  sleepChipText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
+  chipText: {
+    fontSize: 14,
     fontWeight: '600',
     color: C.sub,
   },
-  sleepChipTextActive: {
+  activeChipText: {
     color: '#fff',
+  },
+  cancelBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: C.danger,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 

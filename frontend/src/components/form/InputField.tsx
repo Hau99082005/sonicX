@@ -1,6 +1,6 @@
 import colors from '@utils/colors';
 import { useFormikContext } from 'formik';
-import { FC, ReactNode, useRef, useState } from 'react';
+import { FC, ReactNode, useRef } from 'react';
 import {
   Animated,
   Pressable,
@@ -27,7 +27,6 @@ interface Props {
 
 const InputField: FC<Props> = ({
   label,
-  value,
   keyboardType,
   autoCapitalize,
   secureTextEntry,
@@ -36,15 +35,16 @@ const InputField: FC<Props> = ({
   rightIcon,
   onRightIconPress
 }) => {
-  const { handleChange, values, errors, touched, submitCount } =
+  const { handleChange, values, errors, submitCount } =
     useFormikContext<{
       [key: string]: string;
     }>();
   const errorMessage = submitCount > 0 ? errors[name] : '';
-  const [hasValue, setHasValue] = useState(false);
   const floatAnim = useRef(new Animated.Value(0)).current;
   const borderAnim = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
+
+  const hasValue = values[name]?.length > 0;
 
   const handleFocus = () => {
     Animated.parallel([

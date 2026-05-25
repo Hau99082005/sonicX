@@ -33,57 +33,88 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updatedHistorySchema = exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
+exports.VerifyPhoneOTPSchema = exports.SendPhoneOTPSchema = exports.updatedHistorySchema = exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
 const yup = __importStar(require("yup"));
 const mongoose_1 = require("mongoose");
 const audio_category_1 = require("../models/audio_category");
 exports.CreateUserSchema = yup.object().shape({
-    name: yup.string().trim().required("Name is missing").min(3, "Name is too short").max(255, "Name is too long"),
-    email: yup.string().trim().required("Email is missing").email("Email is invalid"),
-    password: yup.string().trim().required("Password is missing").min(8, 'Password is too short').matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character")
+    name: yup
+        .string()
+        .trim()
+        .required("Name is missing")
+        .min(3, "Name is too short")
+        .max(255, "Name is too long"),
+    email: yup
+        .string()
+        .trim()
+        .required("Email is missing")
+        .email("Email is invalid"),
+    password: yup
+        .string()
+        .trim()
+        .required("Password is missing")
+        .min(8, "Password is too short")
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character"),
 });
-exports.TokenAndIDValidation = yup.object()
-    .shape({
+exports.TokenAndIDValidation = yup.object().shape({
     token: yup.string().trim().required("Invalid token!"),
-    userId: yup.string().transform(function (value) {
+    userId: yup
+        .string()
+        .transform(function (value) {
         if (this.isType(value) && (0, mongoose_1.isValidObjectId)(value)) {
             return value;
         }
         else {
             return "";
         }
-    }).required("Invalid userId!"),
+    })
+        .required("Invalid userId!"),
 });
 exports.updatedPasswordSchema = yup.object().shape({
     token: yup.string().trim().required("Invalid token!"),
-    userId: yup.string().transform(function (value) {
+    userId: yup
+        .string()
+        .transform(function (value) {
         if (this.isType(value) && (0, mongoose_1.isValidObjectId)(value)) {
             return value;
         }
         else {
             return "";
         }
-    }).required("Invalid userId!"),
-    password: yup.string().trim().required("Password is missing").min(8, 'Password is too short').matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character")
+    })
+        .required("Invalid userId!"),
+    password: yup
+        .string()
+        .trim()
+        .required("Password is missing")
+        .min(8, "Password is too short")
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character"),
 });
 exports.SignInEmailValidationSchema = yup.object().shape({
-    email: yup.string().trim().required("Email is missing").email('Invalid email id!'),
+    email: yup
+        .string()
+        .trim()
+        .required("Email is missing")
+        .email("Invalid email id!"),
     password: yup.string().trim().required("Password is missing"),
 });
 exports.AudioValidationSchema = yup.object().shape({
     title: yup.string().required("Title is missing!"),
-    about: yup.string().required("About is missing!"),
-    category: yup.string().oneOf(audio_category_1.categories, "Invalid category!")
-        .required("Category is missing!")
+    about: yup.string().optional(),
+    category: yup
+        .string()
+        .oneOf(audio_category_1.categories, "Invalid category!")
+        .required("Category is missing!"),
 });
 exports.PlaylistValidationSchema = yup.object().shape({
     title: yup.string().required("Title is missing!"),
     resId: yup.string().transform(function (value) {
         return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
     }),
-    visibility: yup.string()
+    visibility: yup
+        .string()
         .oneOf(["public", "private"], "Visibility must be public or private!")
-        .required("Visibility is missing!")
+        .required("Visibility is missing!"),
 });
 exports.OldPlaylistValidationSchema = yup.object().shape({
     title: yup.string().required("Title is missing"),
@@ -93,17 +124,62 @@ exports.OldPlaylistValidationSchema = yup.object().shape({
     id: yup.string().transform(function (value) {
         return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
     }),
-    visibility: yup.string().oneOf(["public", "private"], "Visibility must be public or private"),
+    visibility: yup
+        .string()
+        .oneOf(["public", "private"], "Visibility must be public or private"),
 });
 exports.updatedHistorySchema = yup.object().shape({
-    audio: yup.string().transform(function (value) {
+    audio: yup
+        .string()
+        .transform(function (value) {
         return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
-    }).required("Invalid Audio Id!"),
+    })
+        .required("Invalid Audio Id!"),
     progress: yup.number().required("History progress is missing!"),
-    date: yup.string().transform(function (value) {
+    date: yup
+        .string()
+        .transform(function (value) {
         const date = new Date(value);
         if (date instanceof Date)
             return value;
         return "";
-    }).required("Invalid Date!")
+    })
+        .required("Invalid Date!"),
+});
+exports.SendPhoneOTPSchema = yup.object().shape({
+    userId: yup
+        .string()
+        .transform(function (value) {
+        if (this.isType(value) && (0, mongoose_1.isValidObjectId)(value)) {
+            return value;
+        }
+        else {
+            return "";
+        }
+    })
+        .required("Invalid userId!"),
+    phone: yup
+        .string()
+        .trim()
+        .required("Phone is missing!")
+        .matches(/^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/, "Invalid phone number!"),
+});
+exports.VerifyPhoneOTPSchema = yup.object().shape({
+    userId: yup
+        .string()
+        .transform(function (value) {
+        if (this.isType(value) && (0, mongoose_1.isValidObjectId)(value)) {
+            return value;
+        }
+        else {
+            return "";
+        }
+    })
+        .required("Invalid userId!"),
+    token: yup.string().trim().required("Invalid token!"),
+    phone: yup
+        .string()
+        .trim()
+        .required("Phone is missing!")
+        .matches(/^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/, "Invalid phone number!"),
 });

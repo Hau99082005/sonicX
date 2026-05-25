@@ -9,7 +9,7 @@ const AudioSchema = new mongoose_1.Schema({
     },
     about: {
         type: String,
-        required: true,
+        required: false,
     },
     owner: {
         type: mongoose_1.Schema.Types.ObjectId,
@@ -34,6 +34,10 @@ const AudioSchema = new mongoose_1.Schema({
         type: String,
         enum: audio_category_1.categories,
         default: "Others"
+    },
+    lyrics: {
+        type: String,
+        required: false,
     }
 }, { timestamps: true });
 const Audio = mongoose_1.models.Audio || (0, mongoose_1.model)("Audio", AudioSchema);
