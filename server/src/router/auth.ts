@@ -10,6 +10,7 @@ import {
 import { validate } from "#/middleware/validator";
 import {
   create,
+  deleteAccount,
   generateForgotPasswordLink,
   getUser,
   googleSignIn,
@@ -49,7 +50,6 @@ router.post(
 router.post("/sign-in", validate(SignInEmailValidationSchema), SignIn);
 router.post("/google-sign-in", googleSignIn);
 
-// Routes for phone OTP verification
 router.post("/send-phone-otp", validate(SendPhoneOTPSchema), sendPhoneOTP);
 router.post(
   "/verify-phone-otp",
@@ -70,7 +70,8 @@ router.get("/private", mustAuth, (req, res) => {
   });
 });
 
-router.post("/update-profile", mustAuth, fileParser, updateProfile);
+router.patch("/update-profile", mustAuth, fileParser, updateProfile);
 router.post("/log-out", mustAuth, logOut);
 router.get("/user", mustAuth, getUser);
+router.delete("/delete-account", mustAuth, deleteAccount);
 export default router;

@@ -6,13 +6,14 @@ declare global {
     interface Request {
       user: {
         id: any;
+        username: string;
         name: string;
         email: string;
         verified: boolean;
         role: "user" | "admin";
         avatar?: string;
-        followers: number;
-        following: number;
+        is_online: boolean;
+        last_seen?: Date;
       };
       files?: { [key: string]: File };
       token: string;
@@ -22,6 +23,7 @@ declare global {
 
 export interface CreateUser extends Request {
   body: {
+    username: string;
     name: string;
     email: string;
     password: string;

@@ -27,13 +27,14 @@ export const mustAuth: RequestHandler = async (req, res, next) => {
     if (!user) return res.status(403).json({ error: "Unauthorized request!" });
     req.user = {
         id: user._id,
+        username: user.username,
         name: user.name,
         email: user.email,
         verified: user.verified,
         role: user.role,
         avatar: user.avatar?.url,
-        followers: user.followers.length,
-        following: user.followings.length
+        is_online: user.is_online,
+        last_seen: user.last_seen,
     };
     req.token = token;
     next();
@@ -52,13 +53,14 @@ export const isAuth: RequestHandler = async (req, res, next) => {
         if (!user) return res.status(403).json({ error: "Unauthorized request!" });
         req.user = {
             id: user._id,
+            username: user.username,
             name: user.name,
             email: user.email,
             verified: user.verified,
             role: user.role,
             avatar: user.avatar?.url,
-            followers: user.followers.length,
-            following: user.followings.length
+            is_online: user.is_online,
+            last_seen: user.last_seen,
         };
         req.token = token;
     }

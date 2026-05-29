@@ -11,7 +11,6 @@ import {
   sendPhoneVerificationSMS,
   verifyPhoneVerificationCode,
 } from "#/utils/mail";
-import { CreateUserSchema } from "#/utils/validationSchema";
 import { RequestHandler } from "express";
 import axios from "axios";
 import { isValidObjectId } from "mongoose";
@@ -28,16 +27,20 @@ import formidable from "formidable";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, username, email, password } = req.body;
     const oldUser = await User.findOne({
-      email,
+      $or: [{ email }, { username }],
     });
-    if (oldUser)
-      return res.status(403).json({ error: "Email is already in use!" });
-    CreateUserSchema.validate({ email, name, password });
+    if (oldUser) {
+      if (oldUser.email === email)
+        return res.status(403).json({ error: "Email is already in use!" });
+      if (oldUser.username === username)
+        return res.status(403).json({ error: "Username is already in use!" });
+    }
 
     const newUser = await User.create({
       name,
+      username: username || email.split("@")[0],
       email,
       password,
     });
@@ -177,39 +180,26 @@ export const SignIn: RequestHandler = async (req, res) => {
   await user.save();
 
   res.status(200).json({
-    profile: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      verified: user.verified,
-      avatar: user.avatar?.url,
-      followers: user.followers.length,
-      following: user.followings.length,
-    },
+    profile: formatProfile(user),
     token,
   });
 };
 
 export const updateProfile: RequestHandler = async (req, res) => {
-  const { name } = req.body;
+  const { name, bio } = req.body;
   const avatar = req.files?.avatar as formidable.File;
+  const coverImage = req.files?.coverImage as formidable.File;
 
   const user = await User.findById(req.user.id);
   if (!user) throw new Error("something went wrong, user not found!");
-  if (typeof name !== "string")
-    return res.status(422).json({ error: "Invalid name!" });
-  if (name.trim().length < 3)
-    return res
-      .status(422)
-      .json({ error: "Name must be at least 3 characters long!" });
-  user.name = name;
+
+  if (name) user.name = name;
+  if (bio) user.bio = bio;
+
   if (avatar) {
-    //if these is already an avatar file, we want to remove that
     if (user.avatar?.publicId) {
       await cloudinary.uploader.destroy(user.avatar.publicId);
     }
-
-    //upload new avatar file
     const { secure_url, public_id } = await cloudinary.uploader.upload(
       avatar.filepath,
       {
@@ -221,6 +211,22 @@ export const updateProfile: RequestHandler = async (req, res) => {
     );
     user.avatar = { url: secure_url, publicId: public_id };
   }
+
+  if (coverImage) {
+    if (user.cover_image?.publicId) {
+      await cloudinary.uploader.destroy(user.cover_image.publicId);
+    }
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      coverImage.filepath,
+      {
+        width: 1200,
+        height: 400,
+        crop: "fill",
+      },
+    );
+    user.cover_image = { url: secure_url, publicId: public_id };
+  }
+
   await user.save();
   res.status(200).json({ profile: formatProfile(user) });
 };
@@ -241,13 +247,33 @@ export const logOut: RequestHandler = async (req, res) => {
   res.status(200).json({ success: true });
 };
 
-export const getUser: RequestHandler = async (req, res) => {
-  const user = await User.find({}).sort({ createdAt: -1 });
+export const deleteAccount: RequestHandler = async (req, res) => {
+  const userId = req.user.id;
+  const user = await User.findById(userId);
+
   if (user) {
-    return res.status(200).json({ user });
-  } else {
-    return res.status(404).json({ message: "User not found!" });
+    if (user.avatar?.publicId) {
+      await cloudinary.uploader.destroy(user.avatar.publicId);
+    }
+    if (user.cover_image?.publicId) {
+      await cloudinary.uploader.destroy(user.cover_image.publicId);
+    }
+    await User.findByIdAndDelete(userId);
   }
+
+  res.status(200).json({ message: "Account deleted successfully!" });
+};
+
+export const getUser: RequestHandler = async (req, res) => {
+  const { userId } = req.params;
+  if (userId && isValidObjectId(userId)) {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found!" });
+    return res.status(200).json({ profile: formatProfile(user) });
+  }
+
+  const users = await User.find({}).sort({ createdAt: -1 });
+  return res.status(200).json({ users: users.map((u) => formatProfile(u)) });
 };
 
 export const googleSignIn: RequestHandler = async (req, res) => {
@@ -256,12 +282,14 @@ export const googleSignIn: RequestHandler = async (req, res) => {
 
   try {
     const response = await axios.get(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
     );
     const { email, name, picture, aud, email_verified } = response.data;
 
     if (!email) {
-      return res.status(422).json({ error: "Google account must have an email!" });
+      return res
+        .status(422)
+        .json({ error: "Google account must have an email!" });
     }
 
     const validAudiences = [
@@ -279,6 +307,7 @@ export const googleSignIn: RequestHandler = async (req, res) => {
       isNewUser = true;
       user = new User({
         name: name || email.split("@")[0],
+        username: email.split("@")[0],
         email,
         password: crypto.randomBytes(32).toString("hex"),
         verified: false,
@@ -305,15 +334,7 @@ export const googleSignIn: RequestHandler = async (req, res) => {
     await user.save();
 
     return res.status(200).json({
-      profile: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        verified: user.verified,
-        avatar: user.avatar?.url,
-        followers: user.followers.length,
-        following: user.followings.length,
-      },
+      profile: formatProfile(user),
       token,
       message: isNewUser
         ? "Vui lòng kiểm tra email để xác thực tài khoản!"
@@ -328,7 +349,6 @@ export const googleSignIn: RequestHandler = async (req, res) => {
   }
 };
 
-// Gửi mã OTP tới số điện thoại
 export const sendPhoneOTP: RequestHandler = async (req, res) => {
   try {
     const { userId, phone } = req.body;
@@ -345,8 +365,6 @@ export const sendPhoneOTP: RequestHandler = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found!" });
     }
-
-    // Kiểm tra số điện thoại đã tồn tại
     const existingPhone = await User.findOne({ phone, _id: { $ne: userId } });
     if (existingPhone) {
       return res.status(403).json({ error: "Số điện thoại đã được sử dụng!" });
@@ -360,9 +378,6 @@ export const sendPhoneOTP: RequestHandler = async (req, res) => {
 
     try {
       if (usingVerifyService) {
-        console.log(
-          `[sendPhoneOTP] Using Twilio Verify service to send OTP to ${phone}`,
-        );
         await sendPhoneVerificationSMS(undefined, phone);
       } else {
         await phoneVerificationToken.findOneAndDelete({ owner: userId });
@@ -371,10 +386,8 @@ export const sendPhoneOTP: RequestHandler = async (req, res) => {
           token: otp,
           phone,
         });
-        console.log(`[sendPhoneOTP] Sending SMS to: ${phone}`);
         await sendPhoneVerificationSMS(otp, phone);
       }
-      console.log(`[sendPhoneOTP] SMS send attempt completed for ${phone}`);
     } catch (smsErr) {
       console.error("[sendPhoneOTP] SMS sending failed:", smsErr);
       deliveryMethod = "email";
@@ -388,9 +401,6 @@ export const sendPhoneOTP: RequestHandler = async (req, res) => {
       });
       try {
         await sendPhoneVerificationOTP(otp, phone, user.name, user.email);
-        console.log(
-          `[sendPhoneOTP] Fallback email sent successfully to ${user.email}`,
-        );
       } catch (emailErr) {
         console.error(
           "[sendPhoneOTP] Fallback email sending also failed:",
@@ -420,7 +430,6 @@ export const sendPhoneOTP: RequestHandler = async (req, res) => {
   }
 };
 
-// Xác minh mã OTP điện thoại
 export const verifyPhoneOTP: RequestHandler = async (req, res) => {
   try {
     const { token, userId, phone } = req.body;
@@ -447,11 +456,6 @@ export const verifyPhoneOTP: RequestHandler = async (req, res) => {
         );
         if (verificationCheck.status === "approved") {
           isVerified = true;
-          console.log(`[verifyPhoneOTP] Twilio Verify approved for ${phone}`);
-        } else {
-          console.warn(
-            `[verifyPhoneOTP] Twilio Verify status=${verificationCheck.status}`,
-          );
         }
       } catch (verifyErr) {
         console.warn(
@@ -467,10 +471,6 @@ export const verifyPhoneOTP: RequestHandler = async (req, res) => {
       });
 
       if (!verificationToken) {
-        console.warn(`[verifyPhoneOTP] Token not found for userId: ${userId}`);
-        console.warn(
-          `[verifyPhoneOTP] Hint: Did you call /send-phone-otp first?`,
-        );
         return res.status(403).json({
           error: "Invalid token! (not found in DB)",
           hint: "Make sure you called /auth/send-phone-otp first to generate an OTP",
@@ -479,17 +479,12 @@ export const verifyPhoneOTP: RequestHandler = async (req, res) => {
 
       const matched = await verificationToken.compareToken(token);
       if (!matched) {
-        console.warn(`[verifyPhoneOTP] Token mismatch for userId: ${userId}`);
         return res
           .status(403)
           .json({ error: "Invalid token! (token mismatch)" });
       }
 
-      // Kiểm tra số điện thoại khớp
       if (verificationToken.phone !== phone) {
-        console.warn(
-          `[verifyPhoneOTP] Phone mismatch. DB: ${verificationToken.phone}, Received: ${phone}`,
-        );
         return res.status(403).json({
           error: "Invalid phone number!",
           dbPhone: verificationToken.phone,
@@ -519,7 +514,6 @@ export const verifyPhoneOTP: RequestHandler = async (req, res) => {
   }
 };
 
-// Gửi lại mã OTP điện thoại
 export const sendRePhoneOTP: RequestHandler = async (req, res) => {
   try {
     const { userId, phone } = req.body;
@@ -544,9 +538,6 @@ export const sendRePhoneOTP: RequestHandler = async (req, res) => {
 
     try {
       if (usingVerifyService) {
-        console.log(
-          `[sendRePhoneOTP] Using Twilio Verify service to send OTP to ${phone}`,
-        );
         await sendPhoneVerificationSMS(undefined, phone);
       } else {
         await phoneVerificationToken.findOneAndDelete({ owner: userId });
@@ -557,7 +548,6 @@ export const sendRePhoneOTP: RequestHandler = async (req, res) => {
         });
         await sendPhoneVerificationSMS(otp, phone);
       }
-      console.log(`[sendRePhoneOTP] SMS send attempt completed for ${phone}`);
     } catch (smsErr) {
       console.error("[sendRePhoneOTP] SMS sending failed:", smsErr);
       deliveryMethod = "email";
@@ -570,9 +560,6 @@ export const sendRePhoneOTP: RequestHandler = async (req, res) => {
       });
       try {
         await sendPhoneVerificationOTP(otp, phone, user.name, user.email);
-        console.log(
-          `[sendRePhoneOTP] Fallback email sent successfully to ${user.email}`,
-        );
       } catch (emailErr) {
         console.error(
           "[sendRePhoneOTP] Fallback email sending also failed:",

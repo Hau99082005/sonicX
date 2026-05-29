@@ -1,7 +1,4 @@
-import History from "#/models/history";
 import { UserDocument } from "#/models/User";
-import { Request } from "express";
-import moment from "moment";
 
 export const generateToken = (length = 6) => {
     let otp = "";
@@ -15,48 +12,12 @@ export const generateToken = (length = 6) => {
 export const formatProfile = (user: UserDocument) => {
     return {
         id: user._id,
+        username: user.username,
         name: user.name,
         email: user.email,
         verified: user.verified,
         avatar: user.avatar?.url,
-        followers: user.followers.length,
-        following: user.followings.length
+        is_online: user.is_online,
+        last_seen: user.last_seen,
     };
-}
-
-export const getUsersPreviosHistory = async (req: Request): Promise<string[]> => {
-    const [result] = await History.aggregate([
-        { $match: { owner: req.user.id } },
-        { $unwind: "$all" },
-        {
-            $match: {
-                "all.date": {
-                    $gte: moment().subtract(30, "days").toDate(),
-                }
-            }
-        },
-        {
-            $group: {
-                _id: "$all.audio"
-            }
-        },
-        {
-            $lookup: {
-                from: "audios",
-                localField: "_id",
-                foreignField: "_id",
-                as: "audioData"
-            }
-        },
-        {
-            $unwind: "$audioData"
-        },
-        {
-            $group: { _id: null, category: { $addToSet: "$audioData.category" } }
-        }
-    ]);
-    if (result) {
-        return result.category;
-    }
-    return [];
 }

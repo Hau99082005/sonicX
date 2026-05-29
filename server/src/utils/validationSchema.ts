@@ -1,6 +1,5 @@
 import * as yup from "yup";
 import { isValidObjectId } from "mongoose";
-import { categories } from "#/models/audio_category";
 
 export const CreateUserSchema = yup.object().shape({
   name: yup
@@ -9,6 +8,12 @@ export const CreateUserSchema = yup.object().shape({
     .required("Name is missing")
     .min(3, "Name is too short")
     .max(255, "Name is too long"),
+  username: yup
+    .string()
+    .trim()
+    .required("Username is missing")
+    .min(3, "Username is too short")
+    .max(50, "Username is too long"),
   email: yup
     .string()
     .trim()
@@ -69,65 +74,6 @@ export const SignInEmailValidationSchema = yup.object().shape({
     .required("Email is missing")
     .email("Invalid email id!"),
   password: yup.string().trim().required("Password is missing"),
-});
-
-export const AudioValidationSchema = yup.object().shape({
-  title: yup.string().required("Title is missing!"),
-  about: yup.string().optional(),
-  category: yup
-    .string()
-    .oneOf(categories, "Invalid category!")
-    .required("Category is missing!"),
-});
-
-//while creating playlist there can be request
-//which new playlist name and the audio that user wants to store inside that playlist
-//or user just want to create an empty playlist
-
-export const PlaylistValidationSchema = yup.object().shape({
-  title: yup.string().required("Title is missing!"),
-  resId: yup.string().transform(function (value) {
-    return this.isType(value) && isValidObjectId(value) ? value : "";
-  }),
-  visibility: yup
-    .string()
-    .oneOf(["public", "private"], "Visibility must be public or private!")
-    .required("Visibility is missing!"),
-});
-
-export const BannerValidationSchema = yup.object().shape({
-  title: yup.string().required("Title is missing!"),
-});
-
-export const OldPlaylistValidationSchema = yup.object().shape({
-  title: yup.string().required("Title is missing"),
-  item: yup.string().transform(function (value) {
-    return this.isType(value) && isValidObjectId(value) ? value : "";
-  }),
-  id: yup.string().transform(function (value) {
-    return this.isType(value) && isValidObjectId(value) ? value : "";
-  }),
-  visibility: yup
-    .string()
-    .oneOf(["public", "private"], "Visibility must be public or private"),
-});
-
-export const updatedHistorySchema = yup.object().shape({
-  audio: yup
-    .string()
-    .transform(function (value) {
-      return this.isType(value) && isValidObjectId(value) ? value : "";
-    })
-    .required("Invalid Audio Id!"),
-  progress: yup.number().required("History progress is missing!"),
-  date: yup
-    .string()
-    .transform(function (value) {
-      const date = new Date(value);
-      if (date instanceof Date) return value;
-      return "";
-    })
-    .required("Invalid Date!"),
 });
 
 export const SendPhoneOTPSchema = yup.object().shape({
