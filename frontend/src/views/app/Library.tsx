@@ -482,6 +482,7 @@ const s = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: C.border,
+    borderRadius: 10,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
   catScroll: { maxHeight: 42 },
@@ -493,6 +494,7 @@ const s = StyleSheet.create({
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
+    borderRadius: 10,
   },
   catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
   catText: { fontSize: 14, fontWeight: '700', color: C.sub },
@@ -504,7 +506,7 @@ const s = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  gridImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: C.surface },
+  gridImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: C.surface, borderRadius: 10, overflow: 'hidden' },
   gridImg: { width: '100%', height: '100%' },
   gridOverlay: {
     ...StyleSheet.absoluteFill,
@@ -524,7 +526,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.03)',
   },
-  listImgWrap: { width: 64, height: 64, backgroundColor: C.surface },
+  listImgWrap: { width: 64, height: 64, backgroundColor: C.surface, borderRadius: 10, overflow: 'hidden' },
   listImg: { width: '100%', height: '100%' },
   listOverlay: {
     ...StyleSheet.absoluteFill,

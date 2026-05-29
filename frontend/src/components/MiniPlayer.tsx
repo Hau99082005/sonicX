@@ -111,7 +111,7 @@ const MiniPlayer: React.FC<Props> = ({ onPress }) => {
               style={[styles.actionBtn, sleepRemaining !== null && styles.activeAction]} 
               onPress={e => { e.stopPropagation(); setShowSleep(true); }}
             >
-              <FontAwesome5 name="moon" size={12} color={sleepRemaining !== null ? C.accent : C.sub} />
+              <FontAwesome5 name="moon" iconStyle="solid" size={12} color={sleepRemaining !== null ? C.accent : C.sub} />
               {sleepRemaining !== null && <Text style={styles.activeText}>{fmtSleep(sleepRemaining)}</Text>}
             </Pressable>
 

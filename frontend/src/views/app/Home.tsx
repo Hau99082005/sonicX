@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
 import LinearGradient from 'react-native-linear-gradient';
-import { getLatestMusic, Audio } from '@api/music';
+import PagerView from 'react-native-pager-view';
+import { getLatestMusic, getBanners, Audio } from '@api/music';
 import { getUser } from '@utils/storage';
 import Toast from 'react-native-toast-message';
 import { usePlayer } from '../../context/PlayerContext';
@@ -69,17 +70,8 @@ const STORIES = [
 const BAR_DELAYS = [0, 150, 80];
 const BAR_DURATIONS = [500, 380, 460];
 
-const MusicBars = ({
-  color = '#fff',
-  size = 14,
-  playing = true,
-}: {
-  color?: string;
-  size?: number;
-  playing?: boolean;
-}) => {
+const MusicBars = ({ color = '#fff', size = 14, playing = true }: any) => {
   const anims = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
-
   useEffect(() => {
     if (!playing) {
       anims.forEach(a =>
@@ -110,10 +102,8 @@ const MusicBars = ({
     );
     loops.forEach(l => l.start());
     return () => loops.forEach(l => l.stop());
-  }, [playing, anims]);
-
+  }, [playing]);
   const barW = Math.max(2, size * 0.18);
-
   return (
     <View
       style={{
@@ -166,29 +156,50 @@ const StoryBar = () => (
 const Home = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [audios, setAudios] = useState<Audio[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [search, setSearch] = useState('');
   const player = usePlayer();
+  
+  const pagerRef = useRef<PagerView>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Chào buổi sáng,';
+    if (hour < 18) return 'Chào buổi chiều,';
+    return 'Chào buổi tối,';
+  };
+
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (banners.length > 0) {
+      const interval = setInterval(() => {
+        const nextPage = (currentPage + 1) % banners.length;
+        setCurrentPage(nextPage);
+        pagerRef.current?.setPage(nextPage);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [banners.length, currentPage]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [userData, musicRes] = await Promise.all([
+      const [userData, musicRes, bannerRes] = await Promise.all([
         getUser(),
         getLatestMusic(),
+        getBanners(),
       ]);
       setUser(userData);
       setAudios(musicRes.data.audio ?? []);
-    } catch {
+      setBanners(bannerRes.data.banners ?? []);
+    } catch (error) {
       Toast.show({
         type: 'error',
         text1: 'Lỗi',
         text2: 'Không thể tải dữ liệu',
-        visibilityTime: 3000,
       });
     } finally {
       setLoading(false);
@@ -205,8 +216,11 @@ const Home = ({ navigation }: any) => {
       ? audio.poster
       : (audio.poster as any)?.url ?? audio.image ?? '';
 
-  const recentTracks = audios.slice(0, 4);
-  const recommended = audios.slice(4);
+  const getAvatar = (user: any) => {
+    if (!user) return `https://ui-avatars.com/api/?name=U&background=1E2235&color=F1F5F9&size=200`;
+    const avatar = typeof user.avatar === 'string' ? user.avatar : (user.avatar?.url || user.picture);
+    return avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=1E2235&color=F1F5F9&size=200`;
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -216,7 +230,7 @@ const Home = ({ navigation }: any) => {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerGreeting}>Chào buổi sáng,</Text>
+            <Text style={styles.headerGreeting}>{getGreeting()}</Text>
             <Text style={styles.headerName}>{user?.name ?? 'SonicX User'}</Text>
           </View>
           <View style={styles.headerActions}>
@@ -233,13 +247,7 @@ const Home = ({ navigation }: any) => {
               onPress={() => navigation.navigate('Profile')}
             >
               <Image
-                source={{
-                  uri:
-                    user?.avatar ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      user?.name || 'U',
-                    )}&background=1E2235&color=F1F5F9&size=200`,
-                }}
+                source={{ uri: getAvatar(user) }}
                 style={styles.avatar}
               />
             </Pressable>
@@ -266,41 +274,30 @@ const Home = ({ navigation }: any) => {
 
         <StoryBar />
 
-        <View style={styles.heroSection}>
-          <LinearGradient
-            colors={['#2E1065', '#0F172A']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroCard}
-          >
-            <View style={styles.heroInfo}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>TRENDING</Text>
-              </View>
-              <Text style={styles.heroTitle}>Khám phá âm nhạc độc bản</Text>
-              <Text style={styles.heroSub}>
-                Dành riêng cho phong cách của bạn
-              </Text>
-              <Pressable style={styles.heroBtn}>
-                <Text style={styles.heroBtnText}>Nghe ngay</Text>
-              </Pressable>
-            </View>
-            <View style={styles.heroImgContainer}>
-              <Image
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1459749411177-042180ce673b?w=400&h=400&fit=crop',
-                }}
-                style={styles.heroImg}
-              />
-              <LinearGradient
-                colors={['transparent', '#0F172A']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </View>
-          </LinearGradient>
-        </View>
+        {banners.length > 0 && (
+          <View style={styles.heroSection}>
+            <PagerView 
+              ref={pagerRef}
+              style={styles.bannerPager} 
+              initialPage={0}
+              onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
+            >
+              {banners.map((banner, index) => (
+                <View key={banner._id || index} style={styles.bannerItem}>
+                  <Image
+                    source={{ uri: banner.banner.url }}
+                    style={styles.bannerImg}
+                  />
+                  <LinearGradient
+                    colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.9)']}
+                    style={styles.bannerOverlay}
+                  >
+                  </LinearGradient>
+                </View>
+              ))}
+            </PagerView>
+          </View>
+        )}
 
         {loading ? (
           <ActivityIndicator color={C.accent} style={styles.loader} />
@@ -318,39 +315,35 @@ const Home = ({ navigation }: any) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.horizontalScroll}
               >
-                {recentTracks.map((item, index) => {
-                  const poster = getPoster(item);
-                  const isActive = player.currentAudio?._id === item._id;
-                  return (
-                    <Pressable
-                      key={item._id || index}
-                      style={styles.recentCard}
-                      onPress={() => handlePlay(item)}
-                    >
-                      <View style={styles.recentImgWrap}>
-                        <Image
-                          source={{ uri: poster }}
-                          style={styles.recentImg}
-                        />
-                        {isActive && (
-                          <View style={styles.activeOverlay}>
-                            <MusicBars
-                              color="#fff"
-                              size={20}
-                              playing={player.isPlaying}
-                            />
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.trackName} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <Text style={styles.artistName} numberOfLines={1}>
-                        {item.about || 'SonicX'}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {audios.slice(0, 4).map((item, index) => (
+                  <Pressable
+                    key={item._id || index}
+                    style={styles.recentCard}
+                    onPress={() => handlePlay(item)}
+                  >
+                    <View style={styles.recentImgWrap}>
+                      <Image
+                        source={{ uri: getPoster(item) }}
+                        style={styles.recentImg}
+                      />
+                      {player.currentAudio?._id === item._id && (
+                        <View style={styles.activeOverlay}>
+                          <MusicBars
+                            color="#fff"
+                            size={20}
+                            playing={player.isPlaying}
+                          />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.trackName} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.artistName} numberOfLines={1}>
+                      {item.about || 'SonicX'}
+                    </Text>
+                  </Pressable>
+                ))}
               </ScrollView>
             </View>
 
@@ -362,47 +355,45 @@ const Home = ({ navigation }: any) => {
                 </Pressable>
               </View>
               <View style={styles.gridContainer}>
-                {recommended.map((item, index) => {
-                  const poster = getPoster(item);
-                  const isActive = player.currentAudio?._id === item._id;
-                  return (
-                    <Pressable
-                      key={item._id || index}
-                      style={styles.gridCard}
-                      onPress={() => handlePlay(item)}
-                    >
-                      <View style={styles.gridImgWrap}>
-                        <Image
-                          source={{ uri: poster }}
-                          style={styles.gridImg}
-                        />
-                        {isActive && (
-                          <View style={styles.gridOverlay}>
-                            <MusicBars
-                              size={16}
-                              playing={player.isPlaying}
-                              color="#fff"
-                            />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.gridInfo}>
-                        <Text
-                          style={[
-                            styles.gridTitle,
-                            isActive && { color: C.accent },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.title}
-                        </Text>
-                        <Text style={styles.gridSub} numberOfLines={1}>
-                          {item.about || 'SonicX'}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                {audios.slice(4).map((item, index) => (
+                  <Pressable
+                    key={item._id || index}
+                    style={styles.gridCard}
+                    onPress={() => handlePlay(item)}
+                  >
+                    <View style={styles.gridImgWrap}>
+                      <Image
+                        source={{ uri: getPoster(item) }}
+                        style={styles.gridImg}
+                      />
+                      {player.currentAudio?._id === item._id && (
+                        <View style={styles.gridOverlay}>
+                          <MusicBars
+                            size={16}
+                            playing={player.isPlaying}
+                            color="#fff"
+                          />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.gridInfo}>
+                      <Text
+                        style={[
+                          styles.gridTitle,
+                          player.currentAudio?._id === item._id && {
+                            color: C.accent,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text style={styles.gridSub} numberOfLines={1}>
+                        {item.about || 'SonicX'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
               </View>
             </View>
           </>
@@ -413,275 +404,180 @@ const Home = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
+  root: { flex: 1, backgroundColor: C.bg },
+  scrollContent: { paddingBottom: 100 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  headerGreeting: {
-    fontSize: 14,
-    color: C.sub,
-    marginBottom: 2,
-  },
+  headerGreeting: { fontSize: 13, color: C.sub, fontWeight: '600' },
   headerName: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 20,
     color: C.text,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: C.surface,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 20,
   },
   avatarWrap: {
     width: 44,
     height: 44,
-    borderWidth: 2,
     borderRadius: 22,
+    borderWidth: 2,
     borderColor: C.accent,
     padding: 2,
   },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-  },
-  searchContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
+  avatar: { width: '100%', height: '100%', borderRadius: 20 },
+  searchContainer: { paddingHorizontal: 20, marginTop: 24 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
+    borderRadius: 10,
     paddingHorizontal: 16,
-    height: 52,
-    gap: 12,
+    height: 50,
     borderWidth: 1,
     borderColor: C.border,
   },
   searchInput: {
     flex: 1,
+    marginLeft: 12,
     color: C.text,
     fontSize: 15,
+    fontWeight: '600',
   },
-  storyScroll: {
-    marginBottom: 28,
-  },
-  storyContent: {
-    paddingHorizontal: 24,
-    gap: 18,
-  },
-  storyItem: {
-    alignItems: 'center',
-    gap: 8,
-    width: 68,
-  },
-  storyRing: {
-    width: 68,
-    height: 68,
-    padding: 2,
-    borderRadius: 34,
-  },
-  storyInner: {
-    flex: 1,
-    backgroundColor: C.bg,
-    padding: 2,
-    borderRadius: 32,
-  },
-  storyImg: {
-    flex: 1,
-    borderRadius: 30,
-  },
+  storyScroll: { marginTop: 24 },
+  storyContent: { paddingHorizontal: 20, gap: 16 },
+  storyItem: { alignItems: 'center', gap: 8, width: 72 },
+  storyRing: { width: 68, height: 68, padding: 2, borderRadius: 10 },
+  storyInner: { flex: 1, backgroundColor: C.bg, padding: 2, borderRadius: 8 },
+  storyImg: { flex: 1, borderRadius: 6 },
   storyTitle: {
     fontSize: 11,
     color: C.sub,
-    fontWeight: '500',
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  heroSection: {
-    marginBottom: 36,
+  heroSection: { paddingHorizontal: 20, marginTop: 32, height: 200 },
+  bannerPager: { flex: 1, borderRadius: 10, overflow: 'hidden' },
+  bannerItem: { flex: 1, position: 'relative' },
+  bannerImg: { width: '100%', height: '100%', borderRadius: 10 },
+  bannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 10,
+    justifyContent: 'flex-end',
+    padding: 20,
   },
-  heroCard: {
-    height: 220,
-    padding: 24,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  heroInfo: {
-    flex: 1.5,
-    justifyContent: 'center',
-    zIndex: 2,
+  bannerInfo: { gap: 8 },
+  bannerTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -0.5,
   },
   badge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     alignSelf: 'flex-start',
-    marginBottom: 16,
+    backgroundColor: C.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-  },
-  heroTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#fff',
-    lineHeight: 38,
-    marginBottom: 10,
-  },
-  heroSub: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 24,
-    fontWeight: '500',
-  },
+  badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' },
   heroBtn: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
     alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8,
   },
-  heroBtnText: {
-    color: '#000',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  heroImgContainer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 1,
-  },
-  heroImg: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.5,
-  },
-  section: {
-    marginBottom: 40,
-  },
+  heroBtnText: { fontSize: 13, fontWeight: '900', color: '#000' },
+  loader: { marginTop: 40 },
+  section: { marginTop: 32 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
     color: C.text,
     letterSpacing: -0.5,
   },
-  seeAll: {
-    fontSize: 14,
-    color: C.accent,
-    fontWeight: '800',
-  },
-  horizontalScroll: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  recentCard: {
-    width: 150,
-    gap: 12,
-  },
+  seeAll: { fontSize: 13, fontWeight: '700', color: C.accent },
+  horizontalScroll: { paddingHorizontal: 20, gap: 16 },
+  recentCard: { width: 140 },
   recentImgWrap: {
-    width: 150,
-    height: 150,
+    width: 140,
+    height: 140,
+    borderRadius: 10,
+    overflow: 'hidden',
     backgroundColor: C.surface,
+    position: 'relative',
   },
-  recentImg: {
-    width: '100%',
-    height: '100%',
-  },
+  recentImg: { width: '100%', height: '100%' },
   activeOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trackName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: C.text,
-  },
-  artistName: {
-    fontSize: 14,
-    color: C.sub,
-    fontWeight: '600',
-  },
-  gridContainer: {
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 24,
-  },
-  gridCard: {
-    width: (width - 40 - 16) / 2,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 0,
-  },
-  gridImgWrap: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: C.surface,
-  },
-  gridImg: {
-    width: '100%',
-    height: '100%',
-  },
-  gridOverlay: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  gridInfo: {
+  trackName: { fontSize: 15, fontWeight: '800', color: C.text, marginTop: 10 },
+  artistName: { fontSize: 12, fontWeight: '600', color: C.sub, marginTop: 2 },
+  gridContainer: { paddingHorizontal: 20, gap: 16 },
+  gridCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
     padding: 12,
-    gap: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  gridTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: C.text,
+  gridImgWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  gridSub: {
-    fontSize: 13,
-    color: C.sub,
-    fontWeight: '600',
+  gridImg: { width: '100%', height: '100%' },
+  gridOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loader: {
-    marginTop: 40,
-  },
+  gridInfo: { flex: 1, marginLeft: 16 },
+  gridTitle: { fontSize: 16, fontWeight: '800', color: C.text },
+  gridSub: { fontSize: 13, fontWeight: '600', color: C.sub, marginTop: 2 },
 });
 
 export default Home;

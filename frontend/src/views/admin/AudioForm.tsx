@@ -16,12 +16,12 @@ import Toast from 'react-native-toast-message';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 
 const C = {
-  bg: '#0D0F1E',
-  surface: '#161829',
-  border: '#1E2140',
+  bg: '#000000',
+  surface: '#0A0A0A',
+  border: 'rgba(255, 255, 255, 0.08)',
   text: '#FFFFFF',
-  sub: '#8A8FAD',
-  accent: '#6C63FF',
+  sub: '#94A3B8',
+  accent: '#7C3AED',
 };
 
 const CATEGORIES = [
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: C.surface,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
     color: C.text,
     borderWidth: 1,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 15,
     borderStyle: 'dashed',
     borderWidth: 1,
@@ -290,13 +290,13 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 10,
     backgroundColor: C.surface,
   },
   submitBtn: {
     backgroundColor: C.accent,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 16,
     alignItems: 'center',
     marginTop: 20,

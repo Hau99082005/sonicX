@@ -75,17 +75,18 @@ const Profile = ({ navigation }: any) => {
       setLoading(true);
       const [userData, favRes] = await Promise.all([
         getUser(),
-        getFavoriteMusic(),
+        getFavoriteMusic().catch(() => ({ data: { audios: [] } })),
       ]);
       setUser(userData);
-      setFavoriteCount(favRes.data.audios?.length ?? 0);
-    } catch {
+      setFavoriteCount(favRes.data?.audios?.length ?? 0);
+    } catch (error) {
+      console.error('Profile load error:', error);
       Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể tải hồ sơ' });
     } finally {
       setLoading(false);
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 400,
+        duration: 500,
         useNativeDriver: true,
       }).start();
     }
@@ -113,7 +114,9 @@ const Profile = ({ navigation }: any) => {
   };
 
   const avatarUri =
-    user?.avatar ||
+    (typeof user?.avatar === 'string'
+      ? user?.avatar
+      : user?.avatar?.url || user?.picture) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(
       user?.name || 'U',
     )}&background=1C1F35&color=6C63FF&size=200`;
@@ -182,7 +185,7 @@ const Profile = ({ navigation }: any) => {
                 />
               </View>
             </View>
-            <Text style={s.name}>{user?.name ?? 'SonicX User'}</Text>
+            <Text style={s.name}>{user?.name || 'SonicX User'}</Text>
             <View style={s.memberBadge}>
               <FontAwesome5
                 name="star"
@@ -190,30 +193,30 @@ const Profile = ({ navigation }: any) => {
                 size={10}
                 color={C.gold}
               />
-              <Text style={s.memberText}>Premium Member</Text>
+              <Text style={s.memberText}>Thành viên Premium</Text>
             </View>
           </View>
         </View>
 
         <View style={s.statsCard}>
           <View style={s.statItem}>
-            <Text style={s.statNum}>{user?.followers ?? 0}</Text>
-            <Text style={s.statLbl}>Followers</Text>
+            <Text style={s.statNum}>{user?.followers?.length ?? 0}</Text>
+            <Text style={s.statLbl}>Người theo dõi</Text>
           </View>
           <View style={s.statDivider} />
           <View style={s.statItem}>
-            <Text style={s.statNum}>{user?.following ?? 0}</Text>
-            <Text style={s.statLbl}>Following</Text>
+            <Text style={s.statNum}>{user?.followings?.length ?? 0}</Text>
+            <Text style={s.statLbl}>Đang theo dõi</Text>
           </View>
           <View style={s.statDivider} />
           <View style={s.statItem}>
             <Text style={s.statNum}>{favoriteCount}</Text>
-            <Text style={s.statLbl}>Favorites</Text>
+            <Text style={s.statLbl}>Yêu thích</Text>
           </View>
         </View>
 
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Dashboard</Text>
+          <Text style={s.sectionTitle}>Bảng điều khiển</Text>
           <View style={s.dashboardGrid}>
             <View style={[s.dashCard, { backgroundColor: '#1E1B4B' }]}>
               <FontAwesome5
@@ -224,7 +227,7 @@ const Profile = ({ navigation }: any) => {
               />
               <View>
                 <Text style={s.dashNum}>{user?.totalListened ?? 0}</Text>
-                <Text style={s.dashLbl}>Played</Text>
+                <Text style={s.dashLbl}>Đã phát</Text>
               </View>
             </View>
             <View style={[s.dashCard, { backgroundColor: '#064E3B' }]}>
@@ -236,7 +239,7 @@ const Profile = ({ navigation }: any) => {
               />
               <View>
                 <Text style={s.dashNum}>{user?.streak ?? 0}</Text>
-                <Text style={s.dashLbl}>Streak</Text>
+                <Text style={s.dashLbl}>Chuỗi ngày</Text>
               </View>
             </View>
             <View style={[s.dashCard, { backgroundColor: '#451A03' }]}>
@@ -248,56 +251,48 @@ const Profile = ({ navigation }: any) => {
               />
               <View>
                 <Text style={s.dashNum}>{user?.hoursListened ?? 0}h</Text>
-                <Text style={s.dashLbl}>Total</Text>
+                <Text style={s.dashLbl}>Tổng cộng</Text>
               </View>
             </View>
           </View>
         </View>
 
         <View style={s.menuSection}>
-          <Text style={s.groupLabel}>ACCOUNT</Text>
+          <Text style={s.groupLabel}>TÀI KHOẢN</Text>
           <View style={s.menuGroup}>
-            <MenuRow
-              icon="user-shield"
-              label="Admin Dashboard"
-              onPress={() => navigation.navigate('AdminDashboard')}
-            />
-            <MenuRow icon="user-edit" label="Edit Profile" onPress={() => {}} />
-            <MenuRow
-              icon="cog"
-              label="Settings"
-              onPress={() => navigation.navigate('Settings')}
-            />
-            <MenuRow icon="bell" label="Notifications" onPress={() => {}} />
+            <MenuRow icon="user-shield" label="Bảng quản trị" onPress={() => navigation.navigate('AdminDashboard')} />
+            <MenuRow icon="user-edit" label="Chỉnh sửa hồ sơ" onPress={() => navigation.navigate('EditProfile')} />
+            <MenuRow icon="cog" label="Cài đặt" onPress={() => navigation.navigate('Settings')} />
+            <MenuRow icon="bell" label="Thông báo" onPress={() => {}} />
           </View>
 
-          <Text style={[s.groupLabel, { marginTop: 24 }]}>APPLICATION</Text>
+          <Text style={[s.groupLabel, { marginTop: 24 }]}>ỨNG DỤNG</Text>
           <View style={s.menuGroup}>
             <MenuRow
               icon="download"
-              label="Downloads & Cache"
+              label="Tải xuống & Bộ nhớ đệm"
               onPress={() => {}}
             />
-            <MenuRow icon="wifi" label="Audio Quality" onPress={() => {}} />
+            <MenuRow icon="wifi" label="Chất lượng âm thanh" onPress={() => {}} />
             <MenuRow
               icon="language"
-              label="Language"
-              value="English"
+              label="Ngôn ngữ"
+              value="Tiếng Việt"
               onPress={() => {}}
             />
           </View>
 
-          <Text style={[s.groupLabel, { marginTop: 24 }]}>SUPPORT</Text>
+          <Text style={[s.groupLabel, { marginTop: 24 }]}>HỖ TRỢ</Text>
           <View style={s.menuGroup}>
             <MenuRow
               icon="question-circle"
-              label="Help Center"
+              label="Trung tâm trợ giúp"
               onPress={() => {}}
             />
-            <MenuRow icon="star" label="Rate SonicX" onPress={() => {}} />
+            <MenuRow icon="star" label="Đánh giá SonicX" onPress={() => {}} />
             <MenuRow
               icon="info-circle"
-              label="Version"
+              label="Phiên bản"
               value="1.0.4"
               onPress={() => {}}
               isInfo
@@ -306,7 +301,7 @@ const Profile = ({ navigation }: any) => {
         </View>
 
         <Pressable style={s.logoutBtn} onPress={confirmLogout}>
-          <Text style={s.logoutText}>Sign Out</Text>
+          <Text style={s.logoutText}>Đăng xuất</Text>
         </Pressable>
       </Animated.ScrollView>
     </SafeAreaView>

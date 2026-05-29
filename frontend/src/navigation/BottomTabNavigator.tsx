@@ -136,7 +136,10 @@ const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
       tabBar={props => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ 
+        headerShown: false,
+        sceneStyle: { backgroundColor: '#000000' }
+      }}
     >
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Library" component={Library} />

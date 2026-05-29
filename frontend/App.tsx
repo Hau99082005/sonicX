@@ -6,6 +6,7 @@ import MusicPlayer from '@views/app/MusicPlayer';
 import AdminDashboard from '@views/admin/AdminDashboard';
 import AudioForm from '@views/admin/AudioForm';
 import Settings from '@views/app/Settings';
+import EditProfile from '@views/app/EditProfile';
 import BottomTabNavigator from '@navigation/BottomTabNavigator';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -96,6 +97,7 @@ const App = () => {
                 <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
                 <Stack.Screen name="AudioForm" component={AudioForm} />
                 <Stack.Screen name="Settings" component={Settings} />
+                <Stack.Screen name="EditProfile" component={EditProfile} />
               </Stack.Group>
             ) : (
               <Stack.Screen name="Auth" component={AuthNavigator} options={{ animation: 'none' }} />

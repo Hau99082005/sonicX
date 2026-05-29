@@ -353,6 +353,7 @@ const s = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: C.border,
+    borderRadius: 10,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 15 },
 
@@ -364,13 +365,14 @@ const s = StyleSheet.create({
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
+    borderRadius: 10,
   },
   filterChipActive: { backgroundColor: C.accent, borderColor: C.accent },
   filterChipText: { fontSize: 13, fontWeight: '800', color: C.sub },
   filterChipTextActive: { color: '#fff' },
 
   featuredSection: { marginBottom: 32 },
-  featuredCard: { width: '100%', height: 260 },
+  featuredCard: { width: '100%', height: 260, borderRadius: 10, overflow: 'hidden' },
   featuredThumbWrap: { width: '100%', height: '100%', position: 'relative' },
   featuredThumb: { width: '100%', height: '100%', opacity: 0.7 },
   featuredInfo: {
@@ -386,6 +388,7 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     alignSelf: 'flex-start',
     marginBottom: 12,
+    borderRadius: 6,
   },
   featuredBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   featuredTitle: {
@@ -406,6 +409,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+    borderRadius: 28,
   },
 
   sectionHeader: { paddingHorizontal: 24, marginBottom: 16 },
@@ -418,7 +422,7 @@ const s = StyleSheet.create({
     marginBottom: 20,
     gap: 16,
   },
-  thumbWrap: { width: 120, height: 80, position: 'relative' },
+  thumbWrap: { width: 120, height: 80, position: 'relative', borderRadius: 10, overflow: 'hidden' },
   thumb: { width: '100%', height: '100%', backgroundColor: C.surface },
   thumbEmpty: { justifyContent: 'center', alignItems: 'center' },
   thumbOverlay: {
@@ -441,6 +445,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
+    borderRadius: 18,
   },
   durationBadge: {
     position: 'absolute',
@@ -449,6 +454,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.8)',
     paddingHorizontal: 4,
     paddingVertical: 2,
+    borderRadius: 4,
   },
   durationText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 

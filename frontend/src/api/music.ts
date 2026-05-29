@@ -87,3 +87,5 @@ export const getLyrics = (audioId: string) =>
   client.get<{ lyrics: LyricLine[] | string | null }>(
     `/audio/${audioId}/lyrics`,
   );
+
+export const getBanners = () => client.get<{ banners: any[] }>('/banner/list');
