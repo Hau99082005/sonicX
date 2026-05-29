@@ -44,12 +44,12 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
       email,
       password,
     });
-    const token = generateToken();
+    const verificationToken = generateToken();
     await emailVerificationToken.create({
       owner: newUser._id.toString(),
-      token,
+      token: verificationToken,
     });
-    sendVerificationMail(token, {
+    sendVerificationMail(verificationToken, {
       name,
       email,
       userId: newUser._id.toString(),
@@ -57,9 +57,19 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
       console.error("[mail] sendVerificationMail failed:", err),
     );
 
+    const token = jwt.sign(
+      {
+        userId: newUser._id.toString(),
+      },
+      JWT_SECRET,
+    );
+    newUser.token.push(token);
+    await newUser.save();
+
     return res.status(201).json({
       message: "Tạo user thành công",
-      user: { id: newUser._id, name, email },
+      user: formatProfile(newUser),
+      token,
     });
   } catch (error) {
     return res.status(500).json({
@@ -186,7 +196,7 @@ export const SignIn: RequestHandler = async (req, res) => {
 };
 
 export const updateProfile: RequestHandler = async (req, res) => {
-  const { name, bio } = req.body;
+  const { name, bio, username, phone, show_online_status } = req.body;
   const avatar = req.files?.avatar as formidable.File;
   const coverImage = req.files?.coverImage as formidable.File;
 
@@ -195,6 +205,19 @@ export const updateProfile: RequestHandler = async (req, res) => {
 
   if (name) user.name = name;
   if (bio) user.bio = bio;
+  if (show_online_status !== undefined) user.show_online_status = show_online_status === 'true' || show_online_status === true;
+
+  if (username && username.toLowerCase() !== user.username.toLowerCase()) {
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    if (existingUser) return res.status(422).json({ error: "Tên người dùng đã được sử dụng!" });
+    user.username = username.toLowerCase();
+  }
+
+  if (phone && phone !== user.phone) {
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) return res.status(422).json({ error: "Số điện thoại đã được sử dụng!" });
+    user.phone = phone;
+  }
 
   if (avatar) {
     if (user.avatar?.publicId) {

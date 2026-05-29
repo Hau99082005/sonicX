@@ -6,8 +6,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { googleSignInApi } from '@api/auth';
 import Toast from 'react-native-toast-message';
-import { appLogin } from '../utils/auth';
 import Config from 'react-native-config';
+import { useAuth } from '../context/AuthContext';
 
 const GOOGLE_WEB_CLIENT_ID = Config.GOOGLE_WEB_CLIENT_ID || '739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com';
 
@@ -23,6 +23,7 @@ try {
 
 export const useGoogleSignIn = () => {
   const [loading, setLoading] = useState(false);
+  const { updateAuth } = useAuth();
 
   const signInWithGoogle = async () => {
     try {
@@ -46,8 +47,7 @@ export const useGoogleSignIn = () => {
 
       const { data } = await googleSignInApi(idToken);
 
-      await AsyncStorage.setItem('auth-token', data.token);
-      await AsyncStorage.setItem('auth-profile', JSON.stringify(data.profile));
+      await updateAuth(data.token, data.profile);
 
       if (data.message) {
         Toast.show({
@@ -64,8 +64,6 @@ export const useGoogleSignIn = () => {
           visibilityTime: 2000,
         });
       }
-
-      setTimeout(() => appLogin(data.token), 400);
     } catch (error: any) {
       const code = String(error?.code ?? '');
 

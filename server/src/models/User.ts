@@ -19,6 +19,7 @@ export interface UserDocument extends Document {
   role: "user" | "admin";
   phone?: string;
   phoneVerified?: boolean;
+  show_online_status: boolean;
   token: string[];
 }
 
@@ -107,6 +108,10 @@ const userSchema = new Schema<UserDocument, {}, Methods>(
     phoneVerified: {
       type: Boolean,
       default: false,
+    },
+    show_online_status: {
+      type: Boolean,
+      default: true,
     },
     token: [String],
   },

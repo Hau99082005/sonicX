@@ -28,36 +28,28 @@ export const removeToken = async () => {
   }
 };
 
-export const saveUser = async (user: any) => {
+export const saveProfile = async (profile: any) => {
   try {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(profile));
   } catch (error) {
-    console.error('Error saving user:', error);
+    console.error('Error saving profile:', error);
   }
 };
 
-export const getUser = async () => {
+export const getProfile = async () => {
   try {
-    const user = await AsyncStorage.getItem(USER_KEY);
-    return user ? JSON.parse(user) : null;
+    const profile = await AsyncStorage.getItem(USER_KEY);
+    return profile ? JSON.parse(profile) : null;
   } catch (error) {
-    console.error('Error getting user:', error);
+    console.error('Error getting profile:', error);
     return null;
   }
 };
 
-export const removeUser = async () => {
-  try {
-    await AsyncStorage.removeItem(USER_KEY);
-  } catch (error) {
-    console.error('Error removing user:', error);
-  }
-};
-
-export const clearStorage = async () => {
+export const clearAuth = async () => {
   try {
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
   } catch (error) {
-    console.error('Error clearing storage:', error);
+    console.error('Error clearing auth:', error);
   }
 };

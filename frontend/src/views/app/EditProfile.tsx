@@ -4,98 +4,62 @@ import {
   Text,
   StyleSheet,
   Image,
-  Pressable,
+  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Switch,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome5 } from '@react-native-vector-icons/fontawesome5';
-import { getUser, saveUser } from '@utils/storage';
-import { updateProfile } from '@api/music';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { pick, types } from '@react-native-documents/picker';
 import Toast from 'react-native-toast-message';
-
-const C = {
-  bg: '#000000',
-  surface: '#0A0A0A',
-  border: 'rgba(255, 255, 255, 0.08)',
-  text: '#FFFFFF',
-  sub: '#94A3B8',
-  accent: '#7C3AED',
-};
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 60, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A0A', borderRadius: 20 },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
-  saveText: { fontSize: 15, fontWeight: '900', color: '#7C3AED' },
-  content: { padding: 24, alignItems: 'center' },
-  avatarSection: { alignItems: 'center', marginBottom: 40 },
-  avatarWrapper: { position: 'relative' },
-  avatar: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#0A0A0A', borderWidth: 3, borderColor: 'rgba(255,255,255,0.08)' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, width: 36, height: 36, backgroundColor: '#7C3AED', borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#000000' },
-  avatarHint: { marginTop: 16, fontSize: 13, fontWeight: '600', color: '#94A3B8' },
-  form: { width: '100%', gap: 24 },
-  inputGroup: { gap: 10 },
-  label: { fontSize: 13, fontWeight: '900', color: '#94A3B8', letterSpacing: 1, textTransform: 'uppercase', marginLeft: 4 },
-  input: { height: 56, backgroundColor: '#0A0A0A', borderRadius: 10, paddingHorizontal: 16, color: '#fff', fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  disabledInput: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', opacity: 0.6 },
-  disabledText: { color: '#94A3B8', fontSize: 15, fontWeight: '700' },
-  inputHint: { fontSize: 12, color: '#94A3B8', marginLeft: 4, fontWeight: '500' },
-});
+import client from '../../api/client';
 
 const EditProfile = ({ navigation }: any) => {
+  const { theme } = useTheme();
+  const { profile, token, updateAuth } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [name, setName] = useState('');
+  const [name, setName] = useState<string>(profile?.name || '');
+  const [username, setUsername] = useState<string>(profile?.username || '');
+  const [bio, setBio] = useState<string>(profile?.bio || '');
+  const [phone, setPhone] = useState<string>(profile?.phone || '');
+  const [showOnlineStatus, setShowOnlineStatus] = useState<boolean>(profile?.show_online_status ?? true);
   const [avatar, setAvatar] = useState<any>(null);
-  const [initialData, setInitialData] = useState<any>(null);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const user = await getUser();
-        if (user) {
-          setInitialData(user);
-          setName(user.name || '');
-        }
-      } catch (error) {
-        console.error('EditProfile init error:', error);
-      } finally {
-        setFetching(false);
-      }
-    };
-    init();
-  }, []);
 
   const pickImage = async () => {
     try {
       const res = await pick({ type: [types.images] });
-      if (res && res[0]) setAvatar(res[0]);
+      if (res && res[0]) {
+        const file = res[0];
+        if (file.size && file.size > 5 * 1024 * 1024) {
+          return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Ảnh quá nặng (tối đa 5MB)' });
+        }
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (file.type && !validTypes.includes(file.type)) {
+          return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Định dạng file không hỗ trợ' });
+        }
+        setAvatar(file);
+      }
     } catch (err) {
-      console.log('User cancelled or picker error', err);
     }
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      return Toast.show({
-        type: 'error',
-        text1: 'Lỗi',
-        text2: 'Tên không được để trống',
-      });
-    }
+    if (!name.trim()) return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Tên không được để trống' });
+    if (!username.trim()) return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Tên người dùng không được để trống' });
 
+    setLoading(true);
     try {
-      setLoading(true);
       const formData = new FormData();
       formData.append('name', name.trim());
+      formData.append('username', username.trim().toLowerCase());
+      formData.append('bio', bio.trim());
+      formData.append('phone', phone.trim());
+      formData.append('show_online_status', showOnlineStatus ? 'true' : 'false');
       if (avatar) {
         formData.append('avatar', {
           uri: avatar.uri,
@@ -104,121 +68,150 @@ const EditProfile = ({ navigation }: any) => {
         } as any);
       }
 
-      const { data } = await updateProfile(formData);
-      if (data?.profile) {
-        await saveUser(data.profile);
-        Toast.show({
-          type: 'success',
-          text1: 'Thành công',
-          text2: 'Đã cập nhật hồ sơ',
-        });
-        navigation.goBack();
-      }
-    } catch (error) {
-      console.error('Update profile error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Lỗi',
-        text2: 'Không thể cập nhật hồ sơ',
+      const { data } = await client.patch('/auth/update-profile', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      await updateAuth(data.token || token || '', data.profile);
+      Toast.show({ type: 'success', text1: 'Thành công', text2: 'Hồ sơ đã được cập nhật' });
+      navigation.goBack();
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Cập nhật thất bại';
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: msg });
     } finally {
       setLoading(false);
     }
   };
 
-  const displayAvatar =
-    avatar?.uri ||
-    (typeof initialData?.avatar === 'string'
-      ? initialData?.avatar
-      : initialData?.avatar?.url || initialData?.picture) ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      name || 'U',
-    )}&background=1E2235&color=F1F5F9&size=200`;
-
-  if (fetching) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#7C3AED" />
-      </View>
-    );
-  }
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }} edges={['top']}>
-      <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-          <FontAwesome5
-            name="chevron-left"
-            iconStyle="solid"
-            size={18}
-            color="#fff"
-          />
-        </Pressable>
-        <Text style={s.headerTitle}>Chỉnh sửa hồ sơ</Text>
-        <Pressable onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#7C3AED" />
-          ) : (
-            <Text style={s.saveText}>Lưu</Text>
-          )}
-        </Pressable>
+    <KeyboardAvoidingView 
+      style={[styles.container, { backgroundColor: theme.background }]} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <FontAwesome5 name={"arrow-left" as any} size={20} color={theme.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Chỉnh sửa hồ sơ</Text>
+        <TouchableOpacity onPress={handleSave} disabled={loading}>
+          {loading ? <ActivityIndicator size="small" color={theme.primary} /> : <Text style={[styles.saveText, { color: theme.primary }]}>Lưu</Text>}
+        </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ padding: 24, alignItems: 'center' }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={s.avatarSection}>
-            <View style={s.avatarWrapper}>
-              <Image source={{ uri: displayAvatar }} style={s.avatar} />
-              <Pressable style={s.editBadge} onPress={pickImage}>
-                <FontAwesome5
-                  name="camera"
-                  iconStyle="solid"
-                  size={12}
-                  color="#fff"
-                />
-              </Pressable>
-            </View>
-            <Text style={s.avatarHint}>Nhấn vào camera để đổi ảnh</Text>
-          </View>
-
-          <View style={s.form}>
-            <View style={s.inputGroup}>
-              <Text style={s.label}>Họ và tên</Text>
-              <TextInput
-                style={s.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Nhập tên của bạn..."
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={s.inputGroup}>
-              <Text style={s.label}>Email</Text>
-              <View style={[s.input, s.disabledInput]}>
-                <Text style={s.disabledText}>
-                  {initialData?.email || 'Chưa cập nhật'}
-                </Text>
-                <FontAwesome5
-                  name="lock"
-                  iconStyle="solid"
-                  size={12}
-                  color="#94A3B8"
-                />
-              </View>
-              <Text style={s.inputHint}>Email không thể thay đổi</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <TouchableOpacity style={styles.avatarSection} onPress={pickImage}>
+          <View style={styles.avatarWrapper}>
+            <Image 
+              source={{ uri: avatar?.uri || profile?.avatar || 'https://via.placeholder.com/120' }} 
+              style={styles.avatar} 
+            />
+            <View style={[styles.editBadge, { backgroundColor: theme.primary, borderColor: theme.background }]}>
+              <FontAwesome5 name={"camera" as any} size={16} color="#fff" />
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <Text style={[styles.avatarHint, { color: theme.textSecondary }]}>Thay đổi ảnh đại diện</Text>
+        </TouchableOpacity>
+
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Họ và tên</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surface }]}
+              value={name}
+              onChangeText={setName}
+              placeholder="Nhập họ và tên"
+              placeholderTextColor={theme.textSecondary}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Tên người dùng</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surface }]}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Nhập tên người dùng"
+              placeholderTextColor={theme.textSecondary}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Số điện thoại</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surface }]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Nhập số điện thoại"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Tiểu sử</Text>
+            <TextInput
+              style={[styles.input, styles.bioInput, { color: theme.text, backgroundColor: theme.surface }]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Viết gì đó về bạn..."
+              placeholderTextColor={theme.textSecondary}
+              multiline
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Email</Text>
+            <View style={[styles.input, styles.disabledInput, { backgroundColor: theme.surface }]}>
+              <Text style={{ color: theme.textSecondary }}>{profile?.email}</Text>
+              <FontAwesome5 name={"lock" as any} size={14} color={theme.textSecondary} />
+            </View>
+          </View>
+
+          <View style={[styles.inputGroup, styles.switchGroup]}>
+            <View>
+              <Text style={[styles.label, { color: theme.text }]}>Hiển thị trạng thái online</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginLeft: 4 }}>Cho phép người khác thấy bạn đang online</Text>
+            </View>
+            <Switch
+              value={showOnlineStatus}
+              onValueChange={setShowOnlineStatus}
+              trackColor={{ false: theme.border, true: theme.primary }}
+              thumbColor={Platform.OS === 'ios' ? undefined : '#fff'}
+            />
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    height: Platform.OS === 'ios' ? 115 : 85, 
+    borderBottomWidth: 0.5, 
+    paddingTop: Platform.OS === 'ios' ? 60 : 25 
+  },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
+  saveText: { fontSize: 16, fontWeight: 'bold' },
+  content: { padding: 20 },
+  avatarSection: { alignItems: 'center', marginBottom: 30 },
+  avatarWrapper: { position: 'relative' },
+  avatar: { width: 120, height: 120, borderRadius: 60 },
+  editBadge: { position: 'absolute', bottom: 0, right: 0, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 3 },
+  avatarHint: { marginTop: 10, fontSize: 14, fontWeight: '500' },
+  form: { gap: 20 },
+  inputGroup: { gap: 8 },
+  switchGroup: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  label: { fontSize: 14, fontWeight: 'bold', marginLeft: 4 },
+  input: { height: 50, borderRadius: 12, paddingHorizontal: 16, fontSize: 16, borderWidth: 1, borderColor: 'transparent' },
+  bioInput: { height: 100, textAlignVertical: 'top', paddingTop: 12 },
+  disabledInput: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', opacity: 0.7 },
+});
 
 export default EditProfile;

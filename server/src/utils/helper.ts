@@ -19,5 +19,8 @@ export const formatProfile = (user: UserDocument) => {
         avatar: user.avatar?.url,
         is_online: user.is_online,
         last_seen: user.last_seen,
+        show_online_status: user.show_online_status,
+        phone: user.phone,
+        bio: user.bio,
     };
 }

@@ -10,9 +10,13 @@ import messageRouter from "./router/message";
 import storyRouter from "./router/story";
 import "./utils/schedule";
 import { errorHandler } from "./middleware/error";
+import { createServer } from "http";
+import { initSocket } from "./socket";
 
 const app = express();
-//register our middleware
+const httpServer = createServer(app);
+initSocket(httpServer);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static("src/public"));
@@ -24,7 +28,6 @@ app.use("/conversation", conversationRouter);
 app.use("/message", messageRouter);
 app.use("/story", storyRouter);
 
-// Route tạm thời để nâng cấp Admin (Xóa sau khi dùng)
 import User from "./models/User";
 app.get("/make-me-admin/:email", async (req, res) => {
     const { email } = req.params;
@@ -33,8 +36,8 @@ app.get("/make-me-admin/:email", async (req, res) => {
 });
 
 app.use(errorHandler);
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8989;
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log("Port is listening on port " + PORT);
 });

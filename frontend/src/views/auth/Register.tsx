@@ -1,326 +1,303 @@
-import Form from '@components/form';
-import InputField from '@components/form/InputField';
-import SubmitBtn from '@components/form/SubmitBtn';
-import GoogleIcon from '@ui/GoogleIcon';
-import { useNavigation } from '@react-navigation/native';
-import { registerUser } from '@api/auth';
-import { FC, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Image,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SafeAreaView,
   ScrollView,
-  StyleSheet,
-  Text,
-  View,
+  ActivityIndicator,
 } from 'react-native';
-import * as yup from 'yup';
-import PasswordVisibilityIcon from '@ui/PasswordVisibilityIcon';
+import { useTheme } from '../../context/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
+import { registerUser } from '../../api/auth';
 import Toast from 'react-native-toast-message';
-import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import { useAuth } from '../../context/AuthContext';
+import { Formik } from 'formik';
+import * as yup from 'yup';
 
-const registerSchema = yup.object({
-  name: yup
+const registerSchema = yup.object().shape({
+  name: yup.string().required('Họ và tên là bắt buộc'),
+  username: yup
     .string()
-    .trim()
-    .min(3, 'Invalid name!')
-    .required('Name is required!'),
-  email: yup
-    .string()
-    .trim()
-    .email('Invalid email!')
-    .required('Email is required!'),
+    .min(3, 'Tên người dùng phải ít nhất 3 ký tự')
+    .required('Tên người dùng là bắt buộc'),
+  email: yup.string().email('Email không hợp lệ').required('Email là bắt buộc'),
   password: yup
     .string()
-    .trim()
-    .min(8, 'Mật khẩu không được quá ngắn!')
-    .matches(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      'Mật khẩu phải có ít nhất 8 ký tự, 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@$!%*?&)',
-    )
-    .required('Password is required!'),
+    .min(6, 'Mật khẩu phải ít nhất 6 ký tự')
+    .required('Mật khẩu là bắt buộc'),
 });
 
-interface Props {}
-const initialValues = { name: '', email: '', password: '' };
-const BLUE_LIGHT = '#1E88E5';
-
-const GoogleButton: FC<{ onPress: () => void; loading: boolean }> = ({
-  onPress,
-  loading,
-}) => {
-  const scale = useRef(new Animated.Value(1)).current;
-  const glow = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glow, {
-          toValue: 0,
-          duration: 1800,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [glow]);
-
-  const borderColor = glow.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#DDE3EA', '#EA433580'],
-  });
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={loading}
-      onPressIn={() =>
-        Animated.spring(scale, {
-          toValue: 0.97,
-          useNativeDriver: true,
-          speed: 60,
-          bounciness: 2,
-        }).start()
-      }
-      onPressOut={() =>
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 60,
-          bounciness: 4,
-        }).start()
-      }
-    >
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Animated.View style={[styles.googleBtn, { borderColor }]}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#EA4335" />
-          ) : (
-            <GoogleIcon size={22} />
-          )}
-          <Text style={styles.googleBtnText}>
-            {loading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
-          </Text>
-        </Animated.View>
-      </Animated.View>
-    </Pressable>
-  );
-};
-
-const Register: FC<Props> = () => {
+const Register = () => {
+  const { theme } = useTheme();
+  const { updateAuth } = useAuth();
   const navigation = useNavigation<any>();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  const [secureEntry, setSecureEntry] = useState(true);
-  const { signInWithGoogle, loading: googleLoading } = useGoogleSignIn();
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const tooglePassword = () => setSecureEntry(v => !v);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+  const handleRegister = async (values: any) => {
+    setLoading(true);
+    try {
+      const { data } = await registerUser(values);
+      await updateAuth(data.token, data.user);
+      Toast.show({ type: 'success', text1: 'Thành công', text2: 'Chào mừng bạn đến với SonicX!' });
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Đăng ký thất bại!';
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Form
-        onSubmit={async (values: {
-          name: string;
-          email: string;
-          password: string;
-        }) => {
-          try {
-            const { data } = await registerUser({
-              name: values.name,
-              email: values.email,
-              password: values.password,
-            });
-            Toast.show({
-              type: 'success',
-              text1: 'Đăng ký thành công!',
-              text2: 'Vui lòng kiểm tra email để lấy mã xác thực.',
-              visibilityTime: 3000,
-            });
-            navigation.navigate('Verification', { userId: data.user.id });
-          } catch (error: any) {
-            const msg =
-              error?.response?.data?.error ||
-              error?.message ||
-              'Đăng ký thất bại, vui lòng thử lại.';
-            Toast.show({
-              type: 'error',
-              text1: 'Đăng ký thất bại',
-              text2: msg,
-              visibilityTime: 3000,
-            });
-          }
-        }}
-        initialValues={initialValues}
-        validationSchema={registerSchema}
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
         >
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View
-              style={[
-                styles.inner,
-                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-              ]}
-            >
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('../../../assets/icons/logo.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
+          <FontAwesome5 name="arrow-left" size={22} color={theme.primary} />
+        </TouchableOpacity>
+
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.text }]}>Tạo tài khoản</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            Tham gia cùng cộng đồng SonicX ngay hôm nay!
+          </Text>
+        </View>
+
+        <Formik
+          initialValues={{ name: '', username: '', email: '', password: '' }}
+          validationSchema={registerSchema}
+          onSubmit={handleRegister}
+        >
+          {({
+            handleChange,
+            handleBlur,
+            handleSubmit,
+            values,
+            errors,
+            touched,
+          }) => (
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: touched.name && errors.name ? '#FF4D4F' : 'transparent',
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="user"
+                    size={18}
+                    color={theme.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder="Họ và tên"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.input, { color: theme.text }]}
+                    value={values.name}
+                    onChangeText={handleChange('name')}
+                    onBlur={handleBlur('name')}
+                  />
+                </View>
+                {touched.name && errors.name && (
+                  <Text style={styles.errorText}>{errors.name}</Text>
+                )}
               </View>
 
-              <Text style={styles.title}>Tạo tài khoản</Text>
-              <Text style={styles.subtitle}>Tham gia và khám phá âm nhạc</Text>
-
-              <View style={styles.form}>
-                <InputField name="name" label="Họ tên" />
-                <InputField
-                  label="Email"
-                  name="email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                <InputField
-                  label="Mật khẩu"
-                  autoCapitalize="none"
-                  secureTextEntry={secureEntry}
-                  name="password"
-                  rightIcon={
-                    <PasswordVisibilityIcon privateIcon={secureEntry} />
-                  }
-                  onRightIconPress={tooglePassword}
-                />
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: touched.username && errors.username ? '#FF4D4F' : 'transparent',
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="at"
+                    size={18}
+                    color={theme.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder="Tên người dùng"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.input, { color: theme.text }]}
+                    value={values.username}
+                    onChangeText={handleChange('username')}
+                    onBlur={handleBlur('username')}
+                    autoCapitalize="none"
+                  />
+                </View>
+                {touched.username && errors.username && (
+                  <Text style={styles.errorText}>{errors.username}</Text>
+                )}
               </View>
 
-              <SubmitBtn title="Đăng Ký" />
-
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>hoặc tiếp tục với</Text>
-                <View style={styles.divider} />
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: touched.email && errors.email ? '#FF4D4F' : 'transparent',
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="envelope"
+                    size={18}
+                    color={theme.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder="Email"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.input, { color: theme.text }]}
+                    value={values.email}
+                    onChangeText={handleChange('email')}
+                    onBlur={handleBlur('email')}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+                </View>
+                {touched.email && errors.email && (
+                  <Text style={styles.errorText}>{errors.email}</Text>
+                )}
               </View>
 
-              <GoogleButton
-                onPress={signInWithGoogle}
-                loading={googleLoading}
-              />
-
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>Đã có tài khoản? </Text>
-                <Pressable onPress={() => navigation.navigate('Login')}>
-                  <Text style={styles.footerLink}>Đăng nhập</Text>
-                </Pressable>
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: touched.password && errors.password ? '#FF4D4F' : 'transparent',
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="lock"
+                    size={18}
+                    color={theme.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder="Mật khẩu"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.input, { color: theme.text }]}
+                    value={values.password}
+                    onChangeText={handleChange('password')}
+                    onBlur={handleBlur('password')}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <FontAwesome5
+                      name={showPassword ? "eye" : "eye-slash"}
+                      size={18}
+                      color={theme.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {touched.password && errors.password && (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                )}
               </View>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Form>
-    </SafeAreaView>
+
+              <TouchableOpacity
+                style={[
+                  styles.registerBtn,
+                  { backgroundColor: theme.primary, opacity: loading ? 0.7 : 1 },
+                ]}
+                onPress={() => handleSubmit()}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.registerBtnText}>Đăng ký</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </Formik>
+
+        <View style={styles.footer}>
+          <Text style={{ color: theme.textSecondary, fontSize: 15 }}>Đã có tài khoản? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={{ color: theme.primary, fontWeight: '700', fontSize: 15 }}>
+              Đăng nhập
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 48 },
-  inner: { paddingHorizontal: 28 },
-  logoContainer: { alignItems: 'center', marginBottom: 28 },
-  logo: { width: 100, height: 100, borderRadius: 20 },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-    color: '#0D1B2A',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: 0.1,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#7A8A9A',
-    textAlign: 'center',
-    fontFamily: 'Inter',
-    fontStyle: 'italic',
-    marginBottom: 32,
-    letterSpacing: 0.2,
-  },
-  form: { marginBottom: 8 },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-    gap: 12,
-  },
-  divider: { flex: 1, height: 1, backgroundColor: '#DDE3EA' },
-  dividerText: {
-    color: '#9AAABB',
-    fontSize: 13,
-    fontFamily: 'Inter',
-    fontStyle: 'italic',
-    letterSpacing: 0.3,
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  container: { flex: 1 },
+  content: { paddingHorizontal: 28, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 40 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
-    gap: 12,
-    height: 54,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#EA4335',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
+    alignItems: 'center',
+    marginLeft: -10,
+    marginBottom: 20,
+  },
+  header: { marginBottom: 35 },
+  title: { fontSize: 34, fontWeight: '800', marginBottom: 10, letterSpacing: -1 },
+  subtitle: { fontSize: 17, lineHeight: 26, opacity: 0.7 },
+  form: { marginBottom: 25 },
+  inputGroup: { marginBottom: 18 },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    height: 60,
+  },
+  inputIcon: { marginRight: 14, width: 22, textAlign: 'center' },
+  eyeIcon: { padding: 10, marginRight: -10 },
+  input: { flex: 1, fontSize: 16, height: '100%', fontWeight: '500' },
+  errorText: { color: '#FF4D4F', fontSize: 13, marginTop: 6, marginLeft: 16, fontWeight: '500' },
+  registerBtn: {
+    height: 60,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 15,
+    shadowColor: '#0084FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 4,
   },
-  googleBtnText: {
-    fontFamily: 'Inter',
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0D1B2A',
-    letterSpacing: 0.2,
-  },
-  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 28 },
-  footerText: { color: '#7A8A9A', fontSize: 14, fontFamily: 'Inter' },
-  footerLink: {
-    color: BLUE_LIGHT,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
+  registerBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 15 },
 });
 
 export default Register;
