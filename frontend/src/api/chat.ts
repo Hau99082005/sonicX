@@ -17,11 +17,9 @@ export const getMessages = async (conversationId: string, limit = 20, offset = 0
   return data.messages;
 };
 
-export const sendMessage = async (formData: FormData) => {
-  const { data } = await client.post("/message/send", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data.message;
+export const sendMessage = async (data: any) => {
+  const { data: responseData } = await client.post("/message/send", data);
+  return responseData.message;
 };
 
 export const markAsSeen = async (messageId: string) => {

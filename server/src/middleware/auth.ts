@@ -35,6 +35,9 @@ export const mustAuth: RequestHandler = async (req, res, next) => {
         avatar: user.avatar?.url,
         is_online: user.is_online,
         last_seen: user.last_seen,
+        bio: user.bio,
+        phone: user.phone,
+        show_online_status: user.show_online_status,
     };
     req.token = token;
     next();
@@ -61,6 +64,9 @@ export const isAuth: RequestHandler = async (req, res, next) => {
             avatar: user.avatar?.url,
             is_online: user.is_online,
             last_seen: user.last_seen,
+            bio: user.bio,
+            phone: user.phone,
+            show_online_status: user.show_online_status,
         };
         req.token = token;
     }

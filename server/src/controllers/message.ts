@@ -6,7 +6,7 @@ import formidable from "formidable";
 import cloudinary from "#/cloud";
 
 export const sendMessage: RequestHandler = async (req, res) => {
-  const { conversationId, message, type, replyTo } = req.body;
+  const { conversationId, message, type, replyTo, meta } = req.body;
   const files = req.files?.media;
   const senderId = req.user.id;
 
@@ -50,12 +50,18 @@ export const sendMessage: RequestHandler = async (req, res) => {
     type: type || (mediaData.length > 0 ? "image" : "text"),
     media: mediaData,
     replyTo: isValidObjectId(replyTo) ? replyTo : undefined,
+    meta: typeof meta === "string" ? JSON.parse(meta) : meta,
   });
+
+  const populatedMessage = await newMessage.populate("sender", "username avatar");
 
   conversation.lastMessage = newMessage._id as any;
   await conversation.save();
 
-  res.status(201).json({ message: newMessage });
+  const io = req.app.get("io");
+  io.to(conversationId).emit("new-message", { message: populatedMessage });
+
+  res.status(201).json({ message: populatedMessage });
 };
 
 export const getMessages: RequestHandler = async (req, res) => {

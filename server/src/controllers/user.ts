@@ -266,8 +266,9 @@ export const updateProfile: RequestHandler = async (req, res) => {
 };
 
 export const sendProfile: RequestHandler = async (req, res) => {
-  await User.findByIdAndUpdate(req.user.id, { is_online: true });
-  res.status(200).json({ profile: req.user });
+  const user = await User.findByIdAndUpdate(req.user.id, { is_online: true }, { new: true });
+  if (!user) return res.status(404).json({ error: "User not found!" });
+  res.status(200).json({ profile: formatProfile(user) });
 };
 
 export const logOut: RequestHandler = async (req, res) => {

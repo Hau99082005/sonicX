@@ -6,6 +6,8 @@ import { useSocket } from '../../context/SocketContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { getConversations } from '../../api/chat';
 import { getStories } from '../../api/story';
+import moment from 'moment';
+import { getAvatarUrl } from '../../utils/helper';
 
 const Chats = ({ navigation }: any) => {
   const { theme } = useTheme();
@@ -24,16 +26,38 @@ const Chats = ({ navigation }: any) => {
     fetchData();
   }, []);
 
-  const renderStoryItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.storyItem}>
-      <View style={[styles.storyAvatarContainer, { borderColor: theme.primary }]}>
-        <Image source={{ uri: item.user.avatar?.url }} style={styles.storyAvatar} />
-      </View>
-      <Text style={[styles.storyName, { color: theme.text }]} numberOfLines={1}>
-        {item.user.username}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderStoryItem = ({ item }: any) => {
+    const isOnline = item.user.show_online_status && onlineUsers.has(item.user._id);
+    
+    return (
+      <TouchableOpacity 
+        style={styles.storyItem}
+        onPress={() => navigation.navigate('ChatWindow', { 
+          conversation: { 
+            _id: 'new', 
+            members: [{ user: item.user }],
+            name: item.user.name 
+          } 
+        })}
+      >
+        <View style={styles.storyAvatarContainer}>
+          <Image source={{ uri: getAvatarUrl(item.user.avatar, item.user.name || item.user.username) }} style={styles.storyAvatar} />
+          {isOnline ? (
+            <View style={[styles.storyOnlineIndicator, { backgroundColor: theme.active, borderColor: theme.background }]} />
+          ) : item.user.last_seen ? (
+            <View style={[styles.storyOfflineBadge, { backgroundColor: theme.surface, borderColor: theme.background }]}>
+              <Text style={[styles.storyOfflineText, { color: theme.textSecondary }]}>
+                {moment(item.user.last_seen).fromNow(true)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.storyName, { color: theme.text }]} numberOfLines={1}>
+          {item.user.name || item.user.username}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderConversationItem = ({ item }: any) => {
     const otherMember = item.members.find((m: any) => m.user._id !== profile?.id)?.user;
@@ -45,16 +69,22 @@ const Chats = ({ navigation }: any) => {
         onPress={() => navigation.navigate('ChatWindow', { conversation: item })}
       >
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: otherMember?.avatar?.url }} style={styles.avatar} />
+          <Image source={{ uri: getAvatarUrl(otherMember?.avatar, otherMember?.name || otherMember?.username) }} style={styles.avatar} />
           {isOnline && <View style={[styles.onlineIndicator, { backgroundColor: theme.active, borderColor: theme.background }]} />}
         </View>
         <View style={styles.conversationInfo}>
-          <Text style={[styles.conversationName, { color: theme.text }]}>{item.name || otherMember?.username}</Text>
+          <Text style={[styles.conversationName, { color: theme.text }]}>{otherMember?.name || otherMember?.username || 'Chat'}</Text>
           <Text style={[styles.lastMessage, { color: theme.textSecondary }]} numberOfLines={1}>
-            {item.lastMessage?.message || 'Bắt đầu cuộc trò chuyện'}
+            {item.lastMessage ? (
+              `${item.lastMessage.sender === profile?.id ? 'Bạn: ' : ''}${item.lastMessage.message}`
+            ) : (
+              'Bắt đầu cuộc trò chuyện'
+            )}
           </Text>
         </View>
-        <Text style={[styles.time, { color: theme.textSecondary }]}>9:40 AM</Text>
+        <Text style={[styles.time, { color: theme.textSecondary }]}>
+          {item.lastMessage ? moment(item.lastMessage.createdAt).format('LT') : ''}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -64,7 +94,7 @@ const Chats = ({ navigation }: any) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.userAvatarContainer}>
-            <Image source={{ uri: profile?.avatar || 'https://via.placeholder.com/40' }} style={styles.userAvatar} />
+            <Image source={{ uri: getAvatarUrl(profile?.avatar, profile?.name) }} style={styles.userAvatar} />
             <View style={[
               styles.userStatusIndicator, 
               { 
@@ -149,8 +179,29 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 16 },
   storiesContainer: { flexDirection: 'row', marginBottom: 20 },
   storyItem: { alignItems: 'center', marginRight: 15, width: 65 },
-  storyAvatarContainer: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, padding: 2, marginBottom: 5 },
+  storyAvatarContainer: { width: 60, height: 60, borderRadius: 30, position: 'relative', marginBottom: 5 },
   storyAvatar: { width: '100%', height: '100%', borderRadius: 30 },
+  storyOnlineIndicator: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
+  storyOfflineBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 10,
+    borderWidth: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  storyOfflineText: { fontSize: 9, fontWeight: 'bold' },
   addStoryBtn: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 5 },
   storyName: { fontSize: 12, textAlign: 'center' },
   conversationItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

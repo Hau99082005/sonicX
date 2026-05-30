@@ -6,8 +6,10 @@ export interface RequestWithFiles extends Request {
 }
 
 const fileParser: RequestHandler = async (req: RequestWithFiles, res, next) => {
-    if (!req.headers["content-type"]?.startsWith("multipart/form-data;"))
-        return res.status(422).json({ error: "Only accepts form-data!" });
+    const contentType = req.headers["content-type"];
+    if (!contentType || !contentType.startsWith("multipart/form-data")) {
+        return next();
+    }
 
     const form = formidable({ multiples: false });
 

@@ -28,7 +28,7 @@ export const createConversation: RequestHandler = async (req, res) => {
       type: "private",
       "members.user": { $all: memberIds },
       members: { $size: 2 },
-    });
+    }).populate("members.user", "username name avatar is_online last_seen show_online_status");
     if (existing) return res.status(200).json({ conversation: existing });
   }
 
@@ -52,7 +52,9 @@ export const createConversation: RequestHandler = async (req, res) => {
     })),
   });
 
-  res.status(201).json({ conversation });
+  const populatedConversation = await conversation.populate("members.user", "username name avatar is_online last_seen show_online_status");
+
+  res.status(201).json({ conversation: populatedConversation });
 };
 
 export const getConversations: RequestHandler = async (req, res) => {
@@ -61,7 +63,7 @@ export const getConversations: RequestHandler = async (req, res) => {
   const conversations = await Conversation.find({
     "members.user": userId,
   })
-    .populate("members.user", "username avatar is_online last_seen")
+    .populate("members.user", "username name avatar is_online last_seen show_online_status")
     .populate("lastMessage")
     .sort({ updatedAt: -1 });
 
@@ -78,7 +80,7 @@ export const getConversationById: RequestHandler = async (req, res) => {
   const conversation = await Conversation.findOne({
     _id: id,
     "members.user": userId,
-  }).populate("members.user", "username avatar is_online last_seen");
+  }).populate("members.user", "username name avatar is_online last_seen show_online_status");
 
   if (!conversation)
     return res.status(404).json({ error: "Conversation not found!" });

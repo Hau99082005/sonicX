@@ -15,8 +15,11 @@ export interface MessageDocument extends Document {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   replyTo?: Types.ObjectId;
-  type: "text" | "image" | "video" | "audio" | "file" | "call" | "system" | "sticker" | "gif" | "markdown" | "code";
+  type: "text" | "image" | "video" | "audio" | "file" | "call" | "system" | "sticker" | "gif" | "markdown" | "code" | "like";
   message?: string;
+  meta?: {
+    size?: number;
+  };
   media?: {
     url: string;
     public_id?: string;
@@ -52,12 +55,15 @@ const messageSchema = new Schema<MessageDocument>(
     },
     type: {
       type: String,
-      enum: ["text", "image", "video", "audio", "file", "call", "system", "sticker", "gif", "markdown", "code"],
+      enum: ["text", "image", "video", "audio", "file", "call", "system", "sticker", "gif", "markdown", "code", "like"],
       default: "text",
     },
     message: {
       type: String,
       trim: true,
+    },
+    meta: {
+      size: Number,
     },
     media: [
       {

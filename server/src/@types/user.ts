@@ -14,6 +14,9 @@ declare global {
         avatar?: string;
         is_online: boolean;
         last_seen?: Date;
+        bio?: string;
+        phone?: string;
+        show_online_status: boolean;
       };
       files?: { [key: string]: File };
       token: string;

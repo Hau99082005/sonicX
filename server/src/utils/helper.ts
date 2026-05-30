@@ -16,7 +16,7 @@ export const formatProfile = (user: UserDocument) => {
         name: user.name,
         email: user.email,
         verified: user.verified,
-        avatar: user.avatar?.url,
+        avatar: user.avatar?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random&color=fff`,
         is_online: user.is_online,
         last_seen: user.last_seen,
         show_online_status: user.show_online_status,

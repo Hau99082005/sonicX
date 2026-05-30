@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import client from '../../api/client';
 import Toast from 'react-native-toast-message';
+import { getAvatarUrl } from '../../utils/helper';
 
 const People = ({ navigation }: any) => {
   const { theme } = useTheme();
@@ -62,19 +63,36 @@ const People = ({ navigation }: any) => {
     }
   };
 
-  const renderFriendItem = ({ item }: any) => (
-    <TouchableOpacity 
-      style={styles.friendItem}
-      onPress={() => navigation.navigate('ChatWindow', { 
+  const goToChat = async (item: any) => {
+    try {
+      // Tìm hoặc tạo cuộc hội thoại private với người này
+      const { data } = await client.post('/conversation/create', {
+        type: 'private',
+        members: [item._id],
+      });
+      
+      navigation.navigate('ChatWindow', { 
+        conversation: data.conversation
+      });
+    } catch (error) {
+      // Nếu có lỗi, vẫn cho phép chuyển sang nhưng ở trạng thái 'new'
+      navigation.navigate('ChatWindow', { 
         conversation: { 
           _id: 'new', 
           members: [{ user: { _id: item._id, ...item } }],
           name: item.name 
         } 
-      })}
+      });
+    }
+  };
+
+  const renderFriendItem = ({ item }: any) => (
+    <TouchableOpacity 
+      style={styles.friendItem}
+      onPress={() => goToChat(item)}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.avatar?.url || 'https://via.placeholder.com/40' }} style={styles.avatar} />
+        <Image source={{ uri: getAvatarUrl(item.avatar, item.name) }} style={styles.avatar} />
         {item.is_online && (
           <View style={[styles.onlineIndicator, { backgroundColor: theme.active, borderColor: theme.background }]} />
         )}
@@ -83,7 +101,10 @@ const People = ({ navigation }: any) => {
         <Text style={[styles.friendName, { color: theme.text }]}>{item.name}</Text>
         <Text style={[styles.friendUsername, { color: theme.textSecondary }]}>@{item.username}</Text>
       </View>
-      <TouchableOpacity style={[styles.actionButton, { backgroundColor: theme.surface }]}>
+      <TouchableOpacity 
+        style={[styles.actionButton, { backgroundColor: theme.surface }]}
+        onPress={() => goToChat(item)}
+      >
         <FontAwesome5 name="comment" size={16} color={theme.primary} />
       </TouchableOpacity>
     </TouchableOpacity>

@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import client from '../../api/client';
 import Toast from 'react-native-toast-message';
+import { getAvatarUrl } from '../../utils/helper';
 
 const Discover = ({ navigation }: any) => {
   const { theme } = useTheme();
@@ -30,6 +31,24 @@ const Discover = ({ navigation }: any) => {
     }
   };
 
+  const goToChat = async (item: any) => {
+    try {
+      const { data } = await client.post('/conversation/create', {
+        type: 'private',
+        members: [item.id],
+      });
+      navigation.navigate('ChatWindow', { conversation: data.conversation });
+    } catch (error) {
+      navigation.navigate('ChatWindow', { 
+        conversation: { 
+          _id: 'new', 
+          members: [{ user: { _id: item.id, ...item } }],
+          name: item.name 
+        } 
+      });
+    }
+  };
+
   const renderUserItem = ({ item }: any) => {
     const isPending = item.friendshipStatus === 'pending' && item.isRequester;
     const isFriend = item.friendshipStatus === 'accepted';
@@ -37,15 +56,9 @@ const Discover = ({ navigation }: any) => {
     return (
       <TouchableOpacity 
         style={styles.userItem}
-        onPress={() => navigation.navigate('ChatWindow', { 
-          conversation: { 
-            _id: 'new', 
-            members: [{ user: { _id: item.id, ...item } }],
-            name: item.name 
-          } 
-        })}
+        onPress={() => goToChat(item)}
       >
-        <Image source={{ uri: item.avatar || 'https://via.placeholder.com/50' }} style={styles.avatar} />
+        <Image source={{ uri: getAvatarUrl(item.avatar, item.name) }} style={styles.avatar} />
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
           <Text style={[styles.userUsername, { color: theme.textSecondary }]}>@{item.username}</Text>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthProfile } from '../api/auth';
 import { getToken, getProfile, saveToken, saveProfile, clearAuth } from '../utils/storage';
+import client from '../api/client';
 
 interface AuthContextType {
   profile: AuthProfile | null;
@@ -8,6 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   updateAuth: (token: string, profile: AuthProfile) => Promise<void>;
   signOut: () => Promise<void>;
+  fetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,8 +51,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
+  const fetchProfile = async () => {
+    try {
+      const { data } = await client.get('/auth/is-auth');
+      if (data.profile) {
+        setProfile(data.profile);
+        await saveProfile(data.profile);
+      }
+    } catch (e) {
+      console.error('Failed to fetch profile:', e);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ profile, token, isLoading, updateAuth, signOut }}>
+    <AuthContext.Provider value={{ profile, token, isLoading, updateAuth, signOut, fetchProfile }}>
       {children}
     </AuthContext.Provider>
   );

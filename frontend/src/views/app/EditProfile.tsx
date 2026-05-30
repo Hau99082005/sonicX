@@ -18,6 +18,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { pick, types } from '@react-native-documents/picker';
 import Toast from 'react-native-toast-message';
 import client from '../../api/client';
+import { getAvatarUrl } from '../../utils/helper';
 
 const EditProfile = ({ navigation }: any) => {
   const { theme } = useTheme();
@@ -102,7 +103,7 @@ const EditProfile = ({ navigation }: any) => {
         <TouchableOpacity style={styles.avatarSection} onPress={pickImage}>
           <View style={styles.avatarWrapper}>
             <Image 
-              source={{ uri: avatar?.uri || profile?.avatar || 'https://via.placeholder.com/120' }} 
+              source={{ uri: avatar?.uri || getAvatarUrl(profile?.avatar, profile?.name) }} 
               style={styles.avatar} 
             />
             <View style={[styles.editBadge, { backgroundColor: theme.primary, borderColor: theme.background }]}>
