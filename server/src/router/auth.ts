@@ -71,6 +71,7 @@ router.get("/private", mustAuth, (req, res) => {
 });
 
 router.patch("/update-profile", mustAuth, fileParser, updateProfile);
+router.patch("/update-password-auth", mustAuth, updatePassword);
 router.post("/log-out", mustAuth, logOut);
 router.get("/user", mustAuth, getUser);
 router.delete("/delete-account", mustAuth, deleteAccount);

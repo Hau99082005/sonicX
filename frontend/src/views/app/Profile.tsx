@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,80 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
+  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import Toast from 'react-native-toast-message';
+import client from '../../api/client';
 
 const Profile = ({ navigation }: any) => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { profile, signOut } = useAuth();
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setNewConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Xóa tài khoản',
+      'Bạn có chắc chắn muốn xóa tài khoản? Hành động này không thể hoàn tác.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Xóa', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await client.delete('/auth/delete-account');
+              Toast.show({ type: 'success', text1: 'Thành công', text2: 'Tài khoản đã được xóa' });
+              setTimeout(async () => {
+                await signOut();
+              }, 1500);
+            } catch (error: any) {
+              const msg = error.response?.data?.error || 'Không thể xóa tài khoản. Vui lòng thử lại sau.';
+              Toast.show({ type: 'error', text1: 'Lỗi', text2: msg });
+            }
+          } 
+        },
+      ]
+    );
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Vui lòng điền đầy đủ thông tin' });
+    }
+    if (newPassword !== confirmPassword) {
+      return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Mật khẩu xác nhận không khớp' });
+    }
+    if (newPassword.length < 8) {
+      return Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Mật khẩu phải có ít nhất 8 ký tự' });
+    }
+
+    setLoading(true);
+    try {
+      await client.patch('/auth/update-password-auth', {
+        oldPassword,
+        password: newPassword
+      });
+      Toast.show({ type: 'success', text1: 'Thành công', text2: 'Mật khẩu đã được thay đổi' });
+      setPasswordModal(false);
+      setOldPassword('');
+      setNewPassword('');
+      setNewConfirmPassword('');
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: error.response?.data?.error || 'Đổi mật khẩu thất bại' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const MenuItem = ({ icon, label, value, color, onPress, type = 'link' }: any) => (
     <TouchableOpacity 
@@ -58,6 +124,9 @@ const Profile = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
         <Text style={[styles.profileName, { color: theme.text }]}>{profile?.name || 'User'}</Text>
+        {profile?.bio ? (
+          <Text style={[styles.profileBio, { color: theme.textSecondary }]}>{profile.bio}</Text>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -112,15 +181,72 @@ const Profile = ({ navigation }: any) => {
           icon="lock" 
           label="Đổi mật khẩu" 
           color="#607D8B" 
-          onPress={() => {}}
+          onPress={() => setPasswordModal(true)}
         />
         <MenuItem 
           icon="user-slash" 
           label="Xóa tài khoản" 
           color="#FF4D4F" 
-          onPress={() => {}}
+          onPress={handleDeleteAccount}
         />
       </View>
+
+      <Modal
+        visible={passwordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Đổi mật khẩu</Text>
+            
+            <TextInput
+              style={[styles.modalInput, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
+              placeholder="Mật khẩu cũ"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              value={oldPassword}
+              onChangeText={setOldPassword}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
+              placeholder="Mật khẩu mới"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
+              placeholder="Xác nhận mật khẩu mới"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setNewConfirmPassword}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.surface }]} 
+                onPress={() => setPasswordModal(false)}
+              >
+                <Text style={{ color: theme.text }}>Hủy</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.primary }]} 
+                onPress={handleChangePassword}
+                disabled={loading}
+              >
+                {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cập nhật</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <TouchableOpacity 
         style={[styles.logoutBtn, { backgroundColor: theme.surface }]}
@@ -155,6 +281,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   profileName: { fontSize: 24, fontWeight: '700' },
+  profileBio: { fontSize: 14, marginTop: 4, textAlign: 'center', paddingHorizontal: 40 },
   section: { paddingHorizontal: 16, marginBottom: 20 },
   menuItem: {
     flexDirection: 'row',
@@ -183,7 +310,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
   },
-  logoutText: { color: '#FF4D4F', fontSize: 16, fontWeight: '700' },
+  logoutText: { color: '#FF4D4F', fontSize: 16, fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { borderRadius: 20, padding: 20, elevation: 5 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  modalInput: { height: 50, borderWidth: 1, borderRadius: 10, paddingHorizontal: 15, marginBottom: 15 },
+  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  modalBtn: { flex: 1, height: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   footer: { alignItems: 'center', paddingBottom: 40 },
   version: { fontSize: 12, opacity: 0.6 },
 });

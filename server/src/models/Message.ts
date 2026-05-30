@@ -15,7 +15,7 @@ export interface MessageDocument extends Document {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   replyTo?: Types.ObjectId;
-  type: "text" | "image" | "video" | "audio" | "file" | "call" | "system";
+  type: "text" | "image" | "video" | "audio" | "file" | "call" | "system" | "sticker" | "gif" | "markdown" | "code";
   message?: string;
   media?: {
     url: string;
@@ -52,7 +52,7 @@ const messageSchema = new Schema<MessageDocument>(
     },
     type: {
       type: String,
-      enum: ["text", "image", "video", "audio", "file", "call", "system"],
+      enum: ["text", "image", "video", "audio", "file", "call", "system", "sticker", "gif", "markdown", "code"],
       default: "text",
     },
     message: {

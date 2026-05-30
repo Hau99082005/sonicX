@@ -1,16 +1,98 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import client from '../../api/client';
+import Toast from 'react-native-toast-message';
 
-const Discover = () => {
+const Discover = ({ navigation }: any) => {
   const { theme } = useTheme();
+  const [query, setQuery] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const businesses = [
-    { id: '1', name: 'Apple', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
-    { id: '2', name: 'Samsung', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg' },
-    { id: '3', name: 'Airbnb', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/69/Airbnb_Logo_B%C3%A9lo.svg' },
-  ];
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchUsers();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const { data } = await client.get(`/auth/user?query=${query}`);
+      setUsers(data.users);
+    } catch (error) {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderUserItem = ({ item }: any) => {
+    const isPending = item.friendshipStatus === 'pending' && item.isRequester;
+    const isFriend = item.friendshipStatus === 'accepted';
+    
+    return (
+      <TouchableOpacity 
+        style={styles.userItem}
+        onPress={() => navigation.navigate('ChatWindow', { 
+          conversation: { 
+            _id: 'new', 
+            members: [{ user: { _id: item.id, ...item } }],
+            name: item.name 
+          } 
+        })}
+      >
+        <Image source={{ uri: item.avatar || 'https://via.placeholder.com/50' }} style={styles.avatar} />
+        <View style={styles.userInfo}>
+          <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
+          <Text style={[styles.userUsername, { color: theme.textSecondary }]}>@{item.username}</Text>
+        </View>
+        
+        {isFriend ? (
+          <View style={[styles.statusBadge, { backgroundColor: theme.surface }]}>
+            <FontAwesome5 name="user-check" size={14} color={theme.active} />
+          </View>
+        ) : isPending ? (
+          <TouchableOpacity 
+            style={[styles.addButton, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}
+            onPress={() => handleCancelRequest(item.id)}
+          >
+            <FontAwesome5 name="user-times" size={14} color={theme.textSecondary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.addButton, { backgroundColor: theme.primary }]}
+            onPress={() => handleAddFriend(item.id)}
+          >
+            <FontAwesome5 name="user-plus" size={14} color="#fff" />
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const handleAddFriend = async (receiverId: string) => {
+    try {
+      await client.post('/friendship/request', { receiverId });
+      Toast.show({ type: 'success', text1: 'Thành công', text2: 'Đã gửi lời mời kết bạn' });
+      fetchUsers();
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: error.response?.data?.error || 'Gửi lời mời thất bại' });
+    }
+  };
+
+  const handleCancelRequest = async (receiverId: string) => {
+    try {
+      await client.post('/friendship/cancel', { receiverId });
+      Toast.show({ type: 'success', text1: 'Thành công', text2: 'Đã hủy lời mời kết bạn' });
+      fetchUsers();
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: error.response?.data?.error || 'Hủy lời mời thất bại' });
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -19,49 +101,29 @@ const Discover = () => {
       </View>
 
       <View style={[styles.searchBar, { backgroundColor: theme.surface }]}>
-        <FontAwesome5 name={"search" as any} size={16} color={theme.textSecondary} style={styles.searchIcon} />
+        <FontAwesome5 name="search" size={16} color={theme.textSecondary} style={styles.searchIcon} />
         <TextInput
-          placeholder="Tìm kiếm"
+          placeholder="Tìm kiếm bạn mới..."
           placeholderTextColor={theme.textSecondary}
           style={[styles.searchInput, { color: theme.text }]}
+          value={query}
+          onChangeText={setQuery}
         />
+        {loading && <ActivityIndicator size="small" color={theme.primary} />}
       </View>
 
-      <View style={styles.tabHeader}>
-        <TouchableOpacity style={[styles.tab, { borderBottomColor: theme.text }]}>
-          <Text style={[styles.tabText, { color: theme.text }]}>DÀNH CHO BẠN</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={[styles.tabText, { color: theme.textSecondary }]}>DOANH NGHIỆP</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Gần đây</Text>
       <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={businesses}
+        data={users}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.businessItem}>
-            <View style={[styles.logoContainer, { backgroundColor: theme.surface }]}>
-              <FontAwesome5 name={"briefcase" as any} size={24} color={theme.text} />
+        renderItem={renderUserItem}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={{ color: theme.textSecondary }}>Không tìm thấy người dùng nào</Text>
             </View>
-            <Text style={[styles.businessName, { color: theme.text }]}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
+          ) : null
+        }
       />
-
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary, marginTop: 25 }]}>Xem thêm</Text>
-      <View style={styles.moreItem}>
-        <View style={[styles.moreIcon, { backgroundColor: '#FF4500' }]}>
-          <FontAwesome5 name={"rocket" as any} size={20} color="#fff" />
-        </View>
-        <View style={styles.moreInfo}>
-          <Text style={[styles.moreTitle, { color: theme.text }]}>Microsoft</Text>
-          <Text style={[styles.moreSub, { color: theme.textSecondary }]}>Science, Technology & Engineering</Text>
-        </View>
-      </View>
     </View>
   );
 };
@@ -73,18 +135,14 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 20, height: 40, marginBottom: 20 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 16 },
-  tabHeader: { flexDirection: 'row', marginBottom: 20 },
-  tab: { flex: 1, alignItems: 'center', paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 13, fontWeight: '700' },
-  sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 15 },
-  businessItem: { alignItems: 'center', marginRight: 20 },
-  logoContainer: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  businessName: { fontSize: 13, fontWeight: '500' },
-  moreItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  moreIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  moreInfo: { flex: 1 },
-  moreTitle: { fontSize: 16, fontWeight: '600' },
-  moreSub: { fontSize: 13 },
+  userItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, padding: 10, borderRadius: 12 },
+  avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12 },
+  userInfo: { flex: 1 },
+  userName: { fontSize: 16, fontWeight: 'bold' },
+  userUsername: { fontSize: 14 },
+  addButton: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  statusBadge: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { alignItems: 'center', marginTop: 50 },
 });
 
 export default Discover;

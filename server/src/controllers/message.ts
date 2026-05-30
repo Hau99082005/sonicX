@@ -38,6 +38,11 @@ export const sendMessage: RequestHandler = async (req, res) => {
     }
   }
 
+  const lastMessageTime = await Message.findOne({ sender: senderId }).sort({ createdAt: -1 });
+  if (lastMessageTime && (new Date().getTime() - lastMessageTime.createdAt.getTime() < 500)) {
+    return res.status(429).json({ error: "Thao tác quá nhanh, vui lòng chậm lại!" });
+  }
+
   const newMessage = await Message.create({
     conversation: conversationId,
     sender: senderId,
@@ -125,7 +130,7 @@ export const updateMessage: RequestHandler = async (req, res) => {
   const updatedMessage = await Message.findOneAndUpdate(
     { _id: id, sender: userId },
     { message, isEdited: true },
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   if (!updatedMessage)

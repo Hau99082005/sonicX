@@ -24,6 +24,10 @@ import {
 import jwt from "jsonwebtoken";
 import cloudinary from "#/cloud";
 import formidable from "formidable";
+import Message from "#/models/Message";
+import Story from "#/models/Story";
+import Friendship from "#/models/Friendship";
+import Conversation from "#/models/Conversation";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
   try {
@@ -157,9 +161,16 @@ export const grantValid: RequestHandler = async (req, res) => {
 };
 
 export const updatePassword: RequestHandler = async (req, res) => {
-  const { password, userId } = req.body;
-  const user = await User.findById(userId);
+  const { password, userId, oldPassword } = req.body;
+  const targetId = userId || req.user?.id;
+  const user = await User.findById(targetId);
   if (!user) return res.status(403).json({ error: "Unauthorized access!" });
+
+  if (oldPassword) {
+    const isMatched = await user.comparePassword(oldPassword);
+    if (!isMatched) return res.status(422).json({ error: "Mật khẩu cũ không chính xác!" });
+  }
+
   const matched = await user.comparePassword(password);
   if (matched)
     return res
@@ -167,7 +178,7 @@ export const updatePassword: RequestHandler = async (req, res) => {
       .json({ error: "The new password must be different!" });
   user.password = password;
   await user.save();
-  await passwordResetToken.findOneAndDelete({ owner: user._id.toString() });
+  if (userId) await passwordResetToken.findOneAndDelete({ owner: user._id.toString() });
   sendPasswordResetSuccessEmail(user.name, user.email);
   res.status(200).json({ message: "Password updated successfully!" });
 };
@@ -254,7 +265,8 @@ export const updateProfile: RequestHandler = async (req, res) => {
   res.status(200).json({ profile: formatProfile(user) });
 };
 
-export const sendProfile: RequestHandler = (req, res) => {
+export const sendProfile: RequestHandler = async (req, res) => {
+  await User.findByIdAndUpdate(req.user.id, { is_online: true });
   res.status(200).json({ profile: req.user });
 };
 
@@ -270,33 +282,105 @@ export const logOut: RequestHandler = async (req, res) => {
   res.status(200).json({ success: true });
 };
 
+
 export const deleteAccount: RequestHandler = async (req, res) => {
-  const userId = req.user.id;
-  const user = await User.findById(userId);
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
 
-  if (user) {
-    if (user.avatar?.publicId) {
-      await cloudinary.uploader.destroy(user.avatar.publicId);
+    if (user) {
+      if (user.avatar?.publicId) {
+        await cloudinary.uploader.destroy(user.avatar.publicId).catch(() => {});
+      }
+      if (user.cover_image?.publicId) {
+        await cloudinary.uploader.destroy(user.cover_image.publicId).catch(() => {});
+      }
+
+      await Promise.all([
+        User.findByIdAndDelete(userId),
+        Message.deleteMany({ sender: userId }),
+        Story.deleteMany({ user: userId }),
+        Friendship.deleteMany({ $or: [{ requester: userId }, { receiver: userId }] }),
+        Conversation.updateMany(
+          { "members.user": userId },
+          { $pull: { members: { user: userId } } }
+        ),
+        emailVerificationToken.deleteMany({ owner: userId }),
+        passwordResetToken.deleteMany({ owner: userId }),
+        phoneVerificationToken.deleteMany({ owner: userId }),
+      ]);
     }
-    if (user.cover_image?.publicId) {
-      await cloudinary.uploader.destroy(user.cover_image.publicId);
-    }
-    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ message: "Account deleted successfully!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.status(200).json({ message: "Account deleted successfully!" });
 };
 
 export const getUser: RequestHandler = async (req, res) => {
   const { userId } = req.params;
+  const { query } = req.query;
+
   if (userId && isValidObjectId(userId)) {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: "User not found!" });
     return res.status(200).json({ profile: formatProfile(user) });
   }
 
-  const users = await User.find({}).sort({ createdAt: -1 });
-  return res.status(200).json({ users: users.map((u) => formatProfile(u)) });
+  if (query) {
+    const normalizedQuery = (query as string)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const users = await User.find({
+      $or: [
+        { name: { $regex: normalizedQuery, $options: "i" } },
+        { username: { $regex: normalizedQuery, $options: "i" } },
+        { email: { $regex: normalizedQuery, $options: "i" } },
+      ],
+      _id: { $ne: req.user.id },
+    }).limit(20);
+
+    const usersWithStatus = await Promise.all(
+      users.map(async (u) => {
+        const friendship = await Friendship.findOne({
+          $or: [
+            { requester: req.user.id, receiver: u._id },
+            { requester: u._id, receiver: req.user.id },
+          ],
+        });
+        return {
+          ...formatProfile(u),
+          friendshipStatus: friendship ? friendship.status : "none",
+          isRequester: friendship?.requester.toString() === req.user.id.toString(),
+        };
+      })
+    );
+
+    return res.status(200).json({ users: usersWithStatus });
+  }
+
+  const users = await User.find({ _id: { $ne: req.user.id } })
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+  const usersWithStatus = await Promise.all(
+    users.map(async (u) => {
+      const friendship = await Friendship.findOne({
+        $or: [
+          { requester: req.user.id, receiver: u._id },
+          { requester: u._id, receiver: req.user.id },
+        ],
+      });
+      return {
+        ...formatProfile(u),
+        friendshipStatus: friendship ? friendship.status : "none",
+        isRequester: friendship?.requester.toString() === req.user.id.toString(),
+      };
+    })
+  );
+
+  return res.status(200).json({ users: usersWithStatus });
 };
 
 export const googleSignIn: RequestHandler = async (req, res) => {

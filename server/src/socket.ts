@@ -29,13 +29,16 @@ export const initSocket = (server: HttpServer) => {
 
   io.on("connection", async (socket) => {
     const userId = socket.data.userId;
+    socket.join(userId);
 
-    const user = await User.findByIdAndUpdate(userId, { is_online: true }, { new: true });
-    socket.broadcast.emit("user-status", { 
-      userId, 
-      is_online: true,
-      show_online_status: user?.show_online_status ?? true
-    });
+    const user = await User.findByIdAndUpdate(userId, { is_online: true }, { returnDocument: 'after' });
+    if (user && user.show_online_status) {
+      socket.broadcast.emit("user-status", { 
+        userId, 
+        is_online: true,
+        show_online_status: true
+      });
+    }
 
     socket.on("typing", (data: { conversationId: string; typing: boolean }) => {
       socket.to(data.conversationId).emit("typing-status", {
@@ -54,18 +57,24 @@ export const initSocket = (server: HttpServer) => {
     });
 
     socket.on("disconnect", async () => {
-      const lastSeen = new Date();
-      const user = await User.findByIdAndUpdate(userId, {
-        is_online: false,
-        last_seen: lastSeen,
-      }, { new: true });
+      const activeSockets = await io.in(userId).fetchSockets();
+      
+      if (activeSockets.length === 0) {
+        const lastSeen = new Date();
+        const user = await User.findByIdAndUpdate(userId, {
+          is_online: false,
+          last_seen: lastSeen,
+        }, { returnDocument: 'after' });
 
-      socket.broadcast.emit("user-status", {
-        userId,
-        is_online: false,
-        last_seen: lastSeen,
-        show_online_status: user?.show_online_status ?? true
-      });
+        if (user && user.show_online_status) {
+          socket.broadcast.emit("user-status", {
+            userId,
+            is_online: false,
+            last_seen: lastSeen,
+            show_online_status: true
+          });
+        }
+      }
     });
   });
 

@@ -39,5 +39,6 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 8989;
 
 httpServer.listen(PORT, () => {
-  console.log("Port is listening on port " + PORT);
+  User.updateMany({}, { $set: { is_online: false } });
+  User.updateMany({ show_online_status: { $exists: false } }, { $set: { show_online_status: true } });
 });

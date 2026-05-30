@@ -7,15 +7,21 @@ import {
   rejectFriendRequest,
   sendFriendRequest,
   unfriend,
+  cancelFriendRequest,
+  getFriendshipStatus,
+  unblockUser,
 } from "#/controllers/friendship";
 
 const router = Router();
 
 router.post("/request", mustAuth, sendFriendRequest);
+router.post("/cancel", mustAuth, cancelFriendRequest);
 router.post("/accept", mustAuth, acceptFriendRequest);
 router.post("/reject", mustAuth, rejectFriendRequest);
+router.get("/status/:targetId", mustAuth, getFriendshipStatus);
 router.get("/all", mustAuth, getFriends);
-router.delete("/:friendId", mustAuth, unfriend);
-router.patch("/block", mustAuth, blockUser);
+router.delete("/unfriend/:friendId", mustAuth, unfriend);
+router.post("/block", mustAuth, blockUser);
+router.post("/unblock", mustAuth, unblockUser);
 
 export default router;

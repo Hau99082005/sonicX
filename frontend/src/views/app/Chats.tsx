@@ -62,7 +62,23 @@ const Chats = ({ navigation }: any) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Đoạn chat</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.userAvatarContainer}>
+            <Image source={{ uri: profile?.avatar || 'https://via.placeholder.com/40' }} style={styles.userAvatar} />
+            <View style={[
+              styles.userStatusIndicator, 
+              { 
+                backgroundColor: profile?.show_online_status ? theme.active : theme.surface,
+                borderColor: theme.background 
+              }
+            ]}>
+              {!profile?.show_online_status && (
+                <FontAwesome5 name="moon" size={8} color={theme.textSecondary} {...({ solid: true } as any)} />
+              )}
+            </View>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>Đoạn chat</Text>
+        </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface }]}>
             <FontAwesome5 name={"camera" as any} size={18} color={theme.text} {...({ solid: true } as any)} />
@@ -111,7 +127,21 @@ const Chats = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 50 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: 'bold' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  userAvatarContainer: { position: 'relative', marginRight: 12 },
+  userAvatar: { width: 40, height: 40, borderRadius: 20 },
+  userStatusIndicator: { 
+    position: 'absolute', 
+    right: -2, 
+    bottom: 0, 
+    width: 14, 
+    height: 14, 
+    borderRadius: 7, 
+    borderWidth: 2, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  title: { fontSize: 26, fontWeight: 'bold' },
   headerIcons: { flexDirection: 'row' },
   iconButton: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginLeft: 12 },
   searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 20, height: 40, marginBottom: 20 },
