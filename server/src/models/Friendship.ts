@@ -4,6 +4,7 @@ export interface FriendshipDocument extends Document {
   requester: Types.ObjectId;
   receiver: Types.ObjectId;
   status: "pending" | "accepted" | "blocked";
+  nickname?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,8 +26,12 @@ const friendshipSchema = new Schema<FriendshipDocument>(
       enum: ["pending", "accepted", "blocked"],
       default: "pending",
     },
+    nickname: {
+      type: String,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 friendshipSchema.index({ requester: 1, receiver: 1 }, { unique: true });

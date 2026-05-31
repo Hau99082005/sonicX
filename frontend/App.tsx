@@ -6,6 +6,9 @@ import Settings from './src/views/app/Settings';
 import EditProfile from './src/views/app/EditProfile';
 import ChatWindow from './src/views/app/ChatWindow';
 import ConversationInfo from './src/views/app/ConversationInfo';
+import CreateGroup from './src/views/app/CreateGroup';
+import VoiceCallScreen from './src/views/app/VoiceCallScreen';
+import VideoCallScreen from './src/views/app/VideoCallScreen';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -65,8 +68,23 @@ const AppContent = () => {
               component={ConversationInfo}
               options={{ animation: 'slide_from_right' }}
             />
+            <Stack.Screen
+              name="CreateGroup"
+              component={CreateGroup}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
+            <Stack.Screen
+              name="VoiceCall"
+              component={VoiceCallScreen}
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="VideoCall"
+              component={VideoCallScreen}
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
           </Stack.Group>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />

@@ -118,7 +118,27 @@ const ChatWindow = ({ route, navigation }: any) => {
   const otherMember = conversation.members.find(
     (m: any) => m.user._id !== profile?.id,
   )?.user;
+  const isGroupConversation = conversation?.type === 'group';
+  const [otherNickname, setOtherNickname] = useState(
+    isGroupConversation ? undefined : otherMember?.nickname,
+  );
   const isOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
+
+  const groupTitle = conversation.members
+    .filter((m: any) => m.user._id !== profile?.id)
+    .map((m: any) => m.user.name || m.user.username)
+    .slice(0, 2)
+    .join(', ');
+
+  const headerName = isGroupConversation
+    ? conversation.name || groupTitle || 'Nhóm'
+    : otherNickname || otherMember?.name || conversation.name || 'Chat';
+  const headerAvatar = isGroupConversation
+    ? conversation.avatar?.url || getAvatarUrl(undefined, headerName)
+    : getAvatarUrl(
+        otherMember?.avatar,
+        otherNickname || otherMember?.name || conversation.name,
+      );
 
   useEffect(() => {
     (async () => {
@@ -172,13 +192,24 @@ const ChatWindow = ({ route, navigation }: any) => {
         }
       });
 
+      socket.on(
+        'nickname-updated',
+        (data: { userId: string; friendId: string; nickname: string }) => {
+          const otherId = otherMember?._id;
+          if (!otherId) return;
+          if (data.userId === otherId || data.friendId === otherId)
+            setOtherNickname(data.nickname);
+        },
+      );
+
       return () => {
         socket.emit('leave-conversation', currentConversationId);
         socket.off('typing-status');
         socket.off('new-message');
+        socket.off('nickname-updated');
       };
     }
-  }, [socket, currentConversationId]);
+  }, [socket, currentConversationId, otherMember]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -321,6 +352,9 @@ const ChatWindow = ({ route, navigation }: any) => {
   };
 
   const getStatusText = () => {
+    if (isGroupConversation) {
+      return `${conversation.members.length} thành viên`;
+    }
     if (!otherMember?.show_online_status) return 'Ngoại tuyến';
     if (isOnline) return 'Đang hoạt động';
     if (otherMember?.last_seen) {
@@ -354,7 +388,9 @@ const ChatWindow = ({ route, navigation }: any) => {
             source={{
               uri: getAvatarUrl(
                 item.sender.avatar,
-                item.sender.name || item.sender.username,
+                item.sender.nickname ||
+                  item.sender.name ||
+                  item.sender.username,
               ),
             }}
             style={styles.miniAvatar}
@@ -444,18 +480,13 @@ const ChatWindow = ({ route, navigation }: any) => {
           style={styles.headerAvatarContainer}
           onPress={() =>
             navigation.navigate('ConversationInfo', {
-              otherMember,
+              otherMember: isGroupConversation ? undefined : otherMember,
               conversation,
             })
           }
         >
-          <Image
-            source={{
-              uri: getAvatarUrl(otherMember?.avatar, otherMember?.name),
-            }}
-            style={styles.headerAvatar}
-          />
-          {isOnline && (
+          <Image source={{ uri: headerAvatar }} style={styles.headerAvatar} />
+          {!isGroupConversation && isOnline && (
             <View
               style={[
                 styles.headerOnlineIndicator,
@@ -471,18 +502,24 @@ const ChatWindow = ({ route, navigation }: any) => {
           style={styles.headerInfo}
           onPress={() =>
             navigation.navigate('ConversationInfo', {
-              otherMember,
+              otherMember: isGroupConversation ? undefined : otherMember,
               conversation,
             })
           }
         >
           <Text style={[styles.headerName, { color: theme.text }]}>
-            {otherMember?.name || conversation.name || 'Chat'}
+            {headerName}
           </Text>
           <Text
             style={[
               styles.headerStatus,
-              { color: isOnline ? theme.active : theme.textSecondary },
+              {
+                color: isGroupConversation
+                  ? theme.textSecondary
+                  : isOnline
+                  ? theme.active
+                  : theme.textSecondary,
+              },
             ]}
           >
             {getStatusText()}
@@ -529,7 +566,8 @@ const ChatWindow = ({ route, navigation }: any) => {
           remoteTyping ? (
             <View style={styles.typingContainer}>
               <Text style={[styles.typingText, { color: theme.textSecondary }]}>
-                {otherMember?.name || 'Ai đó'} đang soạn tin nhắn...
+                {(otherNickname || otherMember?.name || 'Ai đó') +
+                  ' đang soạn tin nhắn...'}
               </Text>
             </View>
           ) : null

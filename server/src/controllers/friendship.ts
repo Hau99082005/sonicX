@@ -29,11 +29,15 @@ export const sendFriendRequest: RequestHandler = async (req, res) => {
     }
     if (existingFriendship.status === "pending") {
       if (existingFriendship.requester.toString() === requesterId) {
-        return res.status(422).json({ error: "Bạn đã gửi lời mời kết bạn rồi!" });
+        return res
+          .status(422)
+          .json({ error: "Bạn đã gửi lời mời kết bạn rồi!" });
       } else {
         existingFriendship.status = "accepted";
         await existingFriendship.save();
-        return res.status(200).json({ message: "Đã chấp nhận lời mời kết bạn!" });
+        return res
+          .status(200)
+          .json({ message: "Đã chấp nhận lời mời kết bạn!" });
       }
     }
     return res.status(422).json({ error: "Hai người đã là bạn bè!" });
@@ -91,7 +95,10 @@ export const getFriendshipStatus: RequestHandler = async (req, res) => {
     ],
   });
 
-  res.status(200).json({ status: friendship ? friendship.status : "none", requester: friendship?.requester });
+  res.status(200).json({
+    status: friendship ? friendship.status : "none",
+    requester: friendship?.requester,
+  });
 };
 
 export const acceptFriendRequest: RequestHandler = async (req, res) => {
@@ -138,16 +145,20 @@ export const getFriends: RequestHandler = async (req, res) => {
     status: status || "accepted",
   };
 
-  const friendships = await Friendship.find(query).populate("requester receiver", "username name avatar is_online last_seen");
+  const friendships = await Friendship.find(query).populate(
+    "requester receiver",
+    "username name avatar is_online last_seen",
+  );
 
   const results = friendships.map((f: any) => {
     const isRequester = f.requester._id.toString() === userId.toString();
     const otherUser = isRequester ? f.receiver : f.requester;
     return {
       ...otherUser.toObject(),
+      nickname: f.nickname,
       friendshipId: f._id,
       status: f.status,
-      isRequester
+      isRequester,
     };
   });
 
@@ -184,8 +195,42 @@ export const blockUser: RequestHandler = async (req, res) => {
       ],
     },
     { requester: userId, receiver: targetId, status: "blocked" },
-    { upsert: true, returnDocument: 'after' }
+    { upsert: true, returnDocument: "after" },
   );
 
   res.status(200).json({ message: "User blocked!" });
+};
+
+export const updateNickname: RequestHandler = async (req, res) => {
+  const { friendId, nickname } = req.body;
+  const userId = req.user.id;
+
+  if (!isValidObjectId(friendId))
+    return res.status(422).json({ error: "Invalid friend ID!" });
+
+  const friendship = await Friendship.findOneAndUpdate(
+    {
+      $or: [
+        { requester: userId, receiver: friendId },
+        { requester: friendId, receiver: userId },
+      ],
+    },
+    { nickname: nickname || null },
+    { returnDocument: "after" },
+  );
+
+  if (!friendship)
+    return res.status(404).json({ error: "Friendship not found!" });
+
+  const io = req.app.get("io");
+  if (io)
+    io.to(friendId)
+      .to(userId)
+      .emit("nickname-updated", {
+        userId,
+        friendId,
+        nickname: friendship.nickname,
+      });
+
+  res.status(200).json({ message: "Nickname updated!", friendship });
 };

@@ -12,7 +12,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    borderColor: colors.SECONDARY,
+    borderColor: colors.BLUE,
     borderWidth: 2,
   },
 });

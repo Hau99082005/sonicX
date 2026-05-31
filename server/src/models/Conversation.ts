@@ -13,6 +13,7 @@ export interface ConversationDocument extends Document {
   avatar?: { url: string; publicId: string };
   owner?: Types.ObjectId;
   members: ConversationMember[];
+  banned?: Types.ObjectId[];
   lastMessage?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -63,12 +64,18 @@ const conversationSchema = new Schema<ConversationDocument>(
         _id: false,
       },
     ],
+    banned: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     lastMessage: {
       type: Schema.Types.ObjectId,
       ref: "Message",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default model<ConversationDocument>("Conversation", conversationSchema);

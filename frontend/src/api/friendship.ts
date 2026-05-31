@@ -1,21 +1,29 @@
-import client from "./client";
+import client from './client';
 
 export const sendFriendRequest = async (receiverId: string) => {
-  const { data } = await client.post("/friendship/request", { receiverId });
+  const { data } = await client.post('/friendship/request', { receiverId });
   return data;
 };
 
 export const acceptFriendRequest = async (requesterId: string) => {
-  const { data } = await client.post("/friendship/accept", { requesterId });
+  const { data } = await client.post('/friendship/accept', { requesterId });
   return data;
 };
 
 export const getFriends = async () => {
-  const { data } = await client.get("/friendship/all");
+  const { data } = await client.get('/friendship/all');
   return data.friends;
 };
 
 export const unfriend = async (friendId: string) => {
   const { data } = await client.delete(`/friendship/${friendId}`);
+  return data;
+};
+
+export const updateNickname = async (friendId: string, nickname: string) => {
+  const { data } = await client.post('/friendship/nickname', {
+    friendId,
+    nickname,
+  });
   return data;
 };

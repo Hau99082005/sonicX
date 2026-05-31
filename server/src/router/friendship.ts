@@ -10,6 +10,7 @@ import {
   cancelFriendRequest,
   getFriendshipStatus,
   unblockUser,
+  updateNickname,
 } from "#/controllers/friendship";
 
 const router = Router();
@@ -23,5 +24,6 @@ router.get("/all", mustAuth, getFriends);
 router.delete("/unfriend/:friendId", mustAuth, unfriend);
 router.post("/block", mustAuth, blockUser);
 router.post("/unblock", mustAuth, unblockUser);
+router.post("/nickname", mustAuth, updateNickname);
 
 export default router;
