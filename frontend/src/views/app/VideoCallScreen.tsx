@@ -11,9 +11,10 @@ import {
   Easing,
   Vibration,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Svg, { Circle } from 'react-native-svg';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import Video from 'react-native-video';
+import { Video } from 'react-native-video';
 import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
@@ -25,16 +26,17 @@ const CALL_TIMEOUT = 30000;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const VideoCallScreen = ({ route, navigation }: any) => {
-  const { otherMember, conversation } = route.params || {};
+  const { otherMember, conversation, isIncoming } = route.params || {};
   const { socket } = useSocket();
   const { profile } = useAuth();
+  const isFocused = useIsFocused();
 
   const calleeName = otherMember?.name || otherMember?.username || 'Người dùng';
   const calleeAvatar = getAvatarUrl(otherMember?.avatar, calleeName);
   const myAvatar = getAvatarUrl(profile?.avatar, profile?.name);
 
   const [callStatus, setCallStatus] = useState<'calling' | 'connected' | 'ended'>(
-    'calling',
+    isIncoming ? 'connected' : 'calling',
   );
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
@@ -50,7 +52,13 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<any>(null);
-  const statusRef = useRef<'calling' | 'connected' | 'ended'>('calling');
+  const statusRef = useRef<'calling' | 'connected' | 'ended'>(isIncoming ? 'connected' : 'calling');
+  const [canPlaySound, setCanPlaySound] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setCanPlaySound(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const [isReady, setIsReady] = useState(false);
 
@@ -75,6 +83,7 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   }, [callStatus]);
 
   useEffect(() => {
+    console.log('VideoCallScreen mounted');
     Animated.loop(
       Animated.timing(rippleAnim, {
         toValue: 1,
@@ -85,28 +94,33 @@ const VideoCallScreen = ({ route, navigation }: any) => {
     ).start();
 
     if (socket) {
-      socket.emit('call-user', {
-        to: otherMember?._id,
-        from: profile?.id,
-        conversationId: conversation?._id,
-        type: 'video',
-      });
+      if (!isIncoming) {
+        console.log('Emitting call-user video');
+        socket.emit('call-user', {
+          to: otherMember?._id,
+          from: profile?.id,
+          conversationId: conversation?._id,
+          type: 'video',
+        });
+      }
 
       // Start timer immediately
       timerRef.current = setInterval(() => {
         setElapsed(prev => prev + 1);
       }, 1000);
 
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: CALL_TIMEOUT,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished && statusRef.current === 'calling') {
-          handleMissedCall();
-        }
-      });
+      if (!isIncoming) {
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: CALL_TIMEOUT,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished && statusRef.current === 'calling') {
+            handleMissedCall();
+          }
+        });
+      }
 
       socket.on('call-accepted', () => {
         setCallStatus('connected');
@@ -117,12 +131,14 @@ const VideoCallScreen = ({ route, navigation }: any) => {
       socket.on('call-ended', () => {
         setCallStatus('ended');
         clearInterval(timerRef.current);
+        setPlayEndSound(true);
         setTimeout(() => navigation.goBack(), 1500);
       });
 
       socket.on('call-rejected', () => {
         setCallStatus('ended');
         clearInterval(timerRef.current);
+        setPlayEndSound(true);
         setTimeout(() => navigation.goBack(), 1500);
       });
     }
@@ -137,7 +153,7 @@ const VideoCallScreen = ({ route, navigation }: any) => {
 
   const handleMissedCall = async () => {
     setCallStatus('ended');
-    Vibration.vibrate([0, 500, 200, 500]);
+    // Vibration.vibrate([0, 500, 200, 500]);
     setPlayEndSound(true);
 
     socket?.emit('end-call', {
@@ -167,12 +183,16 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   };
 
   const handleHangUp = () => {
+    console.log('Handling hang up');
+    setCanPlaySound(false);
     socket?.emit('end-call', {
       to: otherMember?._id,
       conversationId: conversation?._id,
     });
-    clearInterval(timerRef.current);
-    navigation.goBack();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimeout(() => {
+      navigation.goBack();
+    }, 100);
   };
 
   const formatTime = (s: number) => {
@@ -196,6 +216,22 @@ const VideoCallScreen = ({ route, navigation }: any) => {
     outputRange: [circumference, 0],
   });
 
+  const [isCameraActive, setIsCameraActive] = useState(false);
+
+  useEffect(() => {
+    if (isReady && !isCameraOff && device != null && isFocused) {
+      const timer = setTimeout(() => {
+        setIsCameraActive(true);
+      }, 500);
+      return () => {
+        clearTimeout(timer);
+        setIsCameraActive(false);
+      };
+    } else {
+      setIsCameraActive(false);
+    }
+  }, [isReady, isCameraOff, device, isFocused]);
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -205,15 +241,16 @@ const VideoCallScreen = ({ route, navigation }: any) => {
       />
 
       {/* Main Video/Background */}
-      {isReady && !isCameraOff && device ? (
+      {isReady && device && !isCameraOff ? (
         <Camera
           style={StyleSheet.absoluteFill as any}
-          device={device as any}
-          isActive={!isCameraOff && isReady}
+          device={device}
+          isActive={isCameraActive}
           video={true}
-          audio={hasMicrophonePermission}
+          audio={true}
           onError={(error: any) => {
             console.error('Camera Error:', error);
+            setIsCameraActive(false);
             if (error.code === 'session/camera-error') {
               setIsCameraOff(true);
             }
@@ -362,35 +399,13 @@ const VideoCallScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Âm thanh cuộc gọi */}
-      {playCallingSound && (
-        <Video
-          source={{ uri: 'calling_sound' }}
-          paused={false}
-          repeat={true}
-          audioOnly={true}
-          playInBackground={true}
-          playWhenInactive={true}
-          {...({} as any)}
-        />
-      )}
-      {playEndSound && (
-        <Video
-          source={{ uri: 'call_end' }}
-          paused={false}
-          repeat={false}
-          audioOnly={true}
-          onEnd={() => setPlayEndSound(false)}
-          {...({} as any)}
-        />
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1c1c2e' },
+  hiddenVideo: { width: 1, height: 1, position: 'absolute', opacity: 0, bottom: -100 },
   remoteVideo: {
     ...StyleSheet.absoluteFill,
     width: '100%',

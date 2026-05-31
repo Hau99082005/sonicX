@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import Video from 'react-native-video';
+import { Video } from 'react-native-video';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { getAvatarUrl } from '../../utils/helper';
@@ -22,7 +22,7 @@ const CALL_TIMEOUT = 30000;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const VoiceCallScreen = ({ route, navigation }: any) => {
-  const { otherMember, conversation } = route.params || {};
+  const { otherMember, conversation, isIncoming } = route.params || {};
   const { socket } = useSocket();
   const { profile } = useAuth();
 
@@ -30,7 +30,7 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
   const calleeAvatar = getAvatarUrl(otherMember?.avatar, calleeName);
 
   const [callStatus, setCallStatus] = useState<'calling' | 'connected' | 'ended'>(
-    'calling',
+    isIncoming ? 'connected' : 'calling',
   );
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -41,7 +41,13 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<any>(null);
-  const statusRef = useRef<'calling' | 'connected' | 'ended'>('calling');
+  const statusRef = useRef<'calling' | 'connected' | 'ended'>(isIncoming ? 'connected' : 'calling');
+  const [canPlaySound, setCanPlaySound] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setCanPlaySound(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     statusRef.current = callStatus;
@@ -63,27 +69,31 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
     ).start();
 
     if (socket) {
-      socket.emit('call-user', {
-        to: otherMember?._id,
-        from: profile?.id,
-        conversationId: conversation?._id,
-        type: 'voice',
-      });
+      if (!isIncoming) {
+        socket.emit('call-user', {
+          to: otherMember?._id,
+          from: profile?.id,
+          conversationId: conversation?._id,
+          type: 'voice',
+        });
+      }
 
       timerRef.current = setInterval(() => {
         setElapsed(prev => prev + 1);
       }, 1000);
 
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: CALL_TIMEOUT,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished && statusRef.current === 'calling') {
-          handleMissedCall();
-        }
-      });
+      if (!isIncoming) {
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: CALL_TIMEOUT,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished && statusRef.current === 'calling') {
+            handleMissedCall();
+          }
+        });
+      }
 
       socket.on('call-accepted', () => {
         setCallStatus('connected');
@@ -94,12 +104,14 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
       socket.on('call-ended', () => {
         setCallStatus('ended');
         clearInterval(timerRef.current);
+        setPlayEndSound(true);
         setTimeout(() => navigation.goBack(), 1500);
       });
 
       socket.on('call-rejected', () => {
         setCallStatus('ended');
         clearInterval(timerRef.current);
+        setPlayEndSound(true);
         setTimeout(() => navigation.goBack(), 1500);
       });
     }
@@ -114,7 +126,7 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
 
   const handleMissedCall = async () => {
     setCallStatus('ended');
-    Vibration.vibrate([0, 500, 200, 500]);
+    // Vibration.vibrate([0, 500, 200, 500]);
     setPlayEndSound(true);
 
     socket?.emit('end-call', {
@@ -143,12 +155,15 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
   };
 
   const handleHangUp = () => {
+    setCanPlaySound(false);
     socket?.emit('end-call', {
       to: otherMember?._id,
       conversationId: conversation?._id,
     });
     clearInterval(timerRef.current);
-    navigation.goBack();
+    setTimeout(() => {
+      navigation.goBack();
+    }, 100);
   };
 
   const formatTime = (s: number) => {
@@ -240,59 +255,47 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
         <Text style={styles.callStatus}>{statusText}</Text>
       </View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.addBtn}>
-          <FontAwesome5 name={'plus' as any} size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={styles.bottomBar}>
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]}
+            onPress={() => setIsMuted(!isMuted)}
+          >
+            <FontAwesome5
+              name={isMuted ? ('microphone-slash' as any) : ('microphone' as any)}
+              size={20}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]}
-          onPress={() => setIsMuted(!isMuted)}
-        >
-          <FontAwesome5
-            name={isMuted ? ('microphone-slash' as any) : ('microphone' as any)}
-            size={20}
-            color="#fff"
-          />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
+            <FontAwesome5
+              name={'phone-alt' as any}
+              size={22}
+              color="#fff"
+              style={{ transform: [{ rotate: '135deg' }] }}
+            />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.ctrlBtn}>
-          <FontAwesome5 name={'video' as any} size={20} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
-          <FontAwesome5 name={'phone-alt' as any} size={22} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.ctrlBtn, isSpeaker && styles.ctrlBtnActive]}
+            onPress={() => setIsSpeaker(!isSpeaker)}
+          >
+            <FontAwesome5
+              name={isSpeaker ? ('volume-up' as any) : ('volume-down' as any)}
+              size={20}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
-
-      {/* Âm thanh cuộc gọi */}
-      {playCallingSound && (
-        <Video
-          source={{ uri: 'calling_sound' }}
-          paused={false}
-          repeat={true}
-          audioOnly={true}
-          playInBackground={true}
-          playWhenInactive={true}
-          {...({} as any)}
-        />
-      )}
-      {playEndSound && (
-        <Video
-          source={{ uri: 'call_end' }}
-          paused={false}
-          repeat={false}
-          audioOnly={true}
-          onEnd={() => setPlayEndSound(false)}
-          {...({} as any)}
-        />
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1c1c2e' },
+  hiddenVideo: { width: 1, height: 1, position: 'absolute', opacity: 0, bottom: -100 },
   callerSection: {
     flex: 1,
     alignItems: 'center',
@@ -358,6 +361,15 @@ const styles = StyleSheet.create({
   callStatus: {
     fontSize: 18,
     color: 'rgba(255,255,255,0.5)',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 80,
+    paddingTop: 20,
+    backgroundColor: 'transparent',
   },
   controls: {
     flexDirection: 'row',

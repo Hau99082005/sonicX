@@ -56,6 +56,39 @@ export const initSocket = (server: HttpServer) => {
       socket.leave(conversationId);
     });
 
+    // Call signaling
+    socket.on("call-user", async (data: { 
+      to: string; 
+      from: string; 
+      conversationId: string; 
+      type: "voice" | "video" 
+    }) => {
+      const fromUser = await User.findById(data.from).select("username name avatar");
+      socket.to(data.to).emit("incoming-call", {
+        from: fromUser,
+        conversationId: data.conversationId,
+        type: data.type,
+      });
+    });
+
+    socket.on("accept-call", (data: { to: string; conversationId: string }) => {
+      socket.to(data.to).emit("call-accepted", {
+        conversationId: data.conversationId,
+      });
+    });
+
+    socket.on("reject-call", (data: { to: string; conversationId: string }) => {
+      socket.to(data.to).emit("call-rejected", {
+        conversationId: data.conversationId,
+      });
+    });
+
+    socket.on("end-call", (data: { to: string; conversationId: string }) => {
+      socket.to(data.to).emit("call-ended", {
+        conversationId: data.conversationId,
+      });
+    });
+
     socket.on("disconnect", async () => {
       const activeSockets = await io.in(userId).fetchSockets();
       
