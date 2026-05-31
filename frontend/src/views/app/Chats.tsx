@@ -48,13 +48,19 @@ const Chats = ({ navigation }: any) => {
 
   const renderActiveUserItem = ({ item }: any) => {
     const isOnline = onlineUsers.has(item._id);
+    const existingConv = conversations.find(
+      conv =>
+        conv.type === 'private' &&
+        conv.members.some((m: any) => m.user._id === item._id),
+    );
+
     return (
       <TouchableOpacity
         style={styles.storyItem}
         activeOpacity={0.8}
         onPress={() =>
           navigation.navigate('ChatWindow', {
-            conversation: {
+            conversation: existingConv || {
               _id: 'new',
               members: [{ user: item }],
               name: item.name,

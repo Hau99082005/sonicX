@@ -215,7 +215,9 @@ const ChatWindow = ({ route, navigation }: any) => {
     const fetchMessages = async () => {
       if (currentConversationId !== 'new') {
         const data = await getMessages(currentConversationId);
-        setMessages(data.reverse());
+        if (Array.isArray(data)) {
+          setMessages(data.reverse());
+        }
       }
     };
     fetchMessages();
@@ -375,6 +377,7 @@ const ChatWindow = ({ route, navigation }: any) => {
     const isSticker = item.type === 'sticker';
     const isGif = item.type === 'gif';
     const isLike = item.type === 'like';
+    const isMissedCall = item.meta?.missed;
 
     return (
       <View
@@ -402,6 +405,8 @@ const ChatWindow = ({ route, navigation }: any) => {
             {
               backgroundColor:
                 isSticker || isGif || isLike
+                  ? 'transparent'
+                  : isMissedCall
                   ? 'transparent'
                   : isSelf
                   ? theme.bubbleSelf
@@ -446,6 +451,64 @@ const ChatWindow = ({ route, navigation }: any) => {
                 color={theme.primary}
                 {...({ solid: true } as any)}
               />
+            </View>
+          ) : isMissedCall ? (
+            <View
+              style={[
+                styles.zaloMissedCallContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text style={[styles.zaloMissedCallTitle, { color: theme.text }]}>
+                {isSelf ? 'Bạn đã hủy' : 'Cuộc gọi nhỡ'}
+              </Text>
+              <View style={styles.zaloMissedCallRow}>
+                <View style={styles.zaloIconWrapper}>
+                  <FontAwesome5
+                    name={
+                      item.meta?.callType === 'video' ? 'video' : 'phone-alt'
+                    }
+                    size={16}
+                    color={theme.textSecondary}
+                  />
+                  <View style={styles.zaloArrowWrapper}>
+                    <FontAwesome5
+                      name="arrow-up"
+                      size={8}
+                      color="#FF3B30"
+                      style={{ transform: [{ rotate: '45deg' }] }}
+                    />
+                  </View>
+                </View>
+                <Text
+                  style={[styles.zaloMissedCallType, { color: theme.textSecondary }]}
+                >
+                  {item.meta?.callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}
+                </Text>
+              </View>
+              <View
+                style={[styles.zaloDivider, { backgroundColor: theme.border }]}
+              />
+              <TouchableOpacity
+                style={styles.zaloCallAgainBtn}
+                onPress={() =>
+                  navigation.navigate(
+                    item.meta?.callType === 'video' ? 'VideoCall' : 'VoiceCall',
+                    {
+                      otherMember: isSelf
+                        ? conversation.members.find(
+                            (m: any) => m.user._id !== profile?.id,
+                          )?.user
+                        : item.sender,
+                      conversation,
+                    },
+                  )
+                }
+              >
+                <Text style={[styles.zaloCallAgainText, { color: theme.primary }]}>
+                  Gọi lại
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <Text
@@ -526,21 +589,39 @@ const ChatWindow = ({ route, navigation }: any) => {
           </Text>
         </TouchableOpacity>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() =>
+              navigation.navigate('VoiceCall', { otherMember, conversation })
+            }
+          >
             <FontAwesome5
               name={'phone-alt' as any}
               size={18}
               color={theme.primary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() =>
+              navigation.navigate('VideoCall', { otherMember, conversation })
+            }
+          >
             <FontAwesome5
               name={'video' as any}
               size={18}
               color={theme.primary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() =>
+              navigation.navigate('ConversationInfo', {
+                otherMember: isGroupConversation ? undefined : otherMember,
+                conversation,
+              })
+            }
+          >
             <FontAwesome5
               name={'info-circle' as any}
               size={18}
@@ -850,6 +931,48 @@ const styles = StyleSheet.create({
   typingText: { fontSize: 12, fontStyle: 'italic' },
   stickerImage: { width: 120, height: 120, borderRadius: 10 },
   gifImage: { width: 180, height: 120, borderRadius: 10 },
+  zaloMissedCallContainer: {
+    width: 220,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  zaloMissedCallTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  zaloMissedCallRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  zaloIconWrapper: {
+    position: 'relative',
+    marginRight: 10,
+  },
+  zaloArrowWrapper: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+  },
+  zaloMissedCallType: {
+    fontSize: 15,
+  },
+  zaloDivider: {
+    height: 0.5,
+    width: '100%',
+    marginBottom: 10,
+  },
+  zaloCallAgainBtn: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  zaloCallAgainText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
   pickerContainer: {
     height: 250,
     borderTopWidth: 0.5,

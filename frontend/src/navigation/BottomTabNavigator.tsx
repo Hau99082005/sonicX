@@ -20,8 +20,8 @@ const BottomTabNavigator = () => {
         tabBarStyle: {
           backgroundColor: theme.background,
           borderTopColor: theme.border,
-          height: Platform.OS === 'ios' ? 90 : 75,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+          height: Platform.OS === 'ios' ? 95 : 85,
+          paddingBottom: Platform.OS === 'ios' ? 35 : 20,
           paddingTop: 12,
           elevation: 8,
           shadowColor: '#000',

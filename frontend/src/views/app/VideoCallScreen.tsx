@@ -8,13 +8,21 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Easing,
+  Vibration,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import Video from 'react-native-video';
+import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { getAvatarUrl } from '../../utils/helper';
+import { sendMessage } from '../../api/chat';
 
 const { width, height } = Dimensions.get('window');
+const CALL_TIMEOUT = 30000;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const VideoCallScreen = ({ route, navigation }: any) => {
   const { otherMember, conversation } = route.params || {};
@@ -25,20 +33,55 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   const calleeAvatar = getAvatarUrl(otherMember?.avatar, calleeName);
   const myAvatar = getAvatarUrl(profile?.avatar, profile?.name);
 
-  const [callStatus, setCallStatus] = useState<'calling' | 'connected' | 'ended'>('calling');
+  const [callStatus, setCallStatus] = useState<'calling' | 'connected' | 'ended'>(
+    'calling',
+  );
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [cameraType, setCameraType] = useState<'front' | 'back'>('front');
   const [elapsed, setElapsed] = useState(0);
+  const [playCallingSound, setPlayCallingSound] = useState(false);
+  const [playEndSound, setPlayEndSound] = useState(false);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const { hasPermission: hasMicrophonePermission, requestPermission: requestMicrophonePermission } = useMicrophonePermission();
+  const device = useCameraDevice(cameraType as any);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const rippleAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<any>(null);
+  const statusRef = useRef<'calling' | 'connected' | 'ended'>('calling');
+
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const cameraStatus = await requestCameraPermission();
+      const microStatus = await requestMicrophonePermission();
+      if (cameraStatus && microStatus) {
+        setIsReady(true);
+      }
+    };
+    checkPermissions();
+  }, []);
+
+  useEffect(() => {
+    statusRef.current = callStatus;
+    if (callStatus === 'calling') {
+      setPlayCallingSound(true);
+    } else {
+      setPlayCallingSound(false);
+    }
+  }, [callStatus]);
 
   useEffect(() => {
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.12, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ]),
+      Animated.timing(rippleAnim, {
+        toValue: 1,
+        duration: 2000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
     ).start();
 
     if (socket) {
@@ -49,9 +92,26 @@ const VideoCallScreen = ({ route, navigation }: any) => {
         type: 'video',
       });
 
+      // Start timer immediately
+      timerRef.current = setInterval(() => {
+        setElapsed(prev => prev + 1);
+      }, 1000);
+
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: CALL_TIMEOUT,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished && statusRef.current === 'calling') {
+          handleMissedCall();
+        }
+      });
+
       socket.on('call-accepted', () => {
         setCallStatus('connected');
-        timerRef.current = setInterval(() => setElapsed(prev => prev + 1), 1000);
+        progressAnim.stopAnimation();
+        setElapsed(0);
       });
 
       socket.on('call-ended', () => {
@@ -62,6 +122,7 @@ const VideoCallScreen = ({ route, navigation }: any) => {
 
       socket.on('call-rejected', () => {
         setCallStatus('ended');
+        clearInterval(timerRef.current);
         setTimeout(() => navigation.goBack(), 1500);
       });
     }
@@ -74,6 +135,37 @@ const VideoCallScreen = ({ route, navigation }: any) => {
     };
   }, [socket]);
 
+  const handleMissedCall = async () => {
+    setCallStatus('ended');
+    Vibration.vibrate([0, 500, 200, 500]);
+    setPlayEndSound(true);
+
+    socket?.emit('end-call', {
+      to: otherMember?._id,
+      conversationId: conversation?._id,
+    });
+
+    try {
+      const messageData = {
+        conversationId: conversation?._id,
+        message: 'Cuộc gọi video nhỡ',
+        type: 'text',
+        meta: { missed: true, callType: 'video' },
+      };
+      const newMsg = await sendMessage(messageData);
+
+      // Phát qua socket để ChatWindow cập nhật ngay lập tức
+      socket?.emit('send-message', {
+        conversationId: conversation?._id,
+        message: newMsg,
+      });
+    } catch (error) {
+      console.log('Error sending missed call message:', error);
+    }
+
+    setTimeout(() => navigation.goBack(), 1000);
+  };
+
   const handleHangUp = () => {
     socket?.emit('end-call', {
       to: otherMember?._id,
@@ -84,58 +176,158 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   };
 
   const formatTime = (s: number) => {
-    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const m = Math.floor(s / 60)
+      .toString()
+      .padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
     return `${m}:${sec}`;
   };
 
   const statusText =
-    callStatus === 'calling'
-      ? 'Đang kết nối...'
-      : callStatus === 'connected'
-      ? formatTime(elapsed)
-      : 'Cuộc gọi kết thúc';
+    callStatus === 'ended' ? 'Cuộc gọi kết thúc' : formatTime(elapsed);
+
+  const radius = 65;
+  const stroke = 4;
+  const normalizedRadius = radius - stroke * 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+
+  const strokeDashoffset = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent
+      />
 
-      <Image source={{ uri: calleeAvatar }} style={styles.remoteVideo} blurRadius={callStatus !== 'connected' ? 20 : 0} />
+      {/* Main Video/Background */}
+      {isReady && !isCameraOff && device ? (
+        <Camera
+          style={StyleSheet.absoluteFill as any}
+          device={device as any}
+          isActive={!isCameraOff && isReady}
+          video={true}
+          audio={hasMicrophonePermission}
+          onError={(error: any) => {
+            console.error('Camera Error:', error);
+            if (error.code === 'session/camera-error') {
+              setIsCameraOff(true);
+            }
+          }}
+          {...({} as any)}
+        />
+      ) : (
+        <View style={styles.remoteVideo}>
+          <Image
+            source={{ uri: calleeAvatar }}
+            style={StyleSheet.absoluteFill}
+            blurRadius={10}
+          />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+        </View>
+      )}
       <View style={styles.remoteOverlay} />
 
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.topBtn}>
           <FontAwesome5 name={'comment' as any} size={20} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.topBtn}>
-          <FontAwesome5 name={'camera-rotate' as any} size={20} color="#fff" />
+        <TouchableOpacity 
+          style={styles.topBtn}
+          onPress={() => setCameraType(prev => prev === 'front' ? 'back' : 'front')}
+        >
+          <FontAwesome5 name={'sync-alt' as any} size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {callStatus !== 'connected' && (
-        <View style={styles.callerSection}>
-          <Animated.View style={[styles.avatarRing, { transform: [{ scale: pulseAnim }] }]}>
-            <Image source={{ uri: calleeAvatar }} style={styles.avatar} />
-          </Animated.View>
-          <Text style={styles.calleeName}>{calleeName}</Text>
-          <Text style={styles.callStatus}>{statusText}</Text>
-        </View>
-      )}
+      <View style={styles.callerSection}>
+        <View style={styles.avatarContainer}>
+          <Animated.View
+            style={[
+              styles.ripple,
+              {
+                transform: [{ scale: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] }) }],
+                opacity: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] }),
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.ripple,
+              {
+                transform: [{ scale: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2] }) }],
+                opacity: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] }),
+              },
+            ]}
+          />
+          <View style={styles.concentricRing3} />
+          <View style={styles.concentricRing2} />
+          <View style={styles.concentricRing1} />
 
-      {callStatus === 'connected' && (
-        <View style={styles.connectedInfo}>
-          <Text style={styles.connectedName}>{calleeName}</Text>
-          <Text style={styles.connectedTimer}>{statusText}</Text>
+          {callStatus === 'calling' && (
+            <Svg
+              height={radius * 2}
+              width={radius * 2}
+              style={styles.progressCircle}
+            >
+              <Circle
+                stroke="rgba(255,255,255,0.1)"
+                fill="transparent"
+                strokeWidth={stroke}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+              />
+              <AnimatedCircle
+                stroke="#fff"
+                fill="transparent"
+                strokeWidth={stroke}
+                strokeDasharray={circumference + ' ' + circumference}
+                strokeDashoffset={strokeDashoffset as any}
+                strokeLinecap="round"
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+                transform={`rotate(-90 ${radius} ${radius})`}
+              />
+            </Svg>
+          )}
+          <View style={styles.avatarRing}>
+            <Image source={{ uri: calleeAvatar }} style={styles.avatar} />
+          </View>
         </View>
-      )}
+        <Text style={styles.calleeName}>{calleeName}</Text>
+        <Text style={styles.callStatus}>{statusText}</Text>
+      </View>
 
       <View style={styles.localVideoWrapper}>
-        {isCameraOff ? (
-          <View style={[styles.localVideo, styles.localVideoOff]}>
-            <FontAwesome5 name={'video-slash' as any} size={20} color="#fff" />
+        {callStatus === 'connected' ? (
+          <View style={styles.remoteSmallView}>
+            <Image source={{ uri: calleeAvatar }} style={styles.avatarSmall} />
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
           </View>
         ) : (
-          <Image source={{ uri: myAvatar }} style={styles.localVideo} />
+          <View style={[styles.localVideo, styles.localVideoOff]}>
+            <Image
+              source={{ uri: myAvatar }}
+              style={[StyleSheet.absoluteFill, { borderRadius: 12 }]}
+              blurRadius={5}
+            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12 },
+              ]}
+            />
+            <FontAwesome5 name={'user' as any} size={24} color="#fff" />
+          </View>
         )}
       </View>
 
@@ -146,14 +338,16 @@ const VideoCallScreen = ({ route, navigation }: any) => {
             onPress={() => setIsMuted(!isMuted)}
           >
             <FontAwesome5
-              name={isMuted ? ('microphone-slash' as any) : ('microphone' as any)}
+              name={
+                isMuted ? ('microphone-slash' as any) : ('microphone' as any)
+              }
               size={20}
               color="#fff"
             />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
-            <FontAwesome5 name={'phone-slash' as any} size={26} color="#fff" />
+            <FontAwesome5 name={'phone-alt' as any} size={22} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -168,12 +362,35 @@ const VideoCallScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Âm thanh cuộc gọi */}
+      {playCallingSound && (
+        <Video
+          source={{ uri: 'calling_sound' }}
+          paused={false}
+          repeat={true}
+          audioOnly={true}
+          playInBackground={true}
+          playWhenInactive={true}
+          {...({} as any)}
+        />
+      )}
+      {playEndSound && (
+        <Video
+          source={{ uri: 'call_end' }}
+          paused={false}
+          repeat={false}
+          audioOnly={true}
+          onEnd={() => setPlayEndSound(false)}
+          {...({} as any)}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#1c1c2e' },
   remoteVideo: {
     ...StyleSheet.absoluteFill,
     width: '100%',
@@ -188,12 +405,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    zIndex: 20,
   },
   topBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -201,80 +419,133 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -60,
+    paddingTop: 20,
+  },
+  avatarContainer: {
+    width: 260,
+    height: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 25,
+  },
+  ripple: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  concentricRing1: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  concentricRing2: {
+    position: 'absolute',
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  concentricRing3: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(255,255,255,0.01)',
+  },
+  progressCircle: {
+    position: 'absolute',
+    top: 65,
+    left: 65,
+    zIndex: 10,
   },
   avatarRing: {
     width: 110,
     height: 110,
     borderRadius: 55,
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.5)',
-    marginBottom: 16,
     overflow: 'hidden',
+    zIndex: 5,
   },
   avatar: { width: '100%', height: '100%' },
   calleeName: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   callStatus: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.75)',
-  },
-  connectedInfo: {
-    position: 'absolute',
-    top: 110,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  connectedName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  connectedTimer: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.5)',
   },
   localVideoWrapper: {
     position: 'absolute',
-    top: 110,
+    top: 120,
     right: 20,
+    width: 100,
+    height: 150,
     borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    zIndex: 30,
+    backgroundColor: '#000',
   },
   localVideo: {
-    width: 100,
-    height: 140,
-    borderRadius: 12,
+    width: '100%',
+    height: '100%',
   },
   localVideoOff: {
-    backgroundColor: '#333',
+    backgroundColor: '#2a2a3e',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  remoteSmallView: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarSmall: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  liveIndicator: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ff3b30',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 50,
+    paddingBottom: 80,
     paddingTop: 20,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'transparent',
   },
   controls: {
     flexDirection: 'row',
@@ -283,23 +554,28 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   ctrlBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctrlBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   hangUpBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#FF3B30',
+    width: 68,
+    height: 64,
+    borderRadius: 34,
+    backgroundColor: '#e74c3c',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#e74c3c',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
 });
 
