@@ -71,6 +71,11 @@ export const initSocket = (server: HttpServer) => {
       });
     });
 
+    // Tự động phản hồi để phát nhạc chờ phía người gọi
+    socket.on("start-outgoing-sound", () => {
+      socket.emit("out-going-call");
+    });
+
     socket.on("accept-call", (data: { to: string; conversationId: string }) => {
       socket.to(data.to).emit("call-accepted", {
         conversationId: data.conversationId,

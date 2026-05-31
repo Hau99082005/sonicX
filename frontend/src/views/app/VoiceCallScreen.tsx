@@ -42,12 +42,6 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
   const rippleAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<any>(null);
   const statusRef = useRef<'calling' | 'connected' | 'ended'>(isIncoming ? 'connected' : 'calling');
-  const [canPlaySound, setCanPlaySound] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setCanPlaySound(true), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     statusRef.current = callStatus;
@@ -76,6 +70,8 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
           conversationId: conversation?._id,
           type: 'voice',
         });
+        // Tự động thông báo cho App.tsx phát nhạc chờ
+        socket.emit('start-outgoing-sound');
       }
 
       timerRef.current = setInterval(() => {
@@ -155,7 +151,6 @@ const VoiceCallScreen = ({ route, navigation }: any) => {
   };
 
   const handleHangUp = () => {
-    setCanPlaySound(false);
     socket?.emit('end-call', {
       to: otherMember?._id,
       conversationId: conversation?._id,
@@ -300,7 +295,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
+    paddingTop: 40, // Giảm padding top để có thêm không gian
+    paddingBottom: 100, // Đẩy toàn bộ nội dung lên trên một chút
   },
   avatarContainer: {
     width: 260,
@@ -308,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginBottom: 60,
+    marginBottom: 40, // Giảm khoảng cách giữa avatar và tên
   },
   ripple: {
     position: 'absolute',
@@ -353,14 +349,15 @@ const styles = StyleSheet.create({
   },
   avatar: { width: '100%', height: '100%' },
   calleeName: {
-    fontSize: 32,
+    fontSize: 34, // Tăng nhẹ kích thước
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 12,
+    marginBottom: 8, // Giảm khoảng cách giữa tên và trạng thái
   },
   callStatus: {
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.5)',
+    fontSize: 20, // Tăng kích thước trạng thái/thời gian
+    color: 'rgba(255,255,255,0.7)', // Làm màu sáng hơn để dễ nhìn
+    fontWeight: '500',
   },
   bottomBar: {
     position: 'absolute',

@@ -53,12 +53,6 @@ const VideoCallScreen = ({ route, navigation }: any) => {
   const rippleAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<any>(null);
   const statusRef = useRef<'calling' | 'connected' | 'ended'>(isIncoming ? 'connected' : 'calling');
-  const [canPlaySound, setCanPlaySound] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setCanPlaySound(true), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const [isReady, setIsReady] = useState(false);
 
@@ -102,6 +96,8 @@ const VideoCallScreen = ({ route, navigation }: any) => {
           conversationId: conversation?._id,
           type: 'video',
         });
+        // Tự động thông báo cho App.tsx phát nhạc chờ
+        socket.emit('start-outgoing-sound');
       }
 
       // Start timer immediately
@@ -184,7 +180,6 @@ const VideoCallScreen = ({ route, navigation }: any) => {
 
   const handleHangUp = () => {
     console.log('Handling hang up');
-    setCanPlaySound(false);
     socket?.emit('end-call', {
       to: otherMember?._id,
       conversationId: conversation?._id,

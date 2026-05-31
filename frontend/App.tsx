@@ -30,12 +30,31 @@ const GlobalCallSound = () => {
   const { socket } = useSocket();
   const [soundSource, setSoundSource] = useState<any>(null);
   const [isLoop, setIsLoop] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (socket) {
+    const timer = setTimeout(() => setIsReady(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (socket && isReady) {
       const handleIncomingCall = () => {
-        setSoundSource(require('./assets/sounds/Nhac-chuong-cuoc-goi-Facebook-Messenger-www_nhacchuongvui_com.mp3') as any);
-        setIsLoop(true);
+        try {
+          setSoundSource(require('./assets/sounds/Nhac-chuong-cuoc-goi-Facebook-Messenger-www_nhacchuongvui_com.mp3') as any);
+          setIsLoop(true);
+        } catch (err) {
+          console.log('Error loading incoming sound:', err);
+        }
+      };
+
+      const handleOutgoingCall = () => {
+        try {
+          setSoundSource(require('./assets/sounds/Nhac-chuong-cuoc-goi-Facebook-Messenger-www_nhacchuongvui_com.mp3') as any);
+          setIsLoop(true);
+        } catch (err) {
+          console.log('Error loading outgoing sound:', err);
+        }
       };
 
       const stopSound = () => {
@@ -43,18 +62,25 @@ const GlobalCallSound = () => {
       };
 
       const handleEndCall = () => {
-        setSoundSource(require('./assets/sounds/Nhac-chuong-iPhone-remix-TikTok-www_nhacchuongvui_com.mp3') as any);
-        setIsLoop(false);
-        setTimeout(() => setSoundSource(null), 3000);
+        try {
+          setSoundSource(require('./assets/sounds/Nhac-chuong-iPhone-remix-TikTok-www_nhacchuongvui_com.mp3') as any);
+          setIsLoop(false);
+          setTimeout(() => setSoundSource(null), 3000);
+        } catch (err) {
+          console.log('Error loading end sound:', err);
+          setSoundSource(null);
+        }
       };
 
       socket.on('incoming-call', handleIncomingCall);
+      socket.on('out-going-call', handleOutgoingCall); // Sự kiện tự động phát âm thanh khi gọi đi
       socket.on('call-accepted', stopSound);
       socket.on('call-rejected', stopSound);
       socket.on('call-ended', handleEndCall);
 
       return () => {
         socket.off('incoming-call', handleIncomingCall);
+        socket.off('out-going-call', handleOutgoingCall);
         socket.off('call-accepted', stopSound);
         socket.off('call-rejected', stopSound);
         socket.off('call-ended', handleEndCall);
@@ -65,16 +91,35 @@ const GlobalCallSound = () => {
   if (!soundSource) return null;
 
   return (
-    <Video
-      source={soundSource}
-      repeat={isLoop}
-      paused={false}
-      volume={1.0}
-      muted={false}
-      playInBackground={true}
-      ignoreSilentSwitch="ignore"
-      style={{ width: 1, height: 1, position: 'absolute', opacity: 0 }}
-    />
+    <View 
+      pointerEvents="none"
+      style={{ 
+        position: 'absolute', 
+        width: 1, 
+        height: 1, 
+        overflow: 'hidden', 
+        opacity: 0,
+        zIndex: -1 
+      }}
+    >
+      <Video
+        source={soundSource}
+        repeat={isLoop}
+        paused={false}
+        volume={1.0}
+        muted={false}
+        playInBackground={false}
+        ignoreSilentSwitch="ignore"
+        {...({
+          audioOnly: true,
+          useTextureView: false, // Sử dụng SurfaceView để ổn định hơn trên Emulator
+          disableFocus: false,
+          shutterColor: 'transparent',
+        } as any)}
+        style={{ width: '100%', height: '100%' }}
+        onError={(e: any) => console.log('Global Sound Error:', e)}
+      />
+    </View>
   );
 };
 
@@ -116,7 +161,6 @@ const AppContent = () => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <GlobalCallSound />
       <StatusBar
         barStyle={theme.text === '#FFFFFF' ? 'light-content' : 'dark-content'}
         backgroundColor={theme.background}
@@ -195,11 +239,12 @@ const App = () => {
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
+            <GlobalCallSound />
             <AppContent />
           </SocketProvider>
-          <Toast />
         </AuthProvider>
       </ThemeProvider>
+      <Toast />
     </SafeAreaProvider>
   );
 };

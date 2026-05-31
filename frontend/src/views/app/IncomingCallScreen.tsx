@@ -23,12 +23,6 @@ const IncomingCallScreen = ({ route, navigation }: any) => {
   const callerAvatar = getAvatarUrl(caller?.avatar, callerName);
 
   const rippleAnim = useRef(new Animated.Value(0)).current;
-  const [canPlaySound, setCanPlaySound] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setCanPlaySound(true), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -57,7 +51,6 @@ const IncomingCallScreen = ({ route, navigation }: any) => {
   }, [socket]);
 
   const handleAccept = () => {
-    setCanPlaySound(false);
     Vibration.cancel();
     socket?.emit('accept-call', { to: caller?._id, conversationId });
     setTimeout(() => {
@@ -70,7 +63,6 @@ const IncomingCallScreen = ({ route, navigation }: any) => {
   };
 
   const handleReject = () => {
-    setCanPlaySound(false);
     Vibration.cancel();
     socket?.emit('reject-call', { to: caller?._id, conversationId });
     setTimeout(() => {
