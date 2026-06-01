@@ -26,6 +26,16 @@ import { Video } from 'react-native-video';
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 
+// #region debug-point instrumentation
+const reportDebug = (event: string, data: any) => {
+  fetch('http://192.168.1.91:8999/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, data, session: 'call-crash-issue' }),
+  }).catch(() => {});
+};
+// #endregion
+
 const GlobalCallSound = () => {
   const { socket } = useSocket();
   const [soundSource, setSoundSource] = useState<any>(null);
@@ -33,47 +43,58 @@ const GlobalCallSound = () => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 1000);
+    reportDebug('GlobalCallSound_init', { isReady: false });
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      reportDebug('GlobalCallSound_ready', { isReady: true });
+    }, 1000);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (socket && isReady) {
       const handleIncomingCall = () => {
+        reportDebug('socket_incoming-call', { timestamp: Date.now() });
         try {
           setSoundSource(require('./assets/sounds/Nhac-chuong-cuoc-goi-Facebook-Messenger-www_nhacchuongvui_com.mp3') as any);
           setIsLoop(true);
-        } catch (err) {
-          console.log('Error loading incoming sound:', err);
+        } catch (err: any) {
+          reportDebug('error_loading_incoming_sound', { message: err.message });
         }
       };
 
       const handleOutgoingCall = () => {
+        reportDebug('socket_out-going-call', { timestamp: Date.now() });
         try {
           setSoundSource(require('./assets/sounds/Nhac-chuong-cuoc-goi-Facebook-Messenger-www_nhacchuongvui_com.mp3') as any);
           setIsLoop(true);
-        } catch (err) {
-          console.log('Error loading outgoing sound:', err);
+        } catch (err: any) {
+          reportDebug('error_loading_outgoing_sound', { message: err.message });
         }
       };
 
       const stopSound = () => {
+        reportDebug('socket_stop-sound', { timestamp: Date.now() });
         setSoundSource(null);
       };
 
       const handleEndCall = () => {
+        reportDebug('socket_call-ended', { timestamp: Date.now() });
         try {
           setSoundSource(require('./assets/sounds/Nhac-chuong-iPhone-remix-TikTok-www_nhacchuongvui_com.mp3') as any);
           setIsLoop(false);
-          setTimeout(() => setSoundSource(null), 3000);
-        } catch (err) {
-          console.log('Error loading end sound:', err);
+          setTimeout(() => {
+            reportDebug('stop_end_sound', { timestamp: Date.now() });
+            setSoundSource(null);
+          }, 3000);
+        } catch (err: any) {
+          reportDebug('error_loading_end_sound', { message: err.message });
           setSoundSource(null);
         }
       };
 
       socket.on('incoming-call', handleIncomingCall);
-      socket.on('out-going-call', handleOutgoingCall); // Sự kiện tự động phát âm thanh khi gọi đi
+      socket.on('out-going-call', handleOutgoingCall);
       socket.on('call-accepted', stopSound);
       socket.on('call-rejected', stopSound);
       socket.on('call-ended', handleEndCall);
@@ -86,7 +107,7 @@ const GlobalCallSound = () => {
         socket.off('call-ended', handleEndCall);
       };
     }
-  }, [socket]);
+  }, [socket, isReady]);
 
   if (!soundSource) return null;
 
@@ -102,7 +123,9 @@ const GlobalCallSound = () => {
         zIndex: -1 
       }}
     >
-      <Video
+      {/* #region debug-point instrumentation */}
+      {/* Tạm thời vô hiệu hóa Video component để kiểm chứng crash */}
+      {/* <Video
         source={soundSource}
         repeat={isLoop}
         paused={false}
@@ -112,13 +135,16 @@ const GlobalCallSound = () => {
         ignoreSilentSwitch="ignore"
         {...({
           audioOnly: true,
-          useTextureView: false, // Sử dụng SurfaceView để ổn định hơn trên Emulator
+          useTextureView: false,
           disableFocus: false,
           shutterColor: 'transparent',
         } as any)}
         style={{ width: '100%', height: '100%' }}
-        onError={(e: any) => console.log('Global Sound Error:', e)}
-      />
+        onLoadStart={() => reportDebug('video_load_start', { source: soundSource })}
+        onLoad={() => reportDebug('video_loaded', { timestamp: Date.now() })}
+        onError={(e: any) => reportDebug('video_error', { error: e })}
+      /> */}
+      {/* #endregion */}
     </View>
   );
 };

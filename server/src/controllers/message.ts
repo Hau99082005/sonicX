@@ -28,9 +28,13 @@ export const sendMessage: RequestHandler = async (req, res) => {
   if (files) {
     const fileList = Array.isArray(files) ? files : [files];
     for (const file of fileList) {
+      // Xác định resource_type dựa trên mimetype
+      const isAudio = file.mimetype?.includes("audio") || file.originalFilename?.endsWith(".mp3") || file.originalFilename?.endsWith(".mp4");
+      const resourceType = isAudio ? "video" : "auto";
+
       const { secure_url, public_id, mimetype, size } =
         await cloudinary.uploader.upload(file.filepath, {
-          resource_type: "auto",
+          resource_type: resourceType,
         });
       mediaData.push({
         url: secure_url,
@@ -218,7 +222,10 @@ export const deleteMessage: RequestHandler = async (req, res) => {
   if (message.media && message.media.length > 0) {
     for (const item of message.media) {
       if (item.public_id) {
-        await cloudinary.uploader.destroy(item.public_id);
+        const resourceType = message.type === "audio" ? "video" : "auto";
+        await cloudinary.uploader.destroy(item.public_id, {
+          resource_type: resourceType,
+        });
       }
     }
   }

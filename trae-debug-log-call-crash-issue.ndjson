@@ -1,0 +1,3 @@
+{"event":"GlobalCallSound_init","data":{"isReady":false},"session":"call-crash-issue","timestamp":"2026-06-01T05:25:17.534Z"}
+{"event":"GlobalCallSound_ready","data":{"isReady":true},"session":"call-crash-issue","timestamp":"2026-06-01T05:25:18.322Z"}
+{"event":"socket_out-going-call","data":{"timestamp":1780291525383},"session":"call-crash-issue","timestamp":"2026-06-01T05:25:27.875Z"}

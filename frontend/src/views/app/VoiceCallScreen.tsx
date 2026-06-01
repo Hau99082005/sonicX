@@ -295,8 +295,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 40, // Giảm padding top để có thêm không gian
-    paddingBottom: 100, // Đẩy toàn bộ nội dung lên trên một chút
+    paddingTop: 0,
+    paddingBottom: 150, // Đẩy lên cao hơn nữa
   },
   avatarContainer: {
     width: 260,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginBottom: 40, // Giảm khoảng cách giữa avatar và tên
+    marginBottom: 30, // Giảm khoảng cách thêm
   },
   ripple: {
     position: 'absolute',

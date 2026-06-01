@@ -12,6 +12,7 @@ import {
   Linking,
   Animated,
   Pressable,
+  PermissionsAndroid,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +28,17 @@ import SyntaxHighlighter from 'react-native-syntax-highlighter';
 import { tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import Toast from 'react-native-toast-message';
 import { getAvatarUrl } from '../../utils/helper';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+
+const audioRecorderPlayer = new AudioRecorderPlayer();
+
+const formatTime = (ms: number) => {
+  const seconds = Math.floor((ms / 1000) % 60);
+  const minutes = Math.floor((ms / (1000 * 60)) % 60);
+  return `${minutes.toString().padStart(2, '0')}:${seconds
+    .toString()
+    .padStart(2, '0')}`;
+};
 
 const ChatWindow = ({ route, navigation }: any) => {
   const { theme } = useTheme();
@@ -66,6 +78,147 @@ const ChatWindow = ({ route, navigation }: any) => {
   const [gifList, setGifList] = useState<
     Array<{ id: string; url: string; preview: string }>
   >([]);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordTime, setRecordingTime] = useState('00:00');
+  const [isPlaying, setIsPlaying] = useState<string | null>(null);
+  const [playBackState, setPlayBackState] = useState({
+    currentPosition: 0,
+    duration: 0,
+  });
+
+  useEffect(() => {
+    audioRecorderPlayer.setSubscriptionDuration(0.1); // Cập nhật mỗi 100ms
+    return () => {
+      audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+      audioRecorderPlayer.stopPlayer();
+      audioRecorderPlayer.removePlayBackListener();
+    };
+  }, []);
+
+  const onStartRecord = async () => {
+    if (isRecording) return;
+
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        ]);
+
+        if (
+          grants['android.permission.RECORD_AUDIO'] !==
+          PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Cần quyền ghi âm' });
+          return;
+        }
+      } catch (err) {
+        console.warn(err);
+        return;
+      }
+    }
+
+    try {
+      setIsRecording(true);
+      setRecordingTime('00:00');
+      
+      const path = Platform.select({
+        ios: `voice_${Date.now()}.m4a`,
+        android: undefined, // Để mặc định cho Android
+      });
+
+      const result = await audioRecorderPlayer.startRecorder(path);
+      console.log('Start recording at:', result);
+
+      audioRecorderPlayer.addRecordBackListener((e: any) => {
+        const time = formatTime(Math.floor(e.currentPosition));
+        setRecordingTime(time);
+      });
+    } catch (error) {
+      console.error('Start record error:', error);
+      setIsRecording(false);
+    }
+  };
+
+  const onStopRecord = async () => {
+    if (!isRecording) return;
+
+    // Đợi một chút để đảm bảo listener đã nhận được dữ liệu cuối cùng
+    await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
+
+    try {
+      const result = await audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+      setIsRecording(false);
+      
+      const finalDuration = recordTime;
+      setRecordingTime('00:00');
+
+      if (result && finalDuration !== '00:00') {
+        const formData = new FormData();
+        formData.append('conversationId', currentConversationId);
+        formData.append('message', '');
+        formData.append('type', 'audio');
+        formData.append('meta', JSON.stringify({ duration: finalDuration }));
+
+        const cleanPath = result.replace('file:///', '').replace('file://', '');
+        const fileUri = `file://${cleanPath}`;
+
+        formData.append('media', {
+          uri: fileUri,
+          type: 'audio/mp4',
+          name: 'voice_message.mp4',
+        } as any);
+
+        const { data } = await client.post('/message/send', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          transformRequest: (data) => data,
+        });
+
+        setMessages(prev => [...prev, data.message]);
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+      } else {
+        console.log('Recording too short or no result');
+      }
+    } catch (error) {
+      console.error('Stop record error:', error);
+      setIsRecording(false);
+    }
+  };
+
+  const onStartPlay = async (url: string) => {
+    try {
+      if (isPlaying) {
+        await audioRecorderPlayer.stopPlayer();
+      }
+
+      setIsPlaying(url);
+      await audioRecorderPlayer.startPlayer(url);
+      
+      audioRecorderPlayer.addPlayBackListener((e: any) => {
+        setPlayBackState({
+          currentPosition: e.currentPosition,
+          duration: e.duration,
+        });
+
+        if (e.currentPosition >= e.duration && e.duration > 0) {
+          onStopPlay();
+        }
+      });
+    } catch (error) {
+      console.error('Play error:', error);
+      setIsPlaying(null);
+    }
+  };
+
+  const onStopPlay = async () => {
+    await audioRecorderPlayer.stopPlayer();
+    audioRecorderPlayer.removePlayBackListener();
+    setIsPlaying(null);
+    setPlayBackState({ currentPosition: 0, duration: 0 });
+  };
 
   const getEmojiCategoryKey = (char: string) => {
     const code = char.codePointAt(0) ?? 0;
@@ -377,6 +530,7 @@ const ChatWindow = ({ route, navigation }: any) => {
     const isSticker = item.type === 'sticker';
     const isGif = item.type === 'gif';
     const isLike = item.type === 'like';
+    const isAudio = item.type === 'audio';
     const isMissedCall = item.meta?.missed;
 
     return (
@@ -404,7 +558,7 @@ const ChatWindow = ({ route, navigation }: any) => {
             styles.bubble,
             {
               backgroundColor:
-                isSticker || isGif || isLike
+                isSticker || isGif || isLike || isAudio
                   ? 'transparent'
                   : isMissedCall
                   ? 'transparent'
@@ -452,6 +606,56 @@ const ChatWindow = ({ route, navigation }: any) => {
                 {...({ solid: true } as any)}
               />
             </View>
+          ) : isAudio ? (
+            <TouchableOpacity
+              onPress={() => {
+                if (isPlaying === item.media[0].url) {
+                  onStopPlay();
+                } else {
+                  onStartPlay(item.media[0].url);
+                }
+              }}
+              style={[
+                styles.audioBubble,
+                { backgroundColor: isSelf ? theme.primary : theme.surface },
+              ]}
+            >
+              <FontAwesome5
+                name={(isPlaying === item.media[0].url ? 'stop' : 'play') as any}
+                size={16}
+                color={isSelf ? '#fff' : theme.primary}
+                {...({ solid: true } as any)}
+              />
+              <View style={styles.audioWaveform}>
+                <View
+                  style={[
+                    styles.audioProgress,
+                    {
+                      width:
+                        isPlaying === item.media[0].url &&
+                        playBackState.duration > 0
+                          ? `${
+                              (playBackState.currentPosition /
+                                playBackState.duration) *
+                              100
+                            }%`
+                          : '0%',
+                      backgroundColor: isSelf
+                        ? 'rgba(255,255,255,0.5)'
+                        : 'rgba(0,0,0,0.1)',
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.audioDuration,
+                  { color: isSelf ? '#fff' : theme.textSecondary },
+                ]}
+              >
+                {item.meta?.duration || '0:00'}
+              </Text>
+            </TouchableOpacity>
           ) : isMissedCall ? (
             <View
               style={[
@@ -784,11 +988,15 @@ const ChatWindow = ({ route, navigation }: any) => {
             color={theme.textSecondary}
           />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.inputIcon}>
+        <TouchableOpacity 
+          style={styles.inputIcon}
+          onLongPress={onStartRecord}
+          onPressOut={onStopRecord}
+        >
           <FontAwesome5
             name={'microphone' as any}
             size={20}
-            color={theme.textSecondary}
+            color={isRecording ? theme.primary : theme.textSecondary}
           />
         </TouchableOpacity>
         <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
@@ -931,6 +1139,31 @@ const styles = StyleSheet.create({
   typingText: { fontSize: 12, fontStyle: 'italic' },
   stickerImage: { width: 120, height: 120, borderRadius: 10 },
   gifImage: { width: 180, height: 120, borderRadius: 10 },
+  audioBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 20,
+    width: 200,
+  },
+  audioWaveform: {
+    flex: 1,
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginHorizontal: 10,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  audioProgress: {
+    height: '100%',
+  },
+  audioDuration: {
+    fontSize: 12,
+  },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
   zaloMissedCallContainer: {
     width: 220,
     padding: 12,
