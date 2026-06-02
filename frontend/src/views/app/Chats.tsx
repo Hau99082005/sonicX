@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,27 +12,34 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { getConversations } from '../../api/chat';
-import { getFriends } from '../../api/friendship';
+import { getFriends, getBlockedUsers } from '../../api/friendship';
 import moment from 'moment';
 import { getAvatarUrl } from '../../utils/helper';
 
 const Chats = ({ navigation }: any) => {
   const { theme } = useTheme();
   const { profile } = useAuth();
-  const { onlineUsers } = useSocket();
+  const { onlineUsers, socket } = useSocket();
   const [conversations, setConversations] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+
+  const loadData = useCallback(async () => {
+    try {
+      const [convs, blocked] = await Promise.all([
+        getConversations(),
+        getBlockedUsers(),
+      ]);
+      setConversations(convs);
+      setBlockedIds(new Set((blocked || []).map((u: any) => u._id)));
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const convs = await getConversations();
-        setConversations(convs);
-      } catch {}
-    };
-    fetchData();
-  }, []);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
     const fetchFriends = async () => {
@@ -45,6 +52,34 @@ const Chats = ({ navigation }: any) => {
     };
     fetchFriends();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleBlocked = ({ blockedBy, targetId }: any) => {
+      if (blockedBy?.toString() === profile?.id?.toString()) {
+        setBlockedIds(prev => new Set([...prev, targetId]));
+      }
+    };
+
+    const handleUnblocked = ({ unblockedBy, targetId }: any) => {
+      if (unblockedBy?.toString() === profile?.id?.toString()) {
+        setBlockedIds(prev => {
+          const next = new Set(prev);
+          next.delete(targetId);
+          return next;
+        });
+      }
+    };
+
+    socket.on('user-blocked', handleBlocked);
+    socket.on('user-unblocked', handleUnblocked);
+
+    return () => {
+      socket.off('user-blocked', handleBlocked);
+      socket.off('user-unblocked', handleUnblocked);
+    };
+  }, [socket, profile?.id]);
 
   const renderActiveUserItem = ({ item }: any) => {
     const isOnline = onlineUsers.has(item._id);
@@ -103,36 +138,83 @@ const Chats = ({ navigation }: any) => {
       ? item.name || groupNames || 'Nhóm'
       : otherMember?.name || otherMember?.username || 'Chat';
     const isOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
+    const isBlockedConv = !isGroupConversation && otherMember && blockedIds.has(otherMember._id);
+
+    const lastMsgPreview = () => {
+      if (!item.lastMessage) return 'Bắt đầu cuộc trò chuyện';
+      const prefix =
+        item.lastMessage.sender?._id === profile?.id
+          ? 'Bạn: '
+          : isGroupConversation
+          ? `${item.lastMessage.sender?.name || item.lastMessage.sender?.username || ''}: `
+          : '';
+      return `${prefix}${item.lastMessage.message}`;
+    };
 
     return (
       <TouchableOpacity
         style={styles.conversationItem}
+        activeOpacity={0.75}
         onPress={() => navigation.navigate('ChatWindow', { conversation: item })}
       >
         <View style={styles.avatarContainer}>
           <Image
-            source={{ uri: getAvatarUrl(isGroupConversation ? undefined : otherMember?.avatar, conversationTitle) }}
-            style={styles.avatar}
+            source={{
+              uri: getAvatarUrl(
+                isGroupConversation ? undefined : otherMember?.avatar,
+                conversationTitle,
+              ),
+            }}
+            style={[styles.avatar, isBlockedConv && styles.avatarBlocked]}
           />
-          {isOnline && (
-            <View style={[styles.onlineIndicator, { backgroundColor: theme.active, borderColor: theme.background }]} />
-          )}
+          {isBlockedConv ? (
+            <View style={[styles.blockedBadge, { backgroundColor: theme.background }]}>
+              <MaterialIcons name="block" size={12} color="#FF6B6B" />
+            </View>
+          ) : isOnline ? (
+            <View
+              style={[
+                styles.onlineIndicator,
+                { backgroundColor: theme.active, borderColor: theme.background },
+              ]}
+            />
+          ) : null}
         </View>
+
         <View style={styles.conversationInfo}>
-          <Text style={[styles.conversationName, { color: theme.text }]}>{conversationTitle}</Text>
-          <Text style={[styles.lastMessage, { color: theme.textSecondary }]} numberOfLines={1}>
-            {item.lastMessage
-              ? `${item.lastMessage.sender?._id === profile?.id
-                  ? 'Bạn: '
-                  : isGroupConversation
-                  ? `${item.lastMessage.sender?.name || item.lastMessage.sender?.username || ''}: `
-                  : ''}${item.lastMessage.message}`
-              : 'Bắt đầu cuộc trò chuyện'}
+          <View style={styles.titleRow}>
+            <Text
+              style={[
+                styles.conversationName,
+                { color: isBlockedConv ? theme.textSecondary : theme.text },
+              ]}
+              numberOfLines={1}
+            >
+              {conversationTitle}
+            </Text>
+            {isBlockedConv && (
+              <View style={styles.blockedTag}>
+                <MaterialIcons name="block" size={10} color="#FF6B6B" />
+                <Text style={styles.blockedTagText}>Đã chặn</Text>
+              </View>
+            )}
+          </View>
+          <Text
+            style={[
+              styles.lastMessage,
+              { color: isBlockedConv ? theme.textSecondary + '80' : theme.textSecondary },
+            ]}
+            numberOfLines={1}
+          >
+            {isBlockedConv ? 'Bạn đã chặn người này' : lastMsgPreview()}
           </Text>
         </View>
-        <Text style={[styles.time, { color: theme.textSecondary }]}>
-          {item.lastMessage ? moment(item.lastMessage.createdAt).format('LT') : ''}
-        </Text>
+
+        <View style={styles.metaCol}>
+          <Text style={[styles.time, { color: theme.textSecondary }]}>
+            {item.lastMessage ? moment(item.lastMessage.createdAt).format('LT') : ''}
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -167,19 +249,32 @@ const Chats = ({ navigation }: any) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.userAvatarContainer}>
-            <Image source={{ uri: getAvatarUrl(profile?.avatar, profile?.name) }} style={styles.userAvatar} />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.userAvatarContainer}
+          >
+            <Image
+              source={{ uri: getAvatarUrl(profile?.avatar, profile?.name) }}
+              style={styles.userAvatar}
+            />
             <View
               style={[
                 styles.userStatusIndicator,
                 {
-                  backgroundColor: profile?.show_online_status ? theme.active : theme.surface,
+                  backgroundColor: profile?.show_online_status
+                    ? theme.active
+                    : theme.surface,
                   borderColor: theme.background,
                 },
               ]}
             >
               {!profile?.show_online_status && (
-                <FontAwesome5 name="moon" size={8} color={theme.textSecondary} {...({ solid: true } as any)} />
+                <FontAwesome5
+                  name="moon"
+                  size={8}
+                  color={theme.textSecondary}
+                  {...({ solid: true } as any)}
+                />
               )}
             </View>
           </TouchableOpacity>
@@ -187,19 +282,34 @@ const Chats = ({ navigation }: any) => {
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface }]}>
-            <FontAwesome5 name={'camera' as any} size={18} color={theme.text} {...({ solid: true } as any)} />
+            <FontAwesome5
+              name={'camera' as any}
+              size={18}
+              color={theme.text}
+              {...({ solid: true } as any)}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: theme.surface }]}
             onPress={() => navigation.navigate('CreateGroup')}
           >
-            <FontAwesome5 name={'pen' as any} size={18} color={theme.text} {...({ solid: true } as any)} />
+            <FontAwesome5
+              name={'pen' as any}
+              size={18}
+              color={theme.text}
+              {...({ solid: true } as any)}
+            />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={[styles.searchBar, { backgroundColor: theme.surface }]}>
-        <FontAwesome5 name={'search' as any} size={16} color={theme.textSecondary} style={styles.searchIcon} />
+        <FontAwesome5
+          name={'search' as any}
+          size={16}
+          color={theme.textSecondary}
+          style={styles.searchIcon}
+        />
         <TextInput
           placeholder="Tìm kiếm"
           placeholderTextColor={theme.textSecondary}
@@ -304,10 +414,12 @@ const styles = StyleSheet.create({
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingVertical: 6,
+    marginBottom: 6,
   },
   avatarContainer: { position: 'relative', marginRight: 12 },
   avatar: { width: 56, height: 56, borderRadius: 28 },
+  avatarBlocked: { opacity: 0.45 },
   onlineIndicator: {
     position: 'absolute',
     right: 0,
@@ -317,10 +429,43 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 3,
   },
-  conversationInfo: { flex: 1 },
-  conversationName: { fontSize: 17, fontWeight: '600', marginBottom: 2 },
-  lastMessage: { fontSize: 14 },
-  time: { fontSize: 12 },
+  blockedBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FF6B6B30',
+  },
+  conversationInfo: { flex: 1, minWidth: 0 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+    gap: 6,
+  },
+  conversationName: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  blockedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FF6B6B18',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  blockedTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  lastMessage: { fontSize: 13 },
+  metaCol: { alignItems: 'flex-end', justifyContent: 'center', marginLeft: 8 },
+  time: { fontSize: 11 },
 });
 
 export default Chats;

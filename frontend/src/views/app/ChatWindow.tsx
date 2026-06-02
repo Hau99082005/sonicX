@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { getMessages, sendMessage } from '../../api/chat';
+import { getBlockStatus, unblockUser } from '../../api/friendship';
 import client from '../../api/client';
 import { fetchEmojiList } from '../../api/emoji';
 import { fetchGifs } from '../../api/gif';
@@ -277,6 +278,23 @@ const ChatWindow = ({ route, navigation }: any) => {
   );
   const isOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
 
+  const [iBlockedThem, setIBlockedThem] = useState(false);
+  const [theyBlockedMe, setTheyBlockedMe] = useState(false);
+  const isBlocked = iBlockedThem || theyBlockedMe;
+
+  const loadBlockStatus = useCallback(async () => {
+    if (isGroupConversation || !otherMember?._id) return;
+    try {
+      const data = await getBlockStatus(otherMember._id);
+      setIBlockedThem(data.iBlockedThem);
+      setTheyBlockedMe(data.theyBlockedMe);
+    } catch {}
+  }, [isGroupConversation, otherMember?._id]);
+
+  useEffect(() => {
+    loadBlockStatus();
+  }, [loadBlockStatus]);
+
   const groupTitle = conversation.members
     .filter((m: any) => m.user._id !== profile?.id)
     .map((m: any) => m.user.name || m.user.username)
@@ -355,11 +373,29 @@ const ChatWindow = ({ route, navigation }: any) => {
         },
       );
 
+      socket.on('user-blocked', ({ blockedBy }: any) => {
+        if (blockedBy?.toString() === profile?.id?.toString()) {
+          setIBlockedThem(true);
+        } else {
+          setTheyBlockedMe(true);
+        }
+      });
+
+      socket.on('user-unblocked', ({ unblockedBy }: any) => {
+        if (unblockedBy?.toString() === profile?.id?.toString()) {
+          setIBlockedThem(false);
+        } else {
+          setTheyBlockedMe(false);
+        }
+      });
+
       return () => {
         socket.emit('leave-conversation', currentConversationId);
         socket.off('typing-status');
         socket.off('new-message');
         socket.off('nickname-updated');
+        socket.off('user-blocked');
+        socket.off('user-unblocked');
       };
     }
   }, [socket, currentConversationId, otherMember]);
@@ -794,27 +830,29 @@ const ChatWindow = ({ route, navigation }: any) => {
         </TouchableOpacity>
         <View style={styles.headerIcons}>
           <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() =>
-              navigation.navigate('VoiceCall', { otherMember, conversation })
-            }
+            style={[styles.iconBtn, isBlocked && styles.disabledIcon]}
+            onPress={() => {
+              if (!isBlocked)
+                navigation.navigate('VoiceCall', { otherMember, conversation });
+            }}
           >
             <FontAwesome5
               name={'phone-alt' as any}
               size={18}
-              color={theme.primary}
+              color={isBlocked ? theme.textSecondary : theme.primary}
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() =>
-              navigation.navigate('VideoCall', { otherMember, conversation })
-            }
+            style={[styles.iconBtn, isBlocked && styles.disabledIcon]}
+            onPress={() => {
+              if (!isBlocked)
+                navigation.navigate('VideoCall', { otherMember, conversation });
+            }}
           >
             <FontAwesome5
               name={'video' as any}
               size={18}
-              color={theme.primary}
+              color={isBlocked ? theme.textSecondary : theme.primary}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -953,113 +991,141 @@ const ChatWindow = ({ route, navigation }: any) => {
       )}
 
       <View style={[styles.inputContainer, { borderTopColor: theme.border }]}>
-        <TouchableOpacity
-          style={styles.inputIcon}
-          onPress={() => {
-            setShowStickerPicker(!showStickerPicker);
-            setShowEmojiPicker(false);
-            setShowGifPicker(false);
-          }}
-        >
-          <FontAwesome5
-            name={'th' as any}
-            size={20}
-            color={showStickerPicker ? theme.primary : theme.textSecondary}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.inputIcon}
-          onPress={() => {
-            setShowGifPicker(!showGifPicker);
-            setShowEmojiPicker(false);
-            setShowStickerPicker(false);
-          }}
-        >
-          <FontAwesome5
-            name={'camera' as any}
-            size={20}
-            color={showGifPicker ? theme.primary : theme.textSecondary}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.inputIcon}>
-          <FontAwesome5
-            name={'image' as any}
-            size={20}
-            color={theme.textSecondary}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.inputIcon}
-          onLongPress={onStartRecord}
-          onPressOut={onStopRecord}
-        >
-          <FontAwesome5
-            name={'microphone' as any}
-            size={20}
-            color={isRecording ? theme.primary : theme.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-          <TextInput
-            style={[styles.textInput, { color: theme.text }]}
-            placeholder="Aa"
-            placeholderTextColor={theme.textSecondary}
-            value={input}
-            onChangeText={handleTyping}
-            onFocus={() => {
-              setShowEmojiPicker(false);
-              setShowStickerPicker(false);
-              setShowGifPicker(false);
-            }}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === 'Enter') {
-                handleSend();
-              }
-            }}
-            multiline
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            onPress={() => {
-              setShowEmojiPicker(!showEmojiPicker);
-              setShowStickerPicker(false);
-              setShowGifPicker(false);
-            }}
-          >
-            <FontAwesome5
-              name={'smile' as any}
-              size={20}
-              color={showEmojiPicker ? theme.primary : theme.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-        {input ? (
-          <TouchableOpacity
-            onPress={() => handleSend()}
-            style={styles.inputIcon}
-          >
-            <FontAwesome5
-              name={'paper-plane' as any}
-              size={22}
-              color={theme.primary}
-              {...({ solid: true } as any)}
-            />
-          </TouchableOpacity>
+        {isBlocked ? (
+          <View style={[styles.blockedBanner, { backgroundColor: theme.surface }]}>
+            <FontAwesome5 name={'ban' as any} size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
+            <Text style={[styles.blockedBannerText, { color: theme.textSecondary }]}>
+              {iBlockedThem
+                ? 'Bạn đã chặn người này. '
+                : 'Bạn không thể trả lời tin nhắn này.'}
+            </Text>
+            {iBlockedThem && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    await unblockUser(otherMember._id);
+                    setIBlockedThem(false);
+                    Toast.show({ type: 'success', text1: 'Đã bỏ chặn' });
+                  } catch {
+                    Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể bỏ chặn' });
+                  }
+                }}
+              >
+                <Text style={{ color: theme.primary, fontWeight: '600', fontSize: 14 }}>Bỏ chặn</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ) : (
-          <Pressable
-            onPressIn={handleLikePressIn}
-            onPressOut={handleLikePressOut}
-            style={styles.inputIcon}
-          >
-            <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+          <>
+            <TouchableOpacity
+              style={styles.inputIcon}
+              onPress={() => {
+                setShowStickerPicker(!showStickerPicker);
+                setShowEmojiPicker(false);
+                setShowGifPicker(false);
+              }}
+            >
               <FontAwesome5
-                name={'thumbs-up' as any}
-                size={22}
-                color={theme.primary}
-                {...({ solid: true } as any)}
+                name={'th' as any}
+                size={20}
+                color={showStickerPicker ? theme.primary : theme.textSecondary}
               />
-            </Animated.View>
-          </Pressable>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.inputIcon}
+              onPress={() => {
+                setShowGifPicker(!showGifPicker);
+                setShowEmojiPicker(false);
+                setShowStickerPicker(false);
+              }}
+            >
+              <FontAwesome5
+                name={'camera' as any}
+                size={20}
+                color={showGifPicker ? theme.primary : theme.textSecondary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inputIcon}>
+              <FontAwesome5
+                name={'image' as any}
+                size={20}
+                color={theme.textSecondary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.inputIcon}
+              onLongPress={onStartRecord}
+              onPressOut={onStopRecord}
+            >
+              <FontAwesome5
+                name={'microphone' as any}
+                size={20}
+                color={isRecording ? theme.primary : theme.textSecondary}
+              />
+            </TouchableOpacity>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
+              <TextInput
+                style={[styles.textInput, { color: theme.text }]}
+                placeholder="Aa"
+                placeholderTextColor={theme.textSecondary}
+                value={input}
+                onChangeText={handleTyping}
+                onFocus={() => {
+                  setShowEmojiPicker(false);
+                  setShowStickerPicker(false);
+                  setShowGifPicker(false);
+                }}
+                onKeyPress={({ nativeEvent }) => {
+                  if (nativeEvent.key === 'Enter') {
+                    handleSend();
+                  }
+                }}
+                multiline
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  setShowEmojiPicker(!showEmojiPicker);
+                  setShowStickerPicker(false);
+                  setShowGifPicker(false);
+                }}
+              >
+                <FontAwesome5
+                  name={'smile' as any}
+                  size={20}
+                  color={showEmojiPicker ? theme.primary : theme.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+            {input ? (
+              <TouchableOpacity
+                onPress={() => handleSend()}
+                style={styles.inputIcon}
+              >
+                <FontAwesome5
+                  name={'paper-plane' as any}
+                  size={22}
+                  color={theme.primary}
+                  {...({ solid: true } as any)}
+                />
+              </TouchableOpacity>
+            ) : (
+              <Pressable
+                onPressIn={handleLikePressIn}
+                onPressOut={handleLikePressOut}
+                style={styles.inputIcon}
+              >
+                <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+                  <FontAwesome5
+                    name={'thumbs-up' as any}
+                    size={22}
+                    color={theme.primary}
+                    {...({ solid: true } as any)}
+                  />
+                </Animated.View>
+              </Pressable>
+            )}
+          </>
         )}
       </View>
     </KeyboardAvoidingView>
@@ -1118,6 +1184,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 8,
     paddingBottom: 30,
+  },
+  blockedBanner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    margin: 8,
+    marginBottom: 30,
+  },
+  blockedBannerText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  disabledIcon: {
+    opacity: 0.35,
   },
   inputIcon: { padding: 8 },
   inputWrapper: {

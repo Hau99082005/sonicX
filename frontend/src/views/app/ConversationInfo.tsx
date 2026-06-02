@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,22 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Alert,
+  Switch,
 } from 'react-native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { getAvatarUrl } from '../../utils/helper';
-import { updateNickname } from '../../api/friendship';
+import { updateNickname, blockUser, unblockUser, getFriendshipStatus } from '../../api/friendship';
+import { toggleMuteConversation } from '../../api/chat';
 
 const ConversationInfo = ({ route, navigation }: any) => {
   const { theme } = useTheme();
+  const { profile } = useAuth();
+  const { socket } = useSocket();
   const { otherMember, conversation } = route.params || {};
 
   const isGroupConversation = conversation?.type === 'group';
@@ -36,6 +43,11 @@ const ConversationInfo = ({ route, navigation }: any) => {
     : otherMember?.avatar;
 
   const friendId = otherMember?._id || otherMember?.id;
+  const conversationId = conversation?._id;
+
+  const currentUserMember = conversation?.members?.find(
+    (m: any) => (m.user?._id || m.user) === profile?.id || (m.user?._id || m.user)?.toString() === profile?.id?.toString(),
+  );
 
   const [zoomVisible, setZoomVisible] = useState(false);
   const [memberDetailVisible, setMemberDetailVisible] = useState(false);
@@ -45,6 +57,143 @@ const ConversationInfo = ({ route, navigation }: any) => {
   const [nicknameInput, setNicknameInput] = useState(otherMember?.nickname || '');
   const [nickname, setNickname] = useState(otherMember?.nickname || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(currentUserMember?.is_muted ?? false);
+  const [isLoadingBlock, setIsLoadingBlock] = useState(false);
+  const [isLoadingMute, setIsLoadingMute] = useState(false);
+  const [blockChecked, setBlockChecked] = useState(false);
+
+  const loadBlockStatus = useCallback(async () => {
+    if (isGroupConversation || !friendId) return;
+    try {
+      const data = await getFriendshipStatus(friendId);
+      setIsBlocked(
+        data.status === 'blocked' &&
+          data.requester?.toString() === profile?.id?.toString(),
+      );
+    } catch {}
+    setBlockChecked(true);
+  }, [friendId, isGroupConversation, profile?.id]);
+
+  useEffect(() => {
+    loadBlockStatus();
+  }, [loadBlockStatus]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMuteUpdated = ({ conversationId: cId, userId, muted }: any) => {
+      if (cId === conversationId && userId?.toString() === profile?.id?.toString()) {
+        setIsMuted(muted);
+      }
+    };
+
+    const handleUserBlocked = ({ blockedBy }: any) => {
+      if (blockedBy?.toString() === profile?.id?.toString()) {
+        setIsBlocked(true);
+      }
+    };
+
+    const handleUserUnblocked = ({ unblockedBy }: any) => {
+      if (unblockedBy?.toString() === profile?.id?.toString()) {
+        setIsBlocked(false);
+      }
+    };
+
+    socket.on('mute-updated', handleMuteUpdated);
+    socket.on('user-blocked', handleUserBlocked);
+    socket.on('user-unblocked', handleUserUnblocked);
+
+    return () => {
+      socket.off('mute-updated', handleMuteUpdated);
+      socket.off('user-blocked', handleUserBlocked);
+      socket.off('user-unblocked', handleUserUnblocked);
+    };
+  }, [socket, conversationId, profile?.id]);
+
+  const handleToggleMute = async () => {
+    if (!conversationId) return;
+    try {
+      setIsLoadingMute(true);
+      const newMuted = !isMuted;
+      await toggleMuteConversation(conversationId, newMuted);
+      setIsMuted(newMuted);
+      Toast.show({
+        type: 'success',
+        text1: newMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo',
+      });
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: error?.response?.data?.error || 'Không thể cập nhật thông báo',
+      });
+    } finally {
+      setIsLoadingMute(false);
+    }
+  };
+
+  const handleBlockUser = () => {
+    if (!friendId) return;
+    Alert.alert(
+      'Chặn người dùng',
+      `Bạn có chắc muốn chặn ${name}? Họ sẽ không thể gửi tin nhắn cho bạn.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Chặn',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoadingBlock(true);
+              await blockUser(friendId);
+              setIsBlocked(true);
+              Toast.show({ type: 'success', text1: `Đã chặn ${name}` });
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Lỗi',
+                text2: error?.response?.data?.error || 'Không thể chặn người dùng',
+              });
+            } finally {
+              setIsLoadingBlock(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleUnblockUser = () => {
+    if (!friendId) return;
+    Alert.alert(
+      'Bỏ chặn người dùng',
+      `Bỏ chặn ${name}?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Bỏ chặn',
+          onPress: async () => {
+            try {
+              setIsLoadingBlock(true);
+              await unblockUser(friendId);
+              setIsBlocked(false);
+              Toast.show({ type: 'success', text1: `Đã bỏ chặn ${name}` });
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Lỗi',
+                text2: error?.response?.data?.error || 'Không thể bỏ chặn người dùng',
+              });
+            } finally {
+              setIsLoadingBlock(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const openNicknameModal = () => {
     setNicknameInput(nickname);
@@ -231,21 +380,45 @@ const ConversationInfo = ({ route, navigation }: any) => {
         <View style={[styles.section, { backgroundColor: theme.surface, marginBottom: 40 }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>QUYỀN RIÊNG TƯ</Text>
 
-          <TouchableOpacity style={[styles.row, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity
+            style={[styles.row, { borderBottomColor: theme.border }]}
+            onPress={handleToggleMute}
+            disabled={isLoadingMute}
+            activeOpacity={0.7}
+          >
             <View style={[styles.rowIconWrap, { backgroundColor: theme.background }]}>
-              <FontAwesome5 name={'bell' as any} size={16} color={theme.primary} />
+              <FontAwesome5
+                name={isMuted ? ('bell-slash' as any) : ('bell' as any)}
+                size={16}
+                color={theme.primary}
+              />
             </View>
             <Text style={[styles.rowLabel, { color: theme.text }]}>Thông báo</Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Bật</Text>
+            <Switch
+              value={!isMuted}
+              onValueChange={handleToggleMute}
+              disabled={isLoadingMute}
+              trackColor={{ false: theme.border, true: theme.primary }}
+              thumbColor={'#fff'}
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.row, { borderBottomColor: theme.border }]}>
-            <View style={[styles.rowIconWrap, { backgroundColor: '#FF6B6B20' }]}>
-              <FontAwesome5 name={'ban' as any} size={16} color="#FF6B6B" />
-            </View>
-            <Text style={[styles.rowLabel, { color: '#FF6B6B' }]}>Chặn</Text>
-            <FontAwesome5 name={'chevron-right' as any} size={14} color={theme.textSecondary} />
-          </TouchableOpacity>
+          {!isGroupConversation && blockChecked && (
+            <TouchableOpacity
+              style={[styles.row, { borderBottomColor: theme.border }]}
+              onPress={isBlocked ? handleUnblockUser : handleBlockUser}
+              disabled={isLoadingBlock}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.rowIconWrap, { backgroundColor: '#FF6B6B20' }]}>
+                <FontAwesome5 name={'ban' as any} size={16} color="#FF6B6B" />
+              </View>
+              <Text style={[styles.rowLabel, { color: '#FF6B6B' }]}>
+                {isLoadingBlock ? 'Đang xử lý...' : isBlocked ? 'Bỏ chặn' : 'Chặn'}
+              </Text>
+              <FontAwesome5 name={'chevron-right' as any} size={14} color={theme.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 

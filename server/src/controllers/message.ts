@@ -24,6 +24,23 @@ export const sendMessage: RequestHandler = async (req, res) => {
       .status(404)
       .json({ error: "Conversation not found or not a member!" });
 
+  if (conversation.type === "private") {
+    const other = conversation.members.find(
+      (m: any) => m.user.toString() !== senderId.toString(),
+    )?.user;
+    if (other) {
+      const blocked = await Friendship.findOne({
+        $or: [
+          { requester: senderId, receiver: other, status: "blocked" },
+          { requester: other, receiver: senderId, status: "blocked" },
+        ],
+      });
+      if (blocked) {
+        return res.status(403).json({ error: "Không thể gửi tin nhắn do bị chặn!" });
+      }
+    }
+  }
+
   const mediaData: any[] = [];
   if (files) {
     const fileList = Array.isArray(files) ? files : [files];

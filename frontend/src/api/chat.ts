@@ -31,3 +31,8 @@ export const addReaction = async (messageId: string, emoji: string) => {
   const { data } = await client.patch(`/message/react/${messageId}`, { emoji });
   return data;
 };
+
+export const toggleMuteConversation = async (conversationId: string, mute: boolean) => {
+  const { data } = await client.post(`/conversation/${conversationId}/mute`, { mute });
+  return data;
+};

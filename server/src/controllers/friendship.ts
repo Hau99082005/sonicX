@@ -72,6 +72,9 @@ export const unblockUser: RequestHandler = async (req, res) => {
   const { userId: targetId } = req.body;
   const userId = req.user.id;
 
+  if (!isValidObjectId(targetId))
+    return res.status(422).json({ error: "Invalid user ID!" });
+
   const friendship = await Friendship.findOneAndDelete({
     requester: userId,
     receiver: targetId,
@@ -79,9 +82,21 @@ export const unblockUser: RequestHandler = async (req, res) => {
   });
 
   if (!friendship)
-    return res.status(404).json({ error: "User is not blocked!" });
+    return res.status(404).json({ error: "Người dùng chưa bị chặn!" });
 
-  res.status(200).json({ message: "User unblocked!" });
+  const io = req.app.get("io");
+  if (io) {
+    io.to(targetId.toString()).emit("user-unblocked", {
+      unblockedBy: userId,
+      targetId: targetId.toString(),
+    });
+    io.to(userId.toString()).emit("user-unblocked", {
+      unblockedBy: userId,
+      targetId: targetId.toString(),
+    });
+  }
+
+  res.status(200).json({ message: "Đã bỏ chặn người dùng!" });
 };
 
 export const getFriendshipStatus: RequestHandler = async (req, res) => {
@@ -98,6 +113,28 @@ export const getFriendshipStatus: RequestHandler = async (req, res) => {
   res.status(200).json({
     status: friendship ? friendship.status : "none",
     requester: friendship?.requester,
+  });
+};
+
+export const getBlockStatus: RequestHandler = async (req, res) => {
+  const { targetId } = req.params;
+  const userId = req.user.id;
+
+  const iBlockedThem = await Friendship.findOne({
+    requester: userId,
+    receiver: targetId,
+    status: "blocked",
+  });
+
+  const theyBlockedMe = await Friendship.findOne({
+    requester: targetId,
+    receiver: userId,
+    status: "blocked",
+  });
+
+  res.status(200).json({
+    iBlockedThem: !!iBlockedThem,
+    theyBlockedMe: !!theyBlockedMe,
   });
 };
 
@@ -187,7 +224,13 @@ export const blockUser: RequestHandler = async (req, res) => {
   const { userId: targetId } = req.body;
   const userId = req.user.id;
 
-  const friendship = await Friendship.findOneAndUpdate(
+  if (!isValidObjectId(targetId))
+    return res.status(422).json({ error: "Invalid user ID!" });
+
+  if (userId.toString() === targetId)
+    return res.status(422).json({ error: "Không thể chặn chính mình!" });
+
+  await Friendship.findOneAndUpdate(
     {
       $or: [
         { requester: userId, receiver: targetId },
@@ -198,7 +241,35 @@ export const blockUser: RequestHandler = async (req, res) => {
     { upsert: true, returnDocument: "after" },
   );
 
-  res.status(200).json({ message: "User blocked!" });
+  const io = req.app.get("io");
+  if (io) {
+    io.to(targetId.toString()).emit("user-blocked", {
+      blockedBy: userId,
+      targetId: targetId.toString(),
+    });
+    io.to(userId.toString()).emit("user-blocked", {
+      blockedBy: userId,
+      targetId: targetId.toString(),
+    });
+  }
+
+  res.status(200).json({ message: "Đã chặn người dùng!" });
+};
+
+export const getBlockedByMe: RequestHandler = async (req, res) => {
+  const userId = req.user.id;
+
+  const friendships = await Friendship.find({
+    requester: userId,
+    status: "blocked",
+  }).populate("receiver", "username name avatar");
+
+  const results = friendships.map((f: any) => ({
+    ...f.receiver.toObject(),
+    friendshipId: f._id,
+  }));
+
+  res.status(200).json({ blocked: results });
 };
 
 export const updateNickname: RequestHandler = async (req, res) => {
