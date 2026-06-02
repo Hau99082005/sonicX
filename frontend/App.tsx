@@ -7,6 +7,7 @@ import EditProfile from './src/views/app/EditProfile';
 import ChatWindow from './src/views/app/ChatWindow';
 import ConversationInfo from './src/views/app/ConversationInfo';
 import CreateGroup from './src/views/app/CreateGroup';
+import Search from './src/views/app/Search';
 import VoiceCallScreen from './src/views/app/VoiceCallScreen';
 import VideoCallScreen from './src/views/app/VideoCallScreen';
 import IncomingCallScreen from './src/views/app/IncomingCallScreen';
@@ -215,6 +216,11 @@ const AppContent = () => {
               name="CreateGroup"
               component={CreateGroup}
               options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Search"
+              component={Search}
+              options={{ animation: 'fade' }}
             />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="EditProfile" component={EditProfile} />

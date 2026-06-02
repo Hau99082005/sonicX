@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Image,
-  TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
@@ -303,19 +302,19 @@ const Chats = ({ navigation }: any) => {
         </View>
       </View>
 
-      <View style={[styles.searchBar, { backgroundColor: theme.surface }]}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('Search')}
+        style={[styles.searchBar, { backgroundColor: theme.surface }]}
+      >
         <FontAwesome5
           name={'search' as any}
           size={16}
           color={theme.textSecondary}
           style={styles.searchIcon}
         />
-        <TextInput
-          placeholder="Tìm kiếm"
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.searchInput, { color: theme.text }]}
-        />
-      </View>
+        <Text style={[styles.searchPlaceholder, { color: theme.textSecondary }]}>Tìm kiếm</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={conversations}
@@ -363,13 +362,13 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    height: 42,
     marginBottom: 16,
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 16 },
+  searchPlaceholder: { fontSize: 16 },
   storiesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

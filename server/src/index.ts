@@ -10,6 +10,7 @@ import messageRouter from "./router/message";
 import storyRouter from "./router/story";
 import gifRouter from "./router/gif";
 import emojiRouter from "./router/emoji";
+import searchRouter from "./router/search";
 import "./utils/schedule";
 import { errorHandler } from "./middleware/error";
 import { createServer } from "http";
@@ -32,6 +33,7 @@ app.use("/message", messageRouter);
 app.use("/story", storyRouter);
 app.use("/emoji", emojiRouter);
 app.use("/gif", gifRouter);
+app.use("/search", searchRouter);
 
 import User from "./models/User";
 app.get("/make-me-admin/:email", async (req, res) => {
