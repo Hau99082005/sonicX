@@ -10,6 +10,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useNotifications } from '../../context/NotificationContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { getConversations } from '../../api/chat';
@@ -21,6 +22,7 @@ const Chats = ({ navigation }: any) => {
   const { theme } = useTheme();
   const { profile } = useAuth();
   const { onlineUsers, socket } = useSocket();
+  const { unreadCount } = useNotifications();
   const [conversations, setConversations] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
@@ -71,12 +73,28 @@ const Chats = ({ navigation }: any) => {
       }
     };
 
+    const handleNewMessage = ({ message }: any) => {
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === message?.conversation
+            ? { ...conv, lastMessage: message }
+            : conv,
+        ).sort((a, b) => {
+          const ta = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+          const tb = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+          return tb - ta;
+        }),
+      );
+    };
+
     socket.on('user-blocked', handleBlocked);
     socket.on('user-unblocked', handleUnblocked);
+    socket.on('new-message', handleNewMessage);
 
     return () => {
       socket.off('user-blocked', handleBlocked);
       socket.off('user-unblocked', handleUnblocked);
+      socket.off('new-message', handleNewMessage);
     };
   }, [socket, profile?.id]);
 

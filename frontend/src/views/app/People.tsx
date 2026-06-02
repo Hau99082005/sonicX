@@ -106,7 +106,7 @@ const People = ({ navigation }: any) => {
   };
 
   const renderFriendItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.friendItem} onPress={() => goToChat(item)}>
+    <TouchableOpacity style={styles.friendItem} onPress={() => navigation.navigate('UserProfile', { userId: item._id, user: item })}>
       <View style={styles.avatarContainer}>
         <Image
           source={{ uri: getAvatarUrl(item.avatar, item.name) }}

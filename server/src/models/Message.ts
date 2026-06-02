@@ -64,6 +64,9 @@ const messageSchema = new Schema<MessageDocument>(
     },
     meta: {
       size: Number,
+      duration: String,
+      callType: String,
+      missed: Boolean,
     },
     media: [
       {

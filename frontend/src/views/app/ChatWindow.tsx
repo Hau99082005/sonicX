@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Linking,
   Animated,
   Pressable,
   PermissionsAndroid,
@@ -18,18 +17,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { getMessages, sendMessage } from '../../api/chat';
 import { getBlockStatus, unblockUser } from '../../api/friendship';
 import client from '../../api/client';
 import { fetchEmojiList } from '../../api/emoji';
 import { fetchGifs } from '../../api/gif';
 import moment from 'moment';
-import Markdown from 'react-native-markdown-display';
-import SyntaxHighlighter from 'react-native-syntax-highlighter';
-import { tomorrowNight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import Toast from 'react-native-toast-message';
 import { getAvatarUrl } from '../../utils/helper';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import MessageBubble from '../../components/MessageBubble';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -61,6 +59,7 @@ const ChatWindow = ({ route, navigation }: any) => {
   const [likeScale] = useState(new Animated.Value(1));
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<any>(null);
+  const [replyTo, setReplyTo] = useState<any>(null);
 
   const emojiCategoryOptions = [
     { key: 'people', title: 'Người', icon: '😀' },
@@ -389,6 +388,28 @@ const ChatWindow = ({ route, navigation }: any) => {
         }
       });
 
+      socket.on('reaction-updated', ({ messageId, reactions }: any) => {
+        setMessages(prev =>
+          prev.map(m => m._id === messageId ? { ...m, reactions } : m),
+        );
+      });
+
+      socket.on('message-updated', ({ messageId, message, isEdited }: any) => {
+        setMessages(prev =>
+          prev.map(m => m._id === messageId ? { ...m, message, isEdited } : m),
+        );
+      });
+
+      socket.on('message-deleted', ({ messageId }: any) => {
+        setMessages(prev =>
+          prev.map(m =>
+            m._id === messageId
+              ? { ...m, isDeleted: true, message: 'Tin nhắn đã bị thu hồi', media: [] }
+              : m,
+          ),
+        );
+      });
+
       return () => {
         socket.emit('leave-conversation', currentConversationId);
         socket.off('typing-status');
@@ -396,6 +417,9 @@ const ChatWindow = ({ route, navigation }: any) => {
         socket.off('nickname-updated');
         socket.off('user-blocked');
         socket.off('user-unblocked');
+        socket.off('reaction-updated');
+        socket.off('message-updated');
+        socket.off('message-deleted');
       };
     }
   }, [socket, currentConversationId, otherMember]);
@@ -493,11 +517,13 @@ const ChatWindow = ({ route, navigation }: any) => {
         message: type === 'like' ? '👍' : messageText,
         type: type,
         meta: meta,
+        replyTo: replyTo?._id,
       };
 
       const newMsg = await sendMessage(messageData);
       setMessages(prev => [...prev, newMsg]);
       if (!customMessage) setInput('');
+      setReplyTo(null);
 
       // Close pickers after sending
       setShowEmojiPicker(false);
@@ -520,6 +546,28 @@ const ChatWindow = ({ route, navigation }: any) => {
 
   const handleEmojiSelect = (emoji: string) => {
     setInput(prev => prev + emoji);
+  };
+
+  const handleReact = async (messageId: string, emoji: string) => {
+    try {
+      await client.patch(`/message/react/${messageId}`, { emoji });
+    } catch {}
+  };
+
+  const handleEdit = async (item: any) => {
+    try {
+      await client.patch(`/message/${item._id}`, { message: item.message });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Không thể chỉnh sửa tin nhắn' });
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    try {
+      await client.delete(`/message/${messageId}`);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Không thể thu hồi tin nhắn' });
+    }
   };
 
   const handleLikePressIn = () => {
@@ -559,209 +607,26 @@ const ChatWindow = ({ route, navigation }: any) => {
     emojiCategories[0] ||
     null;
 
-  const renderMessage = ({ item }: any) => {
-    const isSelf = item.sender._id === profile?.id;
-    const isCode = item.type === 'code';
-    const isMarkdown = item.type === 'markdown';
-    const isSticker = item.type === 'sticker';
-    const isGif = item.type === 'gif';
-    const isLike = item.type === 'like';
-    const isAudio = item.type === 'audio';
-    const isMissedCall = item.meta?.missed;
-
+  const renderMessage = ({ item, index }: any) => {
+    const prevItem = index > 0 ? messages[index - 1] : undefined;
+    const nextItem = index < messages.length - 1 ? messages[index + 1] : undefined;
     return (
-      <View
-        style={[
-          styles.messageWrapper,
-          isSelf ? styles.selfWrapper : styles.otherWrapper,
-        ]}
-      >
-        {!isSelf && (
-          <Image
-            source={{
-              uri: getAvatarUrl(
-                item.sender.avatar,
-                item.sender.nickname ||
-                  item.sender.name ||
-                  item.sender.username,
-              ),
-            }}
-            style={styles.miniAvatar}
-          />
-        )}
-        <View
-          style={[
-            styles.bubble,
-            {
-              backgroundColor:
-                isSticker || isGif || isLike || isAudio
-                  ? 'transparent'
-                  : isMissedCall
-                  ? 'transparent'
-                  : isSelf
-                  ? theme.bubbleSelf
-                  : theme.bubbleOther,
-            },
-            isSelf ? styles.selfBubble : styles.otherBubble,
-            (isCode || isMarkdown) && { maxWidth: '100%', padding: 10 },
-          ]}
-        >
-          {isCode ? (
-            <SyntaxHighlighter
-              language="javascript"
-              style={tomorrowNight}
-              customStyle={{ borderRadius: 8, padding: 10 }}
-            >
-              {item.message.replace(/```/g, '')}
-            </SyntaxHighlighter>
-          ) : isMarkdown ? (
-            <Markdown
-              style={{
-                body: { color: isSelf ? theme.textSelf : theme.textOther },
-                link: { color: theme.primary },
-              }}
-            >
-              {item.message}
-            </Markdown>
-          ) : isSticker || isGif ? (
-            <Image
-              source={{ uri: item.message }}
-              style={isSticker ? styles.stickerImage : styles.gifImage}
-            />
-          ) : isLike ? (
-            <View
-              style={{
-                transform: [{ scale: item.meta?.size || 1 }],
-                padding: 10,
-              }}
-            >
-              <FontAwesome5
-                name="thumbs-up"
-                size={30}
-                color={theme.primary}
-                {...({ solid: true } as any)}
-              />
-            </View>
-          ) : isAudio ? (
-            <TouchableOpacity
-              onPress={() => {
-                if (isPlaying === item.media[0].url) {
-                  onStopPlay();
-                } else {
-                  onStartPlay(item.media[0].url);
-                }
-              }}
-              style={[
-                styles.audioBubble,
-                { backgroundColor: isSelf ? theme.primary : theme.surface },
-              ]}
-            >
-              <FontAwesome5
-                name={(isPlaying === item.media[0].url ? 'stop' : 'play') as any}
-                size={16}
-                color={isSelf ? '#fff' : theme.primary}
-                {...({ solid: true } as any)}
-              />
-              <View style={styles.audioWaveform}>
-                <View
-                  style={[
-                    styles.audioProgress,
-                    {
-                      width:
-                        isPlaying === item.media[0].url &&
-                        playBackState.duration > 0
-                          ? `${
-                              (playBackState.currentPosition /
-                                playBackState.duration) *
-                              100
-                            }%`
-                          : '0%',
-                      backgroundColor: isSelf
-                        ? 'rgba(255,255,255,0.5)'
-                        : 'rgba(0,0,0,0.1)',
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.audioDuration,
-                  { color: isSelf ? '#fff' : theme.textSecondary },
-                ]}
-              >
-                {item.meta?.duration || '0:00'}
-              </Text>
-            </TouchableOpacity>
-          ) : isMissedCall ? (
-            <View
-              style={[
-                styles.zaloMissedCallContainer,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              <Text style={[styles.zaloMissedCallTitle, { color: theme.text }]}>
-                {isSelf ? 'Bạn đã hủy' : 'Cuộc gọi nhỡ'}
-              </Text>
-              <View style={styles.zaloMissedCallRow}>
-                <View style={styles.zaloIconWrapper}>
-                  <FontAwesome5
-                    name={
-                      item.meta?.callType === 'video' ? 'video' : 'phone-alt'
-                    }
-                    size={16}
-                    color={theme.textSecondary}
-                  />
-                  <View style={styles.zaloArrowWrapper}>
-                    <FontAwesome5
-                      name="arrow-up"
-                      size={8}
-                      color="#FF3B30"
-                      style={{ transform: [{ rotate: '45deg' }] }}
-                    />
-                  </View>
-                </View>
-                <Text
-                  style={[styles.zaloMissedCallType, { color: theme.textSecondary }]}
-                >
-                  {item.meta?.callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}
-                </Text>
-              </View>
-              <View
-                style={[styles.zaloDivider, { backgroundColor: theme.border }]}
-              />
-              <TouchableOpacity
-                style={styles.zaloCallAgainBtn}
-                onPress={() =>
-                  navigation.navigate(
-                    item.meta?.callType === 'video' ? 'VideoCall' : 'VoiceCall',
-                    {
-                      otherMember: isSelf
-                        ? conversation.members.find(
-                            (m: any) => m.user._id !== profile?.id,
-                          )?.user
-                        : item.sender,
-                      conversation,
-                    },
-                  )
-                }
-              >
-                <Text style={[styles.zaloCallAgainText, { color: theme.primary }]}>
-                  Gọi lại
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text
-              style={{
-                color: isSelf ? theme.textSelf : theme.textOther,
-                fontSize: 16,
-              }}
-            >
-              {item.message}
-            </Text>
-          )}
-        </View>
-      </View>
+      <MessageBubble
+        item={item}
+        prevItem={prevItem}
+        nextItem={nextItem}
+        isGroupConversation={isGroupConversation}
+        isPlaying={isPlaying}
+        playBackState={playBackState}
+        onStartPlay={onStartPlay}
+        onStopPlay={onStopPlay}
+        onReact={handleReact}
+        onReply={setReplyTo}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        navigation={navigation}
+        conversation={conversation}
+      />
     );
   };
 
@@ -888,10 +753,11 @@ const ChatWindow = ({ route, navigation }: any) => {
         ListFooterComponent={
           remoteTyping ? (
             <View style={styles.typingContainer}>
-              <Text style={[styles.typingText, { color: theme.textSecondary }]}>
-                {(otherNickname || otherMember?.name || 'Ai đó') +
-                  ' đang soạn tin nhắn...'}
-              </Text>
+              <View style={[styles.typingBubble, { backgroundColor: theme.bubbleOther }]}>
+                <Text style={[styles.typingText, { color: theme.textOther }]}>
+                  {(otherNickname || otherMember?.name || 'Ai đó') + ' đang soạn...'}
+                </Text>
+              </View>
             </View>
           ) : null
         }
@@ -987,6 +853,23 @@ const ChatWindow = ({ route, navigation }: any) => {
               </TouchableOpacity>
             )}
           />
+        </View>
+      )}
+
+      {replyTo && !isBlocked && (
+        <View style={[styles.replyBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+          <View style={[styles.replyBarAccent, { backgroundColor: theme.primary }]} />
+          <View style={styles.replyBarContent}>
+            <Text style={[styles.replyBarName, { color: theme.primary }]}>
+              {replyTo.sender?.name || replyTo.sender?.username || 'Tin nhắn'}
+            </Text>
+            <Text style={[styles.replyBarText, { color: theme.textSecondary }]} numberOfLines={1}>
+              {replyTo.isDeleted ? 'Tin nhắn đã bị thu hồi' : replyTo.message || ''}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyTo(null)} style={styles.replyBarClose}>
+            <MaterialIcons name="close" size={18} color={theme.textSecondary} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1141,16 +1024,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     paddingTop: 50,
   },
-  headerAvatarContainer: {
-    position: 'relative',
-    marginLeft: 15,
-    marginRight: 10,
-  },
-  headerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
+  headerAvatarContainer: { position: 'relative', marginLeft: 15, marginRight: 10 },
+  headerAvatar: { width: 36, height: 36, borderRadius: 18 },
   headerOnlineIndicator: {
     position: 'absolute',
     right: -2,
@@ -1165,25 +1040,35 @@ const styles = StyleSheet.create({
   headerStatus: { fontSize: 12 },
   headerIcons: { flexDirection: 'row' },
   iconBtn: { marginLeft: 15 },
-  messageList: { padding: 16 },
-  messageWrapper: { flexDirection: 'row', marginBottom: 8, maxWidth: '80%' },
-  selfWrapper: { alignSelf: 'flex-end' },
-  otherWrapper: { alignSelf: 'flex-start' },
-  miniAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 8,
-    alignSelf: 'flex-end',
+  messageList: { paddingHorizontal: 0, paddingVertical: 12 },
+  typingContainer: { paddingVertical: 6, paddingLeft: 50 },
+  typingBubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    alignSelf: 'flex-start',
   },
-  bubble: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
-  selfBubble: { borderBottomRightRadius: 4 },
-  otherBubble: { borderBottomLeftRadius: 4 },
+  typingText: { fontSize: 13, fontStyle: 'italic' },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    gap: 10,
+  },
+  replyBarAccent: { width: 3, height: 36, borderRadius: 2 },
+  replyBarContent: { flex: 1 },
+  replyBarName: { fontSize: 12, fontWeight: '700', marginBottom: 2 },
+  replyBarText: { fontSize: 12 },
+  replyBarClose: { padding: 4 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    paddingBottom: 30,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    borderTopWidth: 0.5,
   },
   blockedBanner: {
     flex: 1,
@@ -1194,101 +1079,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     margin: 8,
-    marginBottom: 30,
+    marginBottom: 10,
   },
-  blockedBannerText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  disabledIcon: {
-    opacity: 0.35,
-  },
+  blockedBannerText: { fontSize: 14, flex: 1 },
+  disabledIcon: { opacity: 0.35 },
   inputIcon: { padding: 8 },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 22,
     paddingHorizontal: 12,
-    minHeight: 36,
+    minHeight: 38,
     maxHeight: 100,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    padding: 5,
-    paddingTop: 5,
-  },
-  typingContainer: { paddingVertical: 5, paddingLeft: 40 },
-  typingText: { fontSize: 12, fontStyle: 'italic' },
-  stickerImage: { width: 120, height: 120, borderRadius: 10 },
-  gifImage: { width: 180, height: 120, borderRadius: 10 },
-  audioBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 20,
-    width: 200,
-  },
-  audioWaveform: {
-    flex: 1,
-    height: 4,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginHorizontal: 10,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  audioProgress: {
-    height: '100%',
-  },
-  audioDuration: {
-    fontSize: 12,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  zaloMissedCallContainer: {
-    width: 220,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  zaloMissedCallTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  zaloMissedCallRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  zaloIconWrapper: {
-    position: 'relative',
-    marginRight: 10,
-  },
-  zaloArrowWrapper: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-  },
-  zaloMissedCallType: {
-    fontSize: 15,
-  },
-  zaloDivider: {
-    height: 0.5,
-    width: '100%',
-    marginBottom: 10,
-  },
-  zaloCallAgainBtn: {
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  zaloCallAgainText: {
-    fontSize: 16,
-    fontWeight: '700',
+    paddingVertical: 5,
   },
   pickerContainer: {
     height: 250,
@@ -1308,28 +1116,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryTabText: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  emojiBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-  },
+  categoryTabText: { fontSize: 18, lineHeight: 22 },
+  emojiBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 10 },
   emojiText: { fontSize: 24 },
-  stickerBtn: {
-    flex: 1,
-    padding: 5,
-    alignItems: 'center',
-  },
+  stickerBtn: { flex: 1, padding: 5, alignItems: 'center' },
   pickerSticker: { width: 100, height: 100, borderRadius: 10 },
-  gifBtn: {
-    flex: 1,
-    padding: 5,
-    alignItems: 'center',
-  },
+  gifBtn: { flex: 1, padding: 5, alignItems: 'center' },
   pickerGif: { width: '100%', height: 120, borderRadius: 10 },
 });
 

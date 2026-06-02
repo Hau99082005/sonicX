@@ -2,6 +2,8 @@ import { RequestHandler } from "express";
 import Message from "#/models/Message";
 import Friendship from "#/models/Friendship";
 import Conversation from "#/models/Conversation";
+import Notification from "#/models/Notification";
+import UserSettings from "#/models/UserSettings";
 import { isValidObjectId } from "mongoose";
 import formidable from "formidable";
 import cloudinary from "#/cloud";
@@ -110,6 +112,48 @@ export const sendMessage: RequestHandler = async (req, res) => {
   const io = req.app.get("io");
   io.to(conversationId).emit("new-message", { message: populatedMessage });
 
+  const recipients = conversation.members.filter(
+    (m: any) => m.user.toString() !== senderId.toString() && !m.is_muted,
+  );
+
+  for (const member of recipients) {
+    const recipientId = member.user.toString();
+
+    const recipientSettings = await UserSettings.findOne({ user: recipientId });
+    const notificationsEnabled =
+      !recipientSettings || recipientSettings.notifications.enabled;
+    const messagesEnabled =
+      !recipientSettings || recipientSettings.notifications.messages;
+
+    if (!notificationsEnabled || !messagesEnabled) continue;
+
+    const senderName =
+      (populatedMessage.sender as any)?.name ||
+      (populatedMessage.sender as any)?.username ||
+      "Ai đó";
+
+    const preview =
+      recipientSettings?.notifications.preview !== false
+        ? (newMessage.message?.slice(0, 60) ?? "Đã gửi một tệp")
+        : "Tin nhắn mới";
+
+    const notif = await Notification.create({
+      user: recipientId,
+      sender: senderId,
+      type: "message",
+      content: `${senderName}: ${preview}`,
+      conversationId,
+    });
+
+    const populated = await notif.populate("sender", "name username avatar");
+
+    io.to(recipientId).emit("notification", {
+      notification: populated,
+      sound: recipientSettings?.notifications.sound !== false,
+      vibration: recipientSettings?.notifications.vibration !== false,
+    });
+  }
+
   res.status(201).json({ message: populatedMessage });
 };
 
@@ -187,7 +231,11 @@ export const addReaction: RequestHandler = async (req, res) => {
     (r) => r.user.toString() === userId,
   );
   if (reactionIndex > -1) {
-    message.reactions[reactionIndex].emoji = emoji;
+    if (message.reactions[reactionIndex].emoji === emoji) {
+      message.reactions.splice(reactionIndex, 1);
+    } else {
+      message.reactions[reactionIndex].emoji = emoji;
+    }
   } else {
     message.reactions.push({
       user: userId as any,
@@ -197,7 +245,16 @@ export const addReaction: RequestHandler = async (req, res) => {
   }
 
   await message.save();
-  res.status(200).json({ message: "Reaction added" });
+
+  const io = req.app.get("io");
+  if (io) {
+    io.to(message.conversation.toString()).emit("reaction-updated", {
+      messageId,
+      reactions: message.reactions,
+    });
+  }
+
+  res.status(200).json({ message: "Reaction updated", reactions: message.reactions });
 };
 
 export const updateMessage: RequestHandler = async (req, res) => {
@@ -219,6 +276,15 @@ export const updateMessage: RequestHandler = async (req, res) => {
       .status(404)
       .json({ error: "Message not found or unauthorized!" });
 
+  const io = req.app.get("io");
+  if (io) {
+    io.to(updatedMessage.conversation.toString()).emit("message-updated", {
+      messageId: id,
+      message: updatedMessage.message,
+      isEdited: true,
+    });
+  }
+
   res.status(200).json({ message: updatedMessage });
 };
 
@@ -236,6 +302,8 @@ export const deleteMessage: RequestHandler = async (req, res) => {
       .status(404)
       .json({ error: "Message not found or unauthorized!" });
 
+  const conversationId = message.conversation.toString();
+
   if (message.media && message.media.length > 0) {
     for (const item of message.media) {
       if (item.public_id) {
@@ -247,7 +315,15 @@ export const deleteMessage: RequestHandler = async (req, res) => {
     }
   }
 
-  await Message.findByIdAndDelete(id);
+  message.isDeleted = true;
+  message.message = "Tin nhắn đã bị thu hồi";
+  message.media = [];
+  await message.save();
+
+  const io = req.app.get("io");
+  if (io) {
+    io.to(conversationId).emit("message-deleted", { messageId: id });
+  }
 
   res.status(200).json({ message: "Message deleted!" });
 };

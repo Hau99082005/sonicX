@@ -5,6 +5,7 @@ export interface NotificationDocument extends Document {
   sender?: Types.ObjectId;
   type: "message" | "call" | "friend_request" | "group_invite";
   content: string;
+  conversationId?: string;
   isRead: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +30,9 @@ const notificationSchema = new Schema<NotificationDocument>(
     content: {
       type: String,
       required: true,
+    },
+    conversationId: {
+      type: String,
     },
     isRead: {
       type: Boolean,

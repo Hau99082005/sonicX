@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Toast from 'react-native-toast-message';
 import client from '../../api/client';
@@ -23,6 +24,7 @@ import { useFocusEffect } from '@react-navigation/native';
 const Profile = ({ navigation }: any) => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { profile, signOut, fetchProfile } = useAuth();
+  const { unreadCount } = useNotifications();
   const [passwordModal, setPasswordModal] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -121,6 +123,7 @@ const Profile = ({ navigation }: any) => {
     icon,
     label,
     value,
+    badge,
     color,
     onPress,
     type = 'link',
@@ -147,11 +150,14 @@ const Profile = ({ navigation }: any) => {
         )}
       </View>
       {type === 'link' && (
-        <FontAwesome5
-          name="chevron-right"
-          size={12}
-          color={theme.textSecondary}
-        />
+        <View style={styles.menuRight}>
+          {badge > 0 && (
+            <View style={[styles.menuBadge, { backgroundColor: '#FF4D4F' }]}>
+              <Text style={styles.menuBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+            </View>
+          )}
+          <FontAwesome5 name="chevron-right" size={12} color={theme.textSecondary} />
+        </View>
       )}
       {type === 'switch' && (
         <Switch value={isDark} onValueChange={toggleTheme} />
@@ -228,7 +234,13 @@ const Profile = ({ navigation }: any) => {
       </View>
 
       <View style={styles.section}>
-        <MenuItem icon="bell" label="Thông báo & âm thanh" color="#7C3AED" />
+        <MenuItem
+          icon="bell"
+          label="Thông báo & âm thanh"
+          color="#7C3AED"
+          badge={unreadCount}
+          onPress={() => navigation.navigate('NotificationSettings')}
+        />
         <MenuItem
           icon="users"
           label="Danh bạ"
@@ -434,6 +446,16 @@ const styles = StyleSheet.create({
   menuContent: { flex: 1 },
   menuLabel: { fontSize: 16, fontWeight: '600' },
   menuValue: { fontSize: 14, marginTop: 2 },
+  menuRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  menuBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   logoutBtn: {
     marginHorizontal: 16,
     height: 56,

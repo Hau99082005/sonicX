@@ -280,7 +280,9 @@ const ConversationInfo = ({ route, navigation }: any) => {
               <Text style={[styles.actionLabel, { color: theme.text }]}>Video</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}
+              onPress={() => navigation.navigate('UserProfile', { userId: friendId, user: otherMember })}
+            >
               <View style={[styles.actionIcon, { backgroundColor: theme.background }]}>
                 <FontAwesome5 name={'user' as any} size={18} color={theme.primary} />
               </View>

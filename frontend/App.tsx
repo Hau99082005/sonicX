@@ -8,6 +8,9 @@ import ChatWindow from './src/views/app/ChatWindow';
 import ConversationInfo from './src/views/app/ConversationInfo';
 import CreateGroup from './src/views/app/CreateGroup';
 import Search from './src/views/app/Search';
+import Notifications from './src/views/app/Notifications';
+import NotificationSettings from './src/views/app/NotificationSettings';
+import UserProfile from './src/views/app/UserProfile';
 import VoiceCallScreen from './src/views/app/VoiceCallScreen';
 import VideoCallScreen from './src/views/app/VideoCallScreen';
 import IncomingCallScreen from './src/views/app/IncomingCallScreen';
@@ -21,6 +24,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SocketProvider, useSocket } from './src/context/SocketContext';
+import { NotificationProvider } from './src/context/NotificationContext';
+import NotificationBanner from './src/components/NotificationBanner';
 import { navigationRef } from './src/navigation/navigationRef';
 import { Video } from 'react-native-video';
 
@@ -222,6 +227,21 @@ const AppContent = () => {
               component={Search}
               options={{ animation: 'fade' }}
             />
+            <Stack.Screen
+              name="Notifications"
+              component={Notifications}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettings}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="UserProfile"
+              component={UserProfile}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen
@@ -244,6 +264,7 @@ const AppContent = () => {
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
       </Stack.Navigator>
+      <NotificationBanner />
     </NavigationContainer>
   );
 };
@@ -271,8 +292,10 @@ const App = () => {
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
-            <GlobalCallSound />
-            <AppContent />
+            <NotificationProvider>
+              <GlobalCallSound />
+              <AppContent />
+            </NotificationProvider>
           </SocketProvider>
         </AuthProvider>
       </ThemeProvider>
