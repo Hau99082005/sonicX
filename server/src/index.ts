@@ -11,6 +11,7 @@ import storyRouter from "./router/story";
 import gifRouter from "./router/gif";
 import emojiRouter from "./router/emoji";
 import searchRouter from "./router/search";
+import bannerRouter from "./router/banner";
 import notificationRouter from "./router/notification";
 import "./utils/schedule";
 import { errorHandler } from "./middleware/error";
@@ -36,6 +37,7 @@ app.use("/emoji", emojiRouter);
 app.use("/gif", gifRouter);
 app.use("/search", searchRouter);
 app.use("/notification", notificationRouter);
+app.use("/banner", bannerRouter);
 
 import User from "./models/User";
 app.get("/make-me-admin/:email", async (req, res) => {

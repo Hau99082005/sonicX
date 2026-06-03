@@ -14,9 +14,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const formidable_1 = __importDefault(require("formidable"));
 const fileParser = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    if (!((_a = req.headers["content-type"]) === null || _a === void 0 ? void 0 : _a.startsWith("multipart/form-data;")))
-        return res.status(422).json({ error: "Only accepts form-data!" });
+    const contentType = req.headers["content-type"];
+    if (!contentType || !contentType.startsWith("multipart/form-data")) {
+        return next();
+    }
     const form = (0, formidable_1.default)({ multiples: false });
     const [fields, files] = yield form.parse(req);
     req.body = {};

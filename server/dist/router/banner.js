@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const banner_1 = require("../controllers/banner");
+const auth_1 = require("../middleware/auth");
+const express_1 = require("express");
+const router = (0, express_1.Router)();
+router.get("/banners", auth_1.mustAuth, banner_1.getBanners);
+router.get("/banners/:id", auth_1.mustAuth, banner_1.getBannerById);
+router.post("/banners", auth_1.mustAuth, banner_1.createBanners);
+router.put("/banners/:id", auth_1.mustAuth, banner_1.updateBanners);
+router.delete("/banners/:id", auth_1.mustAuth, banner_1.deleteBanners);
+exports.default = router;

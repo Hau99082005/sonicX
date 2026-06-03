@@ -3,12 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const auth_1 = require("../middleware/auth");
 const express_1 = require("express");
-const user_1 = require("../controllers/user");
+const auth_1 = require("../middleware/auth");
+const story_1 = require("../controllers/story");
 const fileParser_1 = __importDefault(require("../middleware/fileParser"));
 const router = (0, express_1.Router)();
-router.get("/is-auth", auth_1.mustAuth, user_1.sendProfile);
-router.patch("/update", auth_1.mustAuth, fileParser_1.default, user_1.updateProfile);
-router.get("/info/:userId", auth_1.isAuth, user_1.getUser);
+router.post("/create", auth_1.mustAuth, fileParser_1.default, story_1.createStory);
+router.get("/all", auth_1.mustAuth, story_1.getStories);
+router.delete("/:id", auth_1.mustAuth, story_1.deleteStory);
 exports.default = router;

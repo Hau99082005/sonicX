@@ -32,7 +32,9 @@ router.get("/private", auth_1.mustAuth, (req, res) => {
         message: "You are in private route!",
     });
 });
-router.post("/update-profile", auth_1.mustAuth, fileParser_1.default, user_1.updateProfile);
+router.patch("/update-profile", auth_1.mustAuth, fileParser_1.default, user_1.updateProfile);
+router.patch("/update-password-auth", auth_1.mustAuth, user_1.updatePassword);
 router.post("/log-out", auth_1.mustAuth, user_1.logOut);
 router.get("/user", auth_1.mustAuth, user_1.getUser);
+router.delete("/delete-account", auth_1.mustAuth, user_1.deleteAccount);
 exports.default = router;

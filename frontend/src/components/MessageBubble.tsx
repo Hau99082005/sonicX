@@ -66,9 +66,7 @@ const MessageBubble: React.FC<Props> = ({
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [showActions, setShowActions] = useState(false);
-  const [showReactions, setShowReactions] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editText, setEditText] = useState(item.message || '');
   const [localEditText, setLocalEditText] = useState(item.message || '');
 
   const prevSameUser = prevItem && prevItem.sender?._id === item.sender?._id;
@@ -85,6 +83,7 @@ const MessageBubble: React.FC<Props> = ({
   const isGif = item.type === 'gif';
   const isLike = item.type === 'like';
   const isAudio = item.type === 'audio';
+  const isImage = item.type === 'image';
   const isMissedCall = item.meta?.missed;
   const hasReactions = item.reactions && item.reactions.length > 0;
   const hasReplyTo = item.replyTo && typeof item.replyTo === 'object';
@@ -104,13 +103,13 @@ const MessageBubble: React.FC<Props> = ({
 
   const handleLongPress = () => {
     Animated.sequence([
-      Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true, tension: 200 }),
-      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 200 }),
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 80, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
     setShowActions(true);
   };
 
-  const isTransparentBubble = isSticker || isGif || isLike || isAudio || isMissedCall;
+  const isTransparentBubble = isSticker || isGif || isLike || isAudio || isMissedCall || isImage;
 
   const bubbleBg = isTransparentBubble
     ? 'transparent'
@@ -178,6 +177,20 @@ const MessageBubble: React.FC<Props> = ({
         <View style={{ transform: [{ scale: item.meta?.size || 1 }], padding: 6 }}>
           <Text style={{ fontSize: 32 }}>👍</Text>
         </View>
+      );
+    }
+
+    if (isImage) {
+      const imageUrl = item.media?.[0]?.url;
+      if (!imageUrl) return null;
+      return (
+        <TouchableOpacity activeOpacity={0.9} style={styles.imageBubble}>
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.imageMsg}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
       );
     }
 
@@ -378,7 +391,7 @@ const MessageBubble: React.FC<Props> = ({
         <TouchableOpacity
           style={styles.actionsOverlay}
           activeOpacity={1}
-          onPress={() => { setShowActions(false); setShowReactions(false); }}
+          onPress={() => { setShowActions(false); }}
         >
           <View style={[styles.actionsCard, { backgroundColor: theme.surface }]}>
             {!isDeleted && (
@@ -413,7 +426,6 @@ const MessageBubble: React.FC<Props> = ({
               <TouchableOpacity
                 style={[styles.actionRow, { borderBottomColor: theme.border }]}
                 onPress={() => {
-                  setEditText(item.message || '');
                   setLocalEditText(item.message || '');
                   setShowActions(false);
                   setEditMode(true);
@@ -524,6 +536,8 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 16, lineHeight: 22 },
   stickerImg: { width: 120, height: 120 },
   gifImg: { width: 180, height: 120, borderRadius: 8 },
+  imageBubble: { borderRadius: 14, overflow: 'hidden' },
+  imageMsg: { width: 220, height: 220, borderRadius: 14 },
   audioBubble: {
     flexDirection: 'row',
     alignItems: 'center',

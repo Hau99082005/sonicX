@@ -12,6 +12,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const bcryptjs_1 = require("bcryptjs");
 const mongoose_1 = require("mongoose");
 const userSchema = new mongoose_1.Schema({
+    firebase_uid: {
+        type: String,
+        unique: true,
+        sparse: true,
+    },
+    username: {
+        type: String,
+        required: true,
+        trim: true,
+        unique: true,
+    },
     name: {
         type: String,
         required: true,
@@ -25,7 +36,16 @@ const userSchema = new mongoose_1.Schema({
     },
     password: {
         type: String,
-        required: true,
+    },
+    google_id: {
+        type: String,
+        unique: true,
+        sparse: true,
+    },
+    login_type: {
+        type: String,
+        enum: ["email", "google"],
+        default: "email",
     },
     avatar: {
         type: {
@@ -34,9 +54,33 @@ const userSchema = new mongoose_1.Schema({
         },
         _id: false,
     },
+    cover_image: {
+        type: {
+            url: String,
+            publicId: String,
+        },
+        _id: false,
+    },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 500,
+    },
+    is_online: {
+        type: Boolean,
+        default: false,
+    },
+    last_seen: {
+        type: Date,
+    },
     verified: {
         type: Boolean,
         default: false,
+    },
+    role: {
+        type: String,
+        enum: ["user", "admin"],
+        default: "user",
     },
     phone: {
         type: String,
@@ -48,37 +92,24 @@ const userSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
-    favorites: [
-        {
-            type: mongoose_1.Schema.Types.ObjectId,
-            ref: "Audio",
-        },
-    ],
-    followers: [
-        {
-            type: mongoose_1.Schema.Types.ObjectId,
-            ref: "User",
-        },
-    ],
-    followings: [
-        {
-            type: mongoose_1.Schema.Types.ObjectId,
-            ref: "User",
-        },
-    ],
+    show_online_status: {
+        type: Boolean,
+        default: true,
+    },
     token: [String],
 }, { timestamps: true });
 userSchema.pre("save", function () {
     return __awaiter(this, void 0, void 0, function* () {
-        if (this.isModified("password")) {
+        if (this.isModified("password") && this.password) {
             this.password = yield (0, bcryptjs_1.hash)(this.password, 10);
         }
     });
 });
 userSchema.methods.comparePassword = function (password) {
     return __awaiter(this, void 0, void 0, function* () {
-        const result = yield (0, bcryptjs_1.compare)(password, this.password);
-        return result;
+        if (!this.password)
+            return false;
+        return yield (0, bcryptjs_1.compare)(password, this.password);
     });
 };
 exports.default = (0, mongoose_1.model)("User", userSchema);

@@ -12,13 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendRePhoneOTP = exports.verifyPhoneOTP = exports.sendPhoneOTP = exports.googleSignIn = exports.getUser = exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
+exports.sendRePhoneOTP = exports.verifyPhoneOTP = exports.sendPhoneOTP = exports.googleSignIn = exports.getUser = exports.deleteAccount = exports.logOut = exports.sendProfile = exports.updateProfile = exports.SignIn = exports.updatePassword = exports.grantValid = exports.generateForgotPasswordLink = exports.sendReVerificationToken = exports.verifyEmail = exports.create = void 0;
 const emailVerificationToken_1 = __importDefault(require("../models/emailVerificationToken"));
 const phoneVerificationToken_1 = __importDefault(require("../models/phoneVerificationToken"));
 const User_1 = __importDefault(require("../models/User"));
 const helper_1 = require("../utils/helper");
 const mail_1 = require("../utils/mail");
-const validationSchema_1 = require("../utils/validationSchema");
 const axios_1 = __importDefault(require("axios"));
 const mongoose_1 = require("mongoose");
 const passwordResetToken_1 = __importDefault(require("../models/passwordResetToken"));
@@ -26,33 +25,47 @@ const crypto_1 = __importDefault(require("crypto"));
 const variables_1 = require("../utils/variables");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const cloud_1 = __importDefault(require("../cloud"));
+const Message_1 = __importDefault(require("../models/Message"));
+const Story_1 = __importDefault(require("../models/Story"));
+const Friendship_1 = __importDefault(require("../models/Friendship"));
+const Conversation_1 = __importDefault(require("../models/Conversation"));
 const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, email, password } = req.body;
+        const { name, username, email, password } = req.body;
         const oldUser = yield User_1.default.findOne({
-            email,
+            $or: [{ email }, { username }],
         });
-        if (oldUser)
-            return res.status(403).json({ error: "Email is already in use!" });
-        validationSchema_1.CreateUserSchema.validate({ email, name, password });
+        if (oldUser) {
+            if (oldUser.email === email)
+                return res.status(403).json({ error: "Email is already in use!" });
+            if (oldUser.username === username)
+                return res.status(403).json({ error: "Username is already in use!" });
+        }
         const newUser = yield User_1.default.create({
             name,
+            username: username || email.split("@")[0],
             email,
             password,
         });
-        const token = (0, helper_1.generateToken)();
+        const verificationToken = (0, helper_1.generateToken)();
         yield emailVerificationToken_1.default.create({
             owner: newUser._id.toString(),
-            token,
+            token: verificationToken,
         });
-        (0, mail_1.sendVerificationMail)(token, {
+        (0, mail_1.sendVerificationMail)(verificationToken, {
             name,
             email,
             userId: newUser._id.toString(),
         }).catch((err) => console.error("[mail] sendVerificationMail failed:", err));
+        const token = jsonwebtoken_1.default.sign({
+            userId: newUser._id.toString(),
+        }, variables_1.JWT_SECRET);
+        newUser.token.push(token);
+        yield newUser.save();
         return res.status(201).json({
             message: "Tạo user thành công",
-            user: { id: newUser._id, name, email },
+            user: (0, helper_1.formatProfile)(newUser),
+            token,
         });
     }
     catch (error) {
@@ -135,10 +148,17 @@ const grantValid = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.grantValid = grantValid;
 const updatePassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { password, userId } = req.body;
-    const user = yield User_1.default.findById(userId);
+    var _a;
+    const { password, userId, oldPassword } = req.body;
+    const targetId = userId || ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id);
+    const user = yield User_1.default.findById(targetId);
     if (!user)
         return res.status(403).json({ error: "Unauthorized access!" });
+    if (oldPassword) {
+        const isMatched = yield user.comparePassword(oldPassword);
+        if (!isMatched)
+            return res.status(422).json({ error: "Mật khẩu cũ không chính xác!" });
+    }
     const matched = yield user.comparePassword(password);
     if (matched)
         return res
@@ -146,13 +166,13 @@ const updatePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             .json({ error: "The new password must be different!" });
     user.password = password;
     yield user.save();
-    yield passwordResetToken_1.default.findOneAndDelete({ owner: user._id.toString() });
+    if (userId)
+        yield passwordResetToken_1.default.findOneAndDelete({ owner: user._id.toString() });
     (0, mail_1.sendPasswordResetSuccessEmail)(user.name, user.email);
     res.status(200).json({ message: "Password updated successfully!" });
 });
 exports.updatePassword = updatePassword;
 const SignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     const { email, password } = req.body;
     const user = yield User_1.default.findOne({ email });
     if (!user)
@@ -166,35 +186,39 @@ const SignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     user.token.push(token);
     yield user.save();
     res.status(200).json({
-        profile: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            verified: user.verified,
-            avatar: (_a = user.avatar) === null || _a === void 0 ? void 0 : _a.url,
-            followers: user.followers.length,
-            following: user.followings.length,
-        },
+        profile: (0, helper_1.formatProfile)(user),
         token,
     });
 });
 exports.SignIn = SignIn;
 const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
-    const { name } = req.body;
+    var _a, _b, _c, _d;
+    const { name, bio, username, phone, show_online_status } = req.body;
     const avatar = (_a = req.files) === null || _a === void 0 ? void 0 : _a.avatar;
+    const coverImage = (_b = req.files) === null || _b === void 0 ? void 0 : _b.coverImage;
     const user = yield User_1.default.findById(req.user.id);
     if (!user)
         throw new Error("something went wrong, user not found!");
-    if (typeof name !== "string")
-        return res.status(422).json({ error: "Invalid name!" });
-    if (name.trim().length < 3)
-        return res
-            .status(422)
-            .json({ error: "Name must be at least 3 characters long!" });
-    user.name = name;
+    if (name)
+        user.name = name;
+    if (bio)
+        user.bio = bio;
+    if (show_online_status !== undefined)
+        user.show_online_status = show_online_status === 'true' || show_online_status === true;
+    if (username && username.toLowerCase() !== user.username.toLowerCase()) {
+        const existingUser = yield User_1.default.findOne({ username: username.toLowerCase() });
+        if (existingUser)
+            return res.status(422).json({ error: "Tên người dùng đã được sử dụng!" });
+        user.username = username.toLowerCase();
+    }
+    if (phone && phone !== user.phone) {
+        const existingPhone = yield User_1.default.findOne({ phone });
+        if (existingPhone)
+            return res.status(422).json({ error: "Số điện thoại đã được sử dụng!" });
+        user.phone = phone;
+    }
     if (avatar) {
-        if ((_b = user.avatar) === null || _b === void 0 ? void 0 : _b.publicId) {
+        if ((_c = user.avatar) === null || _c === void 0 ? void 0 : _c.publicId) {
             yield cloud_1.default.uploader.destroy(user.avatar.publicId);
         }
         const { secure_url, public_id } = yield cloud_1.default.uploader.upload(avatar.filepath, {
@@ -205,13 +229,27 @@ const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
         user.avatar = { url: secure_url, publicId: public_id };
     }
+    if (coverImage) {
+        if ((_d = user.cover_image) === null || _d === void 0 ? void 0 : _d.publicId) {
+            yield cloud_1.default.uploader.destroy(user.cover_image.publicId);
+        }
+        const { secure_url, public_id } = yield cloud_1.default.uploader.upload(coverImage.filepath, {
+            width: 1200,
+            height: 400,
+            crop: "fill",
+        });
+        user.cover_image = { url: secure_url, publicId: public_id };
+    }
     yield user.save();
     res.status(200).json({ profile: (0, helper_1.formatProfile)(user) });
 });
 exports.updateProfile = updateProfile;
-const sendProfile = (req, res) => {
-    res.status(200).json({ profile: req.user });
-};
+const sendProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const user = yield User_1.default.findByIdAndUpdate(req.user.id, { is_online: true }, { new: true });
+    if (!user)
+        return res.status(404).json({ error: "User not found!" });
+    res.status(200).json({ profile: (0, helper_1.formatProfile)(user) });
+});
 exports.sendProfile = sendProfile;
 const logOut = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { fromAll } = req.query;
@@ -227,18 +265,84 @@ const logOut = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     res.status(200).json({ success: true });
 });
 exports.logOut = logOut;
+const deleteAccount = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const userId = req.user.id;
+        const user = yield User_1.default.findById(userId);
+        if (user) {
+            if ((_a = user.avatar) === null || _a === void 0 ? void 0 : _a.publicId) {
+                yield cloud_1.default.uploader.destroy(user.avatar.publicId).catch(() => { });
+            }
+            if ((_b = user.cover_image) === null || _b === void 0 ? void 0 : _b.publicId) {
+                yield cloud_1.default.uploader.destroy(user.cover_image.publicId).catch(() => { });
+            }
+            yield Promise.all([
+                User_1.default.findByIdAndDelete(userId),
+                Message_1.default.deleteMany({ sender: userId }),
+                Story_1.default.deleteMany({ user: userId }),
+                Friendship_1.default.deleteMany({ $or: [{ requester: userId }, { receiver: userId }] }),
+                Conversation_1.default.updateMany({ "members.user": userId }, { $pull: { members: { user: userId } } }),
+                emailVerificationToken_1.default.deleteMany({ owner: userId }),
+                passwordResetToken_1.default.deleteMany({ owner: userId }),
+                phoneVerificationToken_1.default.deleteMany({ owner: userId }),
+            ]);
+        }
+        res.status(200).json({ message: "Account deleted successfully!" });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+exports.deleteAccount = deleteAccount;
 const getUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const user = yield User_1.default.find({}).sort({ createdAt: -1 });
-    if (user) {
-        return res.status(200).json({ user });
+    const { userId } = req.params;
+    const { query } = req.query;
+    if (userId && (0, mongoose_1.isValidObjectId)(userId)) {
+        const user = yield User_1.default.findById(userId);
+        if (!user)
+            return res.status(404).json({ error: "User not found!" });
+        return res.status(200).json({ profile: (0, helper_1.formatProfile)(user) });
     }
-    else {
-        return res.status(404).json({ message: "User not found!" });
+    if (query) {
+        const normalizedQuery = query
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+        const users = yield User_1.default.find({
+            $or: [
+                { name: { $regex: normalizedQuery, $options: "i" } },
+                { username: { $regex: normalizedQuery, $options: "i" } },
+                { email: { $regex: normalizedQuery, $options: "i" } },
+            ],
+            _id: { $ne: req.user.id },
+        }).limit(20);
+        const usersWithStatus = yield Promise.all(users.map((u) => __awaiter(void 0, void 0, void 0, function* () {
+            const friendship = yield Friendship_1.default.findOne({
+                $or: [
+                    { requester: req.user.id, receiver: u._id },
+                    { requester: u._id, receiver: req.user.id },
+                ],
+            });
+            return Object.assign(Object.assign({}, (0, helper_1.formatProfile)(u)), { friendshipStatus: friendship ? friendship.status : "none", isRequester: (friendship === null || friendship === void 0 ? void 0 : friendship.requester.toString()) === req.user.id.toString() });
+        })));
+        return res.status(200).json({ users: usersWithStatus });
     }
+    const users = yield User_1.default.find({ _id: { $ne: req.user.id } })
+        .sort({ createdAt: -1 })
+        .limit(20);
+    const usersWithStatus = yield Promise.all(users.map((u) => __awaiter(void 0, void 0, void 0, function* () {
+        const friendship = yield Friendship_1.default.findOne({
+            $or: [
+                { requester: req.user.id, receiver: u._id },
+                { requester: u._id, receiver: req.user.id },
+            ],
+        });
+        return Object.assign(Object.assign({}, (0, helper_1.formatProfile)(u)), { friendshipStatus: friendship ? friendship.status : "none", isRequester: (friendship === null || friendship === void 0 ? void 0 : friendship.requester.toString()) === req.user.id.toString() });
+    })));
+    return res.status(200).json({ users: usersWithStatus });
 });
 exports.getUser = getUser;
 const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     const { idToken } = req.body;
     if (!idToken)
         return res.status(422).json({ error: "idToken is required!" });
@@ -246,7 +350,9 @@ const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const response = yield axios_1.default.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
         const { email, name, picture, aud, email_verified } = response.data;
         if (!email) {
-            return res.status(422).json({ error: "Google account must have an email!" });
+            return res
+                .status(422)
+                .json({ error: "Google account must have an email!" });
         }
         const validAudiences = [
             "739589186628-rpv9rta58toreqlv3mls1jpms763668b.apps.googleusercontent.com",
@@ -261,6 +367,7 @@ const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             isNewUser = true;
             user = new User_1.default({
                 name: name || email.split("@")[0],
+                username: email.split("@")[0],
                 email,
                 password: crypto_1.default.randomBytes(32).toString("hex"),
                 verified: false,
@@ -284,15 +391,7 @@ const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         user.token.push(token);
         yield user.save();
         return res.status(200).json({
-            profile: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                verified: user.verified,
-                avatar: (_a = user.avatar) === null || _a === void 0 ? void 0 : _a.url,
-                followers: user.followers.length,
-                following: user.followings.length,
-            },
+            profile: (0, helper_1.formatProfile)(user),
             token,
             message: isNewUser
                 ? "Vui lòng kiểm tra email để xác thực tài khoản!"
@@ -332,7 +431,6 @@ const sendPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         let smsError;
         try {
             if (usingVerifyService) {
-                console.log(`[sendPhoneOTP] Using Twilio Verify service to send OTP to ${phone}`);
                 yield (0, mail_1.sendPhoneVerificationSMS)(undefined, phone);
             }
             else {
@@ -342,10 +440,8 @@ const sendPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                     token: otp,
                     phone,
                 });
-                console.log(`[sendPhoneOTP] Sending SMS to: ${phone}`);
                 yield (0, mail_1.sendPhoneVerificationSMS)(otp, phone);
             }
-            console.log(`[sendPhoneOTP] SMS send attempt completed for ${phone}`);
         }
         catch (smsErr) {
             console.error("[sendPhoneOTP] SMS sending failed:", smsErr);
@@ -360,7 +456,6 @@ const sendPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             });
             try {
                 yield (0, mail_1.sendPhoneVerificationOTP)(otp, phone, user.name, user.email);
-                console.log(`[sendPhoneOTP] Fallback email sent successfully to ${user.email}`);
             }
             catch (emailErr) {
                 console.error("[sendPhoneOTP] Fallback email sending also failed:", emailErr);
@@ -406,10 +501,6 @@ const verifyPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 const verificationCheck = yield (0, mail_1.verifyPhoneVerificationCode)(phone, token);
                 if (verificationCheck.status === "approved") {
                     isVerified = true;
-                    console.log(`[verifyPhoneOTP] Twilio Verify approved for ${phone}`);
-                }
-                else {
-                    console.warn(`[verifyPhoneOTP] Twilio Verify status=${verificationCheck.status}`);
                 }
             }
             catch (verifyErr) {
@@ -421,8 +512,6 @@ const verifyPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 owner: userId,
             });
             if (!verificationToken) {
-                console.warn(`[verifyPhoneOTP] Token not found for userId: ${userId}`);
-                console.warn(`[verifyPhoneOTP] Hint: Did you call /send-phone-otp first?`);
                 return res.status(403).json({
                     error: "Invalid token! (not found in DB)",
                     hint: "Make sure you called /auth/send-phone-otp first to generate an OTP",
@@ -430,13 +519,11 @@ const verifyPhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
             }
             const matched = yield verificationToken.compareToken(token);
             if (!matched) {
-                console.warn(`[verifyPhoneOTP] Token mismatch for userId: ${userId}`);
                 return res
                     .status(403)
                     .json({ error: "Invalid token! (token mismatch)" });
             }
             if (verificationToken.phone !== phone) {
-                console.warn(`[verifyPhoneOTP] Phone mismatch. DB: ${verificationToken.phone}, Received: ${phone}`);
                 return res.status(403).json({
                     error: "Invalid phone number!",
                     dbPhone: verificationToken.phone,
@@ -484,7 +571,6 @@ const sendRePhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
         let smsError;
         try {
             if (usingVerifyService) {
-                console.log(`[sendRePhoneOTP] Using Twilio Verify service to send OTP to ${phone}`);
                 yield (0, mail_1.sendPhoneVerificationSMS)(undefined, phone);
             }
             else {
@@ -496,7 +582,6 @@ const sendRePhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 });
                 yield (0, mail_1.sendPhoneVerificationSMS)(otp, phone);
             }
-            console.log(`[sendRePhoneOTP] SMS send attempt completed for ${phone}`);
         }
         catch (smsErr) {
             console.error("[sendRePhoneOTP] SMS sending failed:", smsErr);
@@ -510,7 +595,6 @@ const sendRePhoneOTP = (req, res) => __awaiter(void 0, void 0, void 0, function*
             });
             try {
                 yield (0, mail_1.sendPhoneVerificationOTP)(otp, phone, user.name, user.email);
-                console.log(`[sendRePhoneOTP] Fallback email sent successfully to ${user.email}`);
             }
             catch (emailErr) {
                 console.error("[sendRePhoneOTP] Fallback email sending also failed:", emailErr);

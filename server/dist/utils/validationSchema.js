@@ -33,10 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyPhoneOTPSchema = exports.SendPhoneOTPSchema = exports.updatedHistorySchema = exports.OldPlaylistValidationSchema = exports.PlaylistValidationSchema = exports.AudioValidationSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
+exports.VerifyPhoneOTPSchema = exports.SendPhoneOTPSchema = exports.SignInEmailValidationSchema = exports.updatedPasswordSchema = exports.TokenAndIDValidation = exports.CreateUserSchema = void 0;
 const yup = __importStar(require("yup"));
 const mongoose_1 = require("mongoose");
-const audio_category_1 = require("../models/audio_category");
 exports.CreateUserSchema = yup.object().shape({
     name: yup
         .string()
@@ -44,6 +43,12 @@ exports.CreateUserSchema = yup.object().shape({
         .required("Name is missing")
         .min(3, "Name is too short")
         .max(255, "Name is too long"),
+    username: yup
+        .string()
+        .trim()
+        .required("Username is missing")
+        .min(3, "Username is too short")
+        .max(50, "Username is too long"),
     email: yup
         .string()
         .trim()
@@ -97,54 +102,6 @@ exports.SignInEmailValidationSchema = yup.object().shape({
         .required("Email is missing")
         .email("Invalid email id!"),
     password: yup.string().trim().required("Password is missing"),
-});
-exports.AudioValidationSchema = yup.object().shape({
-    title: yup.string().required("Title is missing!"),
-    about: yup.string().optional(),
-    category: yup
-        .string()
-        .oneOf(audio_category_1.categories, "Invalid category!")
-        .required("Category is missing!"),
-});
-exports.PlaylistValidationSchema = yup.object().shape({
-    title: yup.string().required("Title is missing!"),
-    resId: yup.string().transform(function (value) {
-        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
-    }),
-    visibility: yup
-        .string()
-        .oneOf(["public", "private"], "Visibility must be public or private!")
-        .required("Visibility is missing!"),
-});
-exports.OldPlaylistValidationSchema = yup.object().shape({
-    title: yup.string().required("Title is missing"),
-    item: yup.string().transform(function (value) {
-        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
-    }),
-    id: yup.string().transform(function (value) {
-        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
-    }),
-    visibility: yup
-        .string()
-        .oneOf(["public", "private"], "Visibility must be public or private"),
-});
-exports.updatedHistorySchema = yup.object().shape({
-    audio: yup
-        .string()
-        .transform(function (value) {
-        return this.isType(value) && (0, mongoose_1.isValidObjectId)(value) ? value : "";
-    })
-        .required("Invalid Audio Id!"),
-    progress: yup.number().required("History progress is missing!"),
-    date: yup
-        .string()
-        .transform(function (value) {
-        const date = new Date(value);
-        if (date instanceof Date)
-            return value;
-        return "";
-    })
-        .required("Invalid Date!"),
 });
 exports.SendPhoneOTPSchema = yup.object().shape({
     userId: yup

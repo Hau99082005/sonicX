@@ -1,0 +1,25 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const conversation_1 = require("../controllers/conversation");
+const fileParser_1 = __importDefault(require("../middleware/fileParser"));
+const router = (0, express_1.Router)();
+router.post("/create", auth_1.mustAuth, fileParser_1.default, conversation_1.createConversation);
+router.get("/all", auth_1.mustAuth, conversation_1.getConversations);
+router.get("/:id", auth_1.mustAuth, conversation_1.getConversationById);
+router.patch("/:id", auth_1.mustAuth, fileParser_1.default, conversation_1.updateConversation);
+router.delete("/:id", auth_1.mustAuth, conversation_1.deleteConversation);
+router.post("/:id/member", auth_1.mustAuth, conversation_1.addMember);
+router.delete("/:id/member/:userId", auth_1.mustAuth, conversation_1.removeMember);
+router.post("/:id/promote", auth_1.mustAuth, conversation_1.promoteAdmin);
+router.post("/:id/demote", auth_1.mustAuth, conversation_1.demoteAdmin);
+router.post("/:id/ban", auth_1.mustAuth, conversation_1.banUser);
+router.post("/:id/unban", auth_1.mustAuth, conversation_1.unbanUser);
+router.post("/:id/mute", auth_1.mustAuth, conversation_1.toggleMute);
+router.post("/:id/leave", auth_1.mustAuth, conversation_1.leaveGroup);
+router.post("/:id/kick", auth_1.mustAuth, conversation_1.kickUser);
+exports.default = router;

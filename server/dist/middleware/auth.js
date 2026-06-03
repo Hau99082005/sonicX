@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isVerified = exports.isAuth = exports.mustAuth = exports.isValidPasswordResetToken = void 0;
+exports.isAdmin = exports.isVerified = exports.isAuth = exports.mustAuth = exports.isValidPasswordResetToken = void 0;
 const passwordResetToken_1 = __importDefault(require("../models/passwordResetToken"));
 const User_1 = __importDefault(require("../models/User"));
 const variables_1 = require("../utils/variables");
@@ -43,12 +43,17 @@ const mustAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function*
         return res.status(403).json({ error: "Unauthorized request!" });
     req.user = {
         id: user._id,
+        username: user.username,
         name: user.name,
         email: user.email,
         verified: user.verified,
+        role: user.role,
         avatar: (_b = user.avatar) === null || _b === void 0 ? void 0 : _b.url,
-        followers: user.followers.length,
-        following: user.followings.length
+        is_online: user.is_online,
+        last_seen: user.last_seen,
+        bio: user.bio,
+        phone: user.phone,
+        show_online_status: user.show_online_status,
     };
     req.token = token;
     next();
@@ -68,12 +73,17 @@ const isAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function* (
             return res.status(403).json({ error: "Unauthorized request!" });
         req.user = {
             id: user._id,
+            username: user.username,
             name: user.name,
             email: user.email,
             verified: user.verified,
+            role: user.role,
             avatar: (_b = user.avatar) === null || _b === void 0 ? void 0 : _b.url,
-            followers: user.followers.length,
-            following: user.followings.length
+            is_online: user.is_online,
+            last_seen: user.last_seen,
+            bio: user.bio,
+            phone: user.phone,
+            show_online_status: user.show_online_status,
         };
         req.token = token;
     }
@@ -87,3 +97,7 @@ const isVerified = (req, res, next) => {
     next();
 };
 exports.isVerified = isVerified;
+const isAdmin = (req, res, next) => {
+    next();
+};
+exports.isAdmin = isAdmin;
