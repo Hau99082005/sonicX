@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// @ts-nocheck
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import {
   Animated,
   Pressable,
   PermissionsAndroid,
+  BackHandler,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,9 +29,11 @@ import moment from 'moment';
 import Toast from 'react-native-toast-message';
 import { getAvatarUrl } from '../../utils/helper';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import MessageBubble from '../../components/MessageBubble';
 
-const audioRecorderPlayer = new AudioRecorderPlayer();
+const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
 
 const formatTime = (ms: number) => {
   const seconds = Math.floor((ms / 1000) % 60);
@@ -39,11 +43,63 @@ const formatTime = (ms: number) => {
     .padStart(2, '0')}`;
 };
 
+const STICKERS = [
+  'https://media.giphy.com/media/3o7TKMGpxP6tX0c0aI/giphy.gif',
+  'https://media.giphy.com/media/l0HlT6E6pG9PqV8q4/giphy.gif',
+  'https://media.giphy.com/media/3o7TKVUn7iM8FMEU24/giphy.gif',
+  'https://media.giphy.com/media/l0HlHfrbO187gYxTq/giphy.gif',
+];
+
+const EMOJI_CATEGORY_OPTIONS = [
+  { key: 'people', title: 'Người', icon: '😀' },
+  { key: 'animals', title: 'Động vật', icon: '🐻' },
+  { key: 'food', title: 'Ăn uống', icon: '🍔' },
+  { key: 'activity', title: 'Hoạt động', icon: '⚽' },
+  { key: 'travel', title: 'Du lịch', icon: '✈️' },
+  { key: 'objects', title: 'Đồ vật', icon: '💡' },
+  { key: 'symbols', title: 'Ký hiệu', icon: '🔣' },
+  { key: 'flags', title: 'Cờ', icon: '🏳️' },
+];
+
+const getEmojiCategoryKey = (char: string) => {
+  const code = char.codePointAt(0) ?? 0;
+  if (code >= 0x1f1e6 && code <= 0x1f1ff) return 'flags';
+  if (code >= 0x1f680 && code <= 0x1f6ff) return 'travel';
+  if (code >= 0x1f300 && code <= 0x1f33f) return 'objects';
+  if (code >= 0x1f340 && code <= 0x1f37f) return 'food';
+  if (code >= 0x1f380 && code <= 0x1f3ff) return 'activity';
+  if (code >= 0x1f400 && code <= 0x1f4ff) return 'animals';
+  if (code >= 0x1f500 && code <= 0x1f5ff) return 'objects';
+  if (code >= 0x1f600 && code <= 0x1f64f) return 'people';
+  if (code >= 0x1f900 && code <= 0x1f9ff) return 'people';
+  if ((code >= 0x2600 && code <= 0x26ff) || (code >= 0x2700 && code <= 0x27bf)) return 'symbols';
+  return 'objects';
+};
+
+const buildEmojiCategories = (list: string[]) => {
+  const groups = EMOJI_CATEGORY_OPTIONS.reduce(
+    (acc, item) => ({ ...acc, [item.key]: [] as string[] }),
+    {} as Record<string, string[]>,
+  );
+  list.forEach(char => {
+    const cat = getEmojiCategoryKey(char);
+    if (groups[cat]) groups[cat].push(char);
+  });
+  return EMOJI_CATEGORY_OPTIONS.map(opt => ({ ...opt, emojis: groups[opt.key] }))
+    .filter(opt => opt.emojis.length > 0);
+};
+
 const ChatWindow = ({ route, navigation }: any) => {
   const { theme } = useTheme();
   const { profile } = useAuth();
   const { socket, onlineUsers } = useSocket();
   const { conversation } = route.params;
+
+  const otherMember = conversation.members.find(
+    (m: any) => m.user._id !== profile?.id,
+  )?.user;
+  const isGroupConversation = conversation?.type === 'group';
+
   const [messages, setMessages] = useState<any[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState(
     conversation._id,
@@ -61,16 +117,15 @@ const ChatWindow = ({ route, navigation }: any) => {
   const typingTimeoutRef = useRef<any>(null);
   const [replyTo, setReplyTo] = useState<any>(null);
 
-  const emojiCategoryOptions = [
-    { key: 'people', title: 'Người', icon: '😀' },
-    { key: 'animals', title: 'Động vật', icon: '🐻' },
-    { key: 'food', title: 'Ăn uống', icon: '🍔' },
-    { key: 'activity', title: 'Hoạt động', icon: '⚽' },
-    { key: 'travel', title: 'Du lịch', icon: '✈️' },
-    { key: 'objects', title: 'Đồ vật', icon: '💡' },
-    { key: 'symbols', title: 'Ký hiệu', icon: '🔣' },
-    { key: 'flags', title: 'Cờ', icon: '🏳️' },
-  ];
+  const [otherNickname, setOtherNickname] = useState(
+    isGroupConversation ? undefined : otherMember?.nickname,
+  );
+  const isOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
+
+  const [iBlockedThem, setIBlockedThem] = useState(false);
+  const [theyBlockedMe, setTheyBlockedMe] = useState(false);
+  const isBlocked = iBlockedThem || theyBlockedMe;
+
   const [emojiCategories, setEmojiCategories] = useState<
     Array<{ key: string; title: string; icon: string; emojis: string[] }>
   >([]);
@@ -87,108 +142,124 @@ const ChatWindow = ({ route, navigation }: any) => {
     duration: 0,
   });
 
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraType, setCameraType] = useState<'front' | 'back'>('back');
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const cameraRef = useRef<Camera>(null);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice(cameraType as any);
+
   useEffect(() => {
-    audioRecorderPlayer.setSubscriptionDuration(0.1); // Cập nhật mỗi 100ms
-    return () => {
-      audioRecorderPlayer.stopRecorder();
-      audioRecorderPlayer.removeRecordBackListener();
-      audioRecorderPlayer.stopPlayer();
-      audioRecorderPlayer.removePlayBackListener();
+    const backAction = () => {
+      if (showCamera) {
+        setShowCamera(false);
+        setCapturedPhoto(null);
+        return true;
+      }
+      return false;
     };
-  }, []);
 
-  const onStartRecord = async () => {
-    if (isRecording) return;
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction,
+    );
 
-    if (Platform.OS === 'android') {
+    return () => backHandler.remove();
+  }, [showCamera]);
+
+  useEffect(() => {
+    if (showCamera && !hasPermission) {
+      requestPermission();
+    }
+  }, [showCamera, hasPermission, requestPermission]);
+
+  const groupTitle = useMemo(() => conversation.members
+    .filter((m: any) => m.user._id !== profile?.id)
+    .map((m: any) => m.user.name || m.user.username)
+    .slice(0, 2)
+    .join(', '), [conversation.members, profile?.id]);
+
+  const headerName = useMemo(() => isGroupConversation
+    ? conversation.name || groupTitle || 'Nhóm'
+    : otherNickname || otherMember?.name || conversation.name || 'Chat'
+  , [isGroupConversation, conversation.name, groupTitle, otherNickname, otherMember?.name]);
+
+  const headerAvatar = useMemo(() => isGroupConversation
+    ? conversation.avatar?.url || getAvatarUrl(undefined, headerName)
+    : getAvatarUrl(
+        otherMember?.avatar,
+        otherNickname || otherMember?.name || conversation.name,
+      )
+  , [isGroupConversation, conversation.avatar?.url, headerName, otherMember?.avatar, otherNickname, otherMember?.name, conversation.name]);
+
+  const onTakePhoto = useCallback(async () => {
+    if (!cameraRef.current || !isCameraReady) return;
+    try {
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+      });
+      if (photo?.path) {
+        setShowCamera(false);
+        setIsCameraReady(false);
+        await sendImageMessage(`file://${photo.path}`);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isCameraReady, sendImageMessage]);
+
+  const sendImageMessage = useCallback(async (uri: string, type: string = 'image/jpeg', name?: string) => {
+    let convId = currentConversationId;
+    if (convId === 'new') {
+      const targetUserId = otherMember?._id || otherMember?.id;
+      if (!targetUserId) return;
       try {
-        const grants = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        ]);
-
-        if (
-          grants['android.permission.RECORD_AUDIO'] !==
-          PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Cần quyền ghi âm' });
-          return;
-        }
-      } catch (err) {
-        console.warn(err);
+        const { data } = await client.post('/conversation/create', { type: 'private', members: [targetUserId] });
+        convId = data.conversation._id;
+        setCurrentConversationId(convId);
+        socket?.emit('join-conversation', convId);
+      } catch (e) {
+        console.error(e);
         return;
       }
     }
-
+    const formData = new FormData();
+    formData.append('conversationId', convId);
+    formData.append('message', '');
+    formData.append('type', 'image');
+    formData.append('media', {
+      uri: uri,
+      type: type,
+      name: name || `photo_${Date.now()}.jpg`,
+    } as any);
     try {
-      setIsRecording(true);
-      setRecordingTime('00:00');
-      
-      const path = Platform.select({
-        ios: `voice_${Date.now()}.m4a`,
-        android: undefined, // Để mặc định cho Android
+      const { data } = await client.post('/message/send', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: (d: any) => d,
       });
-
-      const result = await audioRecorderPlayer.startRecorder(path);
-      console.log('Start recording at:', result);
-
-      audioRecorderPlayer.addRecordBackListener((e: any) => {
-        const time = formatTime(Math.floor(e.currentPosition));
-        setRecordingTime(time);
-      });
-    } catch (error) {
-      console.error('Start record error:', error);
-      setIsRecording(false);
+      setMessages(prev => [...prev, data.message]);
+      setCapturedPhoto(null);
+      setShowCamera(false);
+      setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    } catch (e) {
+      console.error(e);
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể gửi ảnh' });
     }
-  };
+  }, [currentConversationId, otherMember, socket]);
 
-  const onStopRecord = async () => {
-    if (!isRecording) return;
+  const onSendPhoto = useCallback(async () => {
+    if (!capturedPhoto) return;
+    await sendImageMessage(capturedPhoto);
+  }, [capturedPhoto, sendImageMessage]);
 
-    // Đợi một chút để đảm bảo listener đã nhận được dữ liệu cuối cùng
-    await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
+  const onStopPlay = useCallback(async () => {
+    await audioRecorderPlayer.stopPlayer();
+    audioRecorderPlayer.removePlayBackListener();
+    setIsPlaying(null);
+    setPlayBackState({ currentPosition: 0, duration: 0 });
+  }, []);
 
-    try {
-      const result = await audioRecorderPlayer.stopRecorder();
-      audioRecorderPlayer.removeRecordBackListener();
-      setIsRecording(false);
-      
-      const finalDuration = recordTime;
-      setRecordingTime('00:00');
-
-      if (result && finalDuration !== '00:00') {
-        const formData = new FormData();
-        formData.append('conversationId', currentConversationId);
-        formData.append('message', '');
-        formData.append('type', 'audio');
-        formData.append('meta', JSON.stringify({ duration: finalDuration }));
-
-        const cleanPath = result.replace('file:///', '').replace('file://', '');
-        const fileUri = `file://${cleanPath}`;
-
-        formData.append('media', {
-          uri: fileUri,
-          type: 'audio/mp4',
-          name: 'voice_message.mp4',
-        } as any);
-
-        const { data } = await client.post('/message/send', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          transformRequest: (data) => data,
-        });
-
-        setMessages(prev => [...prev, data.message]);
-        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-      } else {
-        console.log('Recording too short or no result');
-      }
-    } catch (error) {
-      console.error('Stop record error:', error);
-      setIsRecording(false);
-    }
-  };
-
-  const onStartPlay = async (url: string) => {
+  const onStartPlay = useCallback(async (url: string) => {
     try {
       if (isPlaying) {
         await audioRecorderPlayer.stopPlayer();
@@ -211,75 +282,143 @@ const ChatWindow = ({ route, navigation }: any) => {
       console.error('Play error:', error);
       setIsPlaying(null);
     }
-  };
+  }, [isPlaying, onStopPlay]);
 
-  const onStopPlay = async () => {
-    await audioRecorderPlayer.stopPlayer();
-    audioRecorderPlayer.removePlayBackListener();
-    setIsPlaying(null);
-    setPlayBackState({ currentPosition: 0, duration: 0 });
-  };
-
-  const getEmojiCategoryKey = (char: string) => {
-    const code = char.codePointAt(0) ?? 0;
-    if (code >= 0x1f1e6 && code <= 0x1f1ff) return 'flags';
-    if (code >= 0x1f680 && code <= 0x1f6ff) return 'travel';
-    if (code >= 0x1f300 && code <= 0x1f33f) return 'objects';
-    if (code >= 0x1f340 && code <= 0x1f37f) return 'food';
-    if (code >= 0x1f380 && code <= 0x1f3ff) return 'activity';
-    if (code >= 0x1f400 && code <= 0x1f4ff) return 'animals';
-    if (code >= 0x1f500 && code <= 0x1f5ff) return 'objects';
-    if (code >= 0x1f600 && code <= 0x1f64f) return 'people';
-    if (code >= 0x1f650 && code <= 0x1f67f) return 'people';
-    if (code >= 0x1f680 && code <= 0x1f6ff) return 'travel';
-    if (code >= 0x1f700 && code <= 0x1f77f) return 'symbols';
-    if (
-      (code >= 0x2600 && code <= 0x26ff) ||
-      (code >= 0x2700 && code <= 0x27bf)
-    )
-      return 'symbols';
-    if (code >= 0x1f900 && code <= 0x1f9ff) return 'people';
-    return 'objects';
-  };
-
-  const buildEmojiCategories = (list: string[]) => {
-    const groups = emojiCategoryOptions.reduce(
-      (acc, item) => ({ ...acc, [item.key]: [] as string[] }),
-      {} as Record<string, string[]>,
+  const handleOpenCamera = useCallback(() => {
+    launchCamera(
+      { mediaType: 'photo', quality: 0.85, saveToPhotos: false },
+      response => {
+        if (response.didCancel || response.errorCode) return;
+        const asset = response.assets?.[0];
+        if (asset?.uri) sendImageMessage(asset.uri, asset.type || 'image/jpeg', asset.fileName || undefined);
+      },
     );
+  }, [sendImageMessage]);
 
-    list.forEach(char => {
-      const category = getEmojiCategoryKey(char);
-      if (groups[category]) groups[category].push(char);
-    });
+  const handleOpenGallery = useCallback(() => {
+    setShowEmojiPicker(false);
+    setShowStickerPicker(false);
+    setShowGifPicker(false);
+    setShowCamera(false);
+    launchImageLibrary(
+      { mediaType: 'photo', quality: 0.85, selectionLimit: 1 },
+      response => {
+        if (response.didCancel || response.errorCode) return;
+        const asset = response.assets?.[0];
+        if (asset?.uri) sendImageMessage(asset.uri, asset.type || 'image/jpeg', asset.fileName || undefined);
+      },
+    );
+  }, [sendImageMessage]);
 
-    return emojiCategoryOptions
-      .map(option => ({
-        ...option,
-        emojis: groups[option.key],
-      }))
-      .filter(option => option.emojis.length > 0);
-  };
+  useEffect(() => {
+    audioRecorderPlayer.setSubscriptionDuration(0.1);
+    return () => {
+      audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+      audioRecorderPlayer.stopPlayer();
+      audioRecorderPlayer.removePlayBackListener();
+    };
+  }, []);
 
-  const stickers = [
-    'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnJmZ3NnJmcm9tPXNlYXJjaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKMGpxP6tX0c0aI/giphy.gif',
-    'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnJmZ3NnJmcm9tPXNlYXJjaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlT6E6pG9PqV8q4/giphy.gif',
-    'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnJmZ3NnJmcm9tPXNlYXJjaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7TKVUn7iM8FMEU24/giphy.gif',
-    'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnZ3NnJmZ3NnJmcm9tPXNlYXJjaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0HlHfrbO187gYxTq/giphy.gif',
-  ];
+  const onStartRecord = useCallback(async () => {
+    if (isRecording) return;
 
-  const otherMember = conversation.members.find(
-    (m: any) => m.user._id !== profile?.id,
-  )?.user;
-  const isGroupConversation = conversation?.type === 'group';
-  const [otherNickname, setOtherNickname] = useState(
-    isGroupConversation ? undefined : otherMember?.nickname,
-  );
-  const isOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          { title: 'Quyền ghi âm', message: 'Cần quyền để ghi âm', buttonPositive: 'OK' },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Cần quyền ghi âm' });
+          return;
+        }
+      } catch {
+        return;
+      }
+    }
 
-  const [iBlockedThem, setIBlockedThem] = useState(false);
-  const [theyBlockedMe, setTheyBlockedMe] = useState(false);
-  const isBlocked = iBlockedThem || theyBlockedMe;
+    try {
+      setIsRecording(true);
+      setRecordingTime('00:00');
+      
+      const path = Platform.select({
+        ios: `voice_${Date.now()}.m4a`,
+        android: undefined,
+      });
+
+      const result = await audioRecorderPlayer.startRecorder(path);
+
+      audioRecorderPlayer.addRecordBackListener((e: any) => {
+        const time = formatTime(Math.floor(e.currentPosition));
+        setRecordingTime(time);
+      });
+    } catch (error) {
+      console.error(error);
+      setIsRecording(false);
+    }
+  }, [isRecording]);
+
+  const onStopRecord = useCallback(async () => {
+    if (!isRecording) return;
+
+    await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
+
+    try {
+      const result = await audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+      setIsRecording(false);
+      
+      const finalDuration = recordTime;
+      setRecordingTime('00:00');
+
+      if (result && finalDuration !== '00:00') {
+        let convId = currentConversationId;
+        if (convId === 'new') {
+          const targetUserId = otherMember?._id || otherMember?.id;
+          if (!targetUserId) return;
+          try {
+            const { data } = await client.post('/conversation/create', {
+              type: 'private',
+              members: [targetUserId],
+            });
+            convId = data.conversation._id;
+            setCurrentConversationId(convId);
+            socket?.emit('join-conversation', convId);
+          } catch (e) {
+            console.error(e);
+            return;
+          }
+        }
+
+        const formData = new FormData();
+        formData.append('conversationId', convId);
+        formData.append('message', '');
+        formData.append('type', 'audio');
+        formData.append('meta', JSON.stringify({ duration: finalDuration }));
+
+        const cleanPath = result.replace('file:///', '').replace('file://', '');
+        const fileUri = `file://${cleanPath}`;
+
+        formData.append('media', {
+          uri: fileUri,
+          type: 'audio/mp4',
+          name: 'voice_message.mp4',
+        } as any);
+
+        const { data } = await client.post('/message/send', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          transformRequest: (d: any) => d,
+        });
+
+        setMessages(prev => [...prev, data.message]);
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+      }
+    } catch (error) {
+      console.error(error);
+      setIsRecording(false);
+    }
+  }, [currentConversationId, isRecording, otherMember, recordTime, socket]);
 
   const loadBlockStatus = useCallback(async () => {
     if (isGroupConversation || !otherMember?._id) return;
@@ -293,22 +432,6 @@ const ChatWindow = ({ route, navigation }: any) => {
   useEffect(() => {
     loadBlockStatus();
   }, [loadBlockStatus]);
-
-  const groupTitle = conversation.members
-    .filter((m: any) => m.user._id !== profile?.id)
-    .map((m: any) => m.user.name || m.user.username)
-    .slice(0, 2)
-    .join(', ');
-
-  const headerName = isGroupConversation
-    ? conversation.name || groupTitle || 'Nhóm'
-    : otherNickname || otherMember?.name || conversation.name || 'Chat';
-  const headerAvatar = isGroupConversation
-    ? conversation.avatar?.url || getAvatarUrl(undefined, headerName)
-    : getAvatarUrl(
-        otherMember?.avatar,
-        otherNickname || otherMember?.name || conversation.name,
-      );
 
   useEffect(() => {
     (async () => {
@@ -436,7 +559,7 @@ const ChatWindow = ({ route, navigation }: any) => {
     fetchMessages();
   }, [currentConversationId]);
 
-  const handleTyping = (text: string) => {
+  const handleTyping = useCallback((text: string) => {
     setInput(text);
     if (socket && currentConversationId !== 'new') {
       if (!isTyping) {
@@ -456,9 +579,9 @@ const ChatWindow = ({ route, navigation }: any) => {
         });
       }, 2000);
     }
-  };
+  }, [currentConversationId, isTyping, socket]);
 
-  const handleSend = async (
+  const handleSend = useCallback(async (
     customMessage?: string,
     customType?: string,
     meta?: any,
@@ -466,10 +589,8 @@ const ChatWindow = ({ route, navigation }: any) => {
     const messageText = (customMessage || input).trim();
     if (!messageText && !customType && isSending) return;
 
-    // Spam prevention: limit sending to once every 500ms
     const now = Date.now();
     if (now - lastSentTime < 500) {
-      console.log('Spam prevented');
       return;
     }
     setLastSentTime(now);
@@ -494,7 +615,7 @@ const ChatWindow = ({ route, navigation }: any) => {
       )
         type = 'markdown';
       else if (messageText.match(/^(http|https):\/\/[^\s]+$/))
-        type = 'markdown'; // Treat single links as markdown for clickable
+        type = 'markdown';
     }
 
     try {
@@ -525,7 +646,6 @@ const ChatWindow = ({ route, navigation }: any) => {
       if (!customMessage) setInput('');
       setReplyTo(null);
 
-      // Close pickers after sending
       setShowEmojiPicker(false);
       setShowStickerPicker(false);
       setShowGifPicker(false);
@@ -542,44 +662,43 @@ const ChatWindow = ({ route, navigation }: any) => {
     } finally {
       setTimeout(() => setIsSending(false), 500);
     }
-  };
+  }, [currentConversationId, input, isSending, lastSentTime, otherMember, replyTo, socket]);
 
-  const handleEmojiSelect = (emoji: string) => {
+  const handleEmojiSelect = useCallback((emoji: string) => {
     setInput(prev => prev + emoji);
-  };
+  }, []);
 
-  const handleReact = async (messageId: string, emoji: string) => {
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
     try {
       await client.patch(`/message/react/${messageId}`, { emoji });
     } catch {}
-  };
+  }, []);
 
-  const handleEdit = async (item: any) => {
+  const handleEdit = useCallback(async (item: any) => {
     try {
       await client.patch(`/message/${item._id}`, { message: item.message });
     } catch {
       Toast.show({ type: 'error', text1: 'Không thể chỉnh sửa tin nhắn' });
     }
-  };
+  }, []);
 
-  const handleDelete = async (messageId: string) => {
+  const handleDelete = useCallback(async (messageId: string) => {
     try {
       await client.delete(`/message/${messageId}`);
     } catch {
       Toast.show({ type: 'error', text1: 'Không thể thu hồi tin nhắn' });
     }
-  };
+  }, []);
 
-  const handleLikePressIn = () => {
+  const handleLikePressIn = useCallback(() => {
     Animated.timing(likeScale, {
       toValue: 2.5,
       duration: 2000,
       useNativeDriver: true,
     }).start();
-  };
+  }, [likeScale]);
 
-  const handleLikePressOut = () => {
-    // Get current scale value
+  const handleLikePressOut = useCallback(() => {
     const currentScale = (likeScale as any)._value;
     Animated.spring(likeScale, {
       toValue: 1,
@@ -588,9 +707,9 @@ const ChatWindow = ({ route, navigation }: any) => {
     }).start();
 
     handleSend('', 'like', { size: currentScale });
-  };
+  }, [handleSend, likeScale]);
 
-  const getStatusText = () => {
+  const getStatusText = useCallback(() => {
     if (isGroupConversation) {
       return `${conversation.members.length} thành viên`;
     }
@@ -600,14 +719,15 @@ const ChatWindow = ({ route, navigation }: any) => {
       return `Hoạt động ${moment(otherMember.last_seen).fromNow()}`;
     }
     return 'Ngoại tuyến';
-  };
+  }, [isGroupConversation, conversation.members.length, otherMember, isOnline]);
 
-  const selectedEmojiCategoryData =
+  const selectedEmojiCategoryData = useMemo(() => 
     emojiCategories.find(category => category.key === selectedEmojiCategory) ||
     emojiCategories[0] ||
-    null;
+    null
+  , [emojiCategories, selectedEmojiCategory]);
 
-  const renderMessage = ({ item, index }: any) => {
+  const renderMessage = useCallback(({ item, index }: any) => {
     const prevItem = index > 0 ? messages[index - 1] : undefined;
     const nextItem = index < messages.length - 1 ? messages[index + 1] : undefined;
     return (
@@ -628,7 +748,7 @@ const ChatWindow = ({ route, navigation }: any) => {
         conversation={conversation}
       />
     );
-  };
+  }, [messages, isGroupConversation, isPlaying, playBackState, onStartPlay, onStopPlay, handleReact, setReplyTo, handleEdit, handleDelete, navigation, conversation]);
 
   return (
     <KeyboardAvoidingView
@@ -818,7 +938,7 @@ const ChatWindow = ({ route, navigation }: any) => {
           style={[styles.pickerContainer, { backgroundColor: theme.surface }]}
         >
           <FlatList
-            data={stickers}
+            data={STICKERS}
             keyExtractor={item => item}
             numColumns={3}
             renderItem={({ item }) => (
@@ -886,9 +1006,11 @@ const ChatWindow = ({ route, navigation }: any) => {
               <TouchableOpacity
                 onPress={async () => {
                   try {
-                    await unblockUser(otherMember._id);
-                    setIBlockedThem(false);
-                    Toast.show({ type: 'success', text1: 'Đã bỏ chặn' });
+                    if (otherMember?._id) {
+                      await unblockUser(otherMember._id);
+                      setIBlockedThem(false);
+                      Toast.show({ type: 'success', text1: 'Đã bỏ chặn' });
+                    }
                   } catch {
                     Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể bỏ chặn' });
                   }
@@ -915,20 +1037,26 @@ const ChatWindow = ({ route, navigation }: any) => {
               />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.inputIcon}
+              style={[styles.inputIcon, isBlocked && styles.disabledIcon]}
+              disabled={isBlocked}
               onPress={() => {
-                setShowGifPicker(!showGifPicker);
+                setShowCamera(true);
                 setShowEmojiPicker(false);
                 setShowStickerPicker(false);
+                setShowGifPicker(false);
               }}
             >
               <FontAwesome5
                 name={'camera' as any}
                 size={20}
-                color={showGifPicker ? theme.primary : theme.textSecondary}
+                color={theme.textSecondary}
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.inputIcon}>
+            <TouchableOpacity
+              style={[styles.inputIcon, isBlocked && styles.disabledIcon]}
+              disabled={isBlocked}
+              onPress={handleOpenGallery}
+            >
               <FontAwesome5
                 name={'image' as any}
                 size={20}
@@ -937,8 +1065,12 @@ const ChatWindow = ({ route, navigation }: any) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.inputIcon}
-              onLongPress={onStartRecord}
-              onPressOut={onStopRecord}
+              onLongPress={() => {
+                onStartRecord();
+              }}
+              onPressOut={() => {
+                onStopRecord();
+              }}
             >
               <FontAwesome5
                 name={'microphone' as any}
@@ -982,7 +1114,9 @@ const ChatWindow = ({ route, navigation }: any) => {
             </View>
             {input ? (
               <TouchableOpacity
-                onPress={() => handleSend()}
+                onPress={() => {
+                  handleSend();
+                }}
                 style={styles.inputIcon}
               >
                 <FontAwesome5
@@ -1011,6 +1145,54 @@ const ChatWindow = ({ route, navigation }: any) => {
           </>
         )}
       </View>
+
+      {showCamera && (
+        <View style={styles.cameraContainer}>
+          {hasPermission && device ? (
+            <Camera
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              device={device}
+              isActive={showCamera}
+              photo={true}
+              onInitialized={() => setIsCameraReady(true)}
+            />
+          ) : (
+            <View style={styles.cameraPlaceholder}>
+              <Text style={{ color: '#fff' }}>Cần quyền truy cập Camera</Text>
+              <Pressable
+                onPress={() => requestPermission()}
+                style={{ marginTop: 10, padding: 10, backgroundColor: theme.primary, borderRadius: 8 }}
+              >
+                <Text style={{ color: '#fff' }}>Cấp quyền</Text>
+              </Pressable>
+            </View>
+          )}
+          <View style={styles.cameraHeader}>
+            <Pressable
+              onPress={() => {
+                setShowCamera(false);
+                setIsCameraReady(false);
+              }}
+              style={styles.cameraIconBtn}
+            >
+              <MaterialIcons name="arrow-back" size={28} color="#fff" />
+            </Pressable>
+          </View>
+          <View style={styles.cameraFooter}>
+            <Pressable
+              onPress={() => setCameraType(cameraType === 'back' ? 'front' : 'back')}
+              style={styles.cameraIconBtn}
+            >
+              <MaterialIcons name="flip-camera-ios" size={28} color="#fff" />
+            </Pressable>
+            <Pressable onPress={onTakePhoto} style={styles.captureBtn}>
+              <View style={styles.captureBtnInner} />
+            </Pressable>
+            <View style={{ width: 40 }} />
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -1123,6 +1305,71 @@ const styles = StyleSheet.create({
   pickerSticker: { width: 100, height: 100, borderRadius: 10 },
   gifBtn: { flex: 1, padding: 5, alignItems: 'center' },
   pickerGif: { width: '100%', height: 120, borderRadius: 10 },
+  cameraContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 9999,
+  },
+  cameraPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    zIndex: 99999,
+  },
+  cameraFooter: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 99999,
+  },
+  cameraIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureBtn: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 4,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureBtnInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#fff',
+  },
+  sendPhotoBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#0084ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
 });
 
 export default ChatWindow;

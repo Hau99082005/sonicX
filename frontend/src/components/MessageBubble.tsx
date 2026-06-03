@@ -66,9 +66,7 @@ const MessageBubble: React.FC<Props> = ({
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [showActions, setShowActions] = useState(false);
-  const [showReactions, setShowReactions] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editText, setEditText] = useState(item.message || '');
   const [localEditText, setLocalEditText] = useState(item.message || '');
 
   const prevSameUser = prevItem && prevItem.sender?._id === item.sender?._id;
@@ -104,8 +102,8 @@ const MessageBubble: React.FC<Props> = ({
 
   const handleLongPress = () => {
     Animated.sequence([
-      Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true, tension: 200 }),
-      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 200 }),
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 80, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
     setShowActions(true);
   };
@@ -378,7 +376,7 @@ const MessageBubble: React.FC<Props> = ({
         <TouchableOpacity
           style={styles.actionsOverlay}
           activeOpacity={1}
-          onPress={() => { setShowActions(false); setShowReactions(false); }}
+          onPress={() => { setShowActions(false); }}
         >
           <View style={[styles.actionsCard, { backgroundColor: theme.surface }]}>
             {!isDeleted && (
@@ -413,7 +411,6 @@ const MessageBubble: React.FC<Props> = ({
               <TouchableOpacity
                 style={[styles.actionRow, { borderBottomColor: theme.border }]}
                 onPress={() => {
-                  setEditText(item.message || '');
                   setLocalEditText(item.message || '');
                   setShowActions(false);
                   setEditMode(true);
