@@ -185,10 +185,10 @@ const UserProfile = ({ route, navigation }: any) => {
     if (actionLoading || statusLoading) {
       return (
         <View style={styles.actionBtnContainer}>
-          <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-            <ActivityIndicator size="small" color={theme.primary} />
+          <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <ActivityIndicator size="small" color="#fff" />
           </View>
-          <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Đang xử lý</Text>
+          <Text style={styles.circleBtnLabel}>...</Text>
         </View>
       );
     }
@@ -196,10 +196,10 @@ const UserProfile = ({ route, navigation }: any) => {
     if (iBlockedThem) {
       return (
         <TouchableOpacity style={styles.actionBtnContainer} onPress={handleUnblock} activeOpacity={0.7}>
-          <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-            <MaterialIcons name="block" size={24} color="#FF4D4F" />
+          <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <MaterialIcons name="block" size={24} color="#FF6B6B" />
           </View>
-          <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Đã chặn</Text>
+          <Text style={styles.circleBtnLabel}>Đã chặn</Text>
         </TouchableOpacity>
       );
     }
@@ -209,10 +209,10 @@ const UserProfile = ({ route, navigation }: any) => {
     if (friendStatus === 'accepted') {
       return (
         <TouchableOpacity style={styles.actionBtnContainer} onPress={handleUnfriend} activeOpacity={0.7}>
-          <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-            <FontAwesome5 name="user-check" size={20} color={theme.primary} {...({ solid: true } as any)} />
+          <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <FontAwesome5 name="user-check" size={20} color="#fff" {...({ solid: true } as any)} />
           </View>
-          <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Bạn bè</Text>
+          <Text style={styles.circleBtnLabel}>Bạn bè</Text>
         </TouchableOpacity>
       );
     }
@@ -220,10 +220,10 @@ const UserProfile = ({ route, navigation }: any) => {
     if (friendStatus === 'pending' && iAmRequester) {
       return (
         <TouchableOpacity style={styles.actionBtnContainer} onPress={handleCancelRequest} activeOpacity={0.7}>
-          <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-            <FontAwesome5 name="user-clock" size={20} color={theme.textSecondary} />
+          <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <FontAwesome5 name="user-clock" size={20} color="rgba(255,255,255,0.7)" />
           </View>
-          <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Đã mời</Text>
+          <Text style={styles.circleBtnLabel}>Đã mời</Text>
         </TouchableOpacity>
       );
     }
@@ -231,20 +231,20 @@ const UserProfile = ({ route, navigation }: any) => {
     if (friendStatus === 'pending' && !iAmRequester) {
       return (
         <TouchableOpacity style={styles.actionBtnContainer} onPress={handleAcceptRequest} activeOpacity={0.7}>
-          <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-            <FontAwesome5 name="user-plus" size={20} color={theme.primary} {...({ solid: true } as any)} />
+          <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <FontAwesome5 name="user-plus" size={20} color="#fff" {...({ solid: true } as any)} />
           </View>
-          <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Chấp nhận</Text>
+          <Text style={styles.circleBtnLabel}>Chấp nhận</Text>
         </TouchableOpacity>
       );
     }
 
     return (
       <TouchableOpacity style={styles.actionBtnContainer} onPress={handleAddFriend} activeOpacity={0.7}>
-        <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-          <FontAwesome5 name="user-plus" size={20} color={theme.primary} {...({ solid: true } as any)} />
+        <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+          <FontAwesome5 name="user-plus" size={20} color="#fff" {...({ solid: true } as any)} />
         </View>
-        <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Kết bạn</Text>
+        <Text style={styles.circleBtnLabel}>Kết bạn</Text>
       </TouchableOpacity>
     );
   };
@@ -289,15 +289,15 @@ const UserProfile = ({ route, navigation }: any) => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         <View style={styles.headerContainer}>
           <LinearGradient
-            colors={[theme.primary, theme.background]}
+            colors={[theme.primary + 'CC', theme.primary + '40', 'transparent']}
             style={styles.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           />
-          
+
           <View style={styles.heroSection}>
             <TouchableOpacity onPress={() => setZoomVisible(true)} activeOpacity={0.85} style={styles.avatarWrap}>
-              <View style={[styles.avatarBorder, { borderColor: theme.background }]}>
+              <View style={[styles.avatarRing, { borderColor: 'rgba(255,255,255,0.6)' }]}>
                 <Image source={{ uri: avatarUrl }} style={styles.avatar} />
               </View>
               {isOnline && user.show_online_status && (
@@ -305,25 +305,28 @@ const UserProfile = ({ route, navigation }: any) => {
               )}
             </TouchableOpacity>
 
-            <Text style={[styles.name, { color: theme.text }]}>{user.name}</Text>
-
-            {statusLine && (
-              <Text style={[styles.statusLine, { color: isOnline && user.show_online_status ? theme.active : theme.textSecondary }]}>
-                {statusLine}
-              </Text>
-            )}
+            <Text style={[styles.name, { color: '#fff' }]}>{user.name}</Text>
 
             {user.bio ? (
-              <Text style={[styles.bio, { color: theme.textSecondary }]}>{user.bio}</Text>
+              <Text style={styles.bioText}>{user.bio}</Text>
             ) : null}
+
+            {statusLine && (
+              <View style={[styles.statusPill, { backgroundColor: isOnline && user.show_online_status ? theme.active + '30' : 'rgba(255,255,255,0.1)' }]}>
+                <View style={[styles.statusDot, { backgroundColor: isOnline && user.show_online_status ? theme.active : 'rgba(255,255,255,0.5)' }]} />
+                <Text style={[styles.statusPillText, { color: isOnline && user.show_online_status ? theme.active : 'rgba(255,255,255,0.7)' }]}>
+                  {statusLine}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.actionRow}>
               {!isBlocked && (
                 <TouchableOpacity style={styles.actionBtnContainer} onPress={goToChat} activeOpacity={0.75}>
-                  <View style={[styles.circleIcon, { backgroundColor: theme.surface }]}>
-                    <FontAwesome5 name="comment" size={22} color={theme.primary} {...({ solid: true } as any)} />
+                  <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                    <FontAwesome5 name="comment" size={22} color="#fff" {...({ solid: true } as any)} />
                   </View>
-                  <Text style={[styles.circleBtnLabel, { color: theme.textSecondary }]}>Nhắn tin</Text>
+                  <Text style={styles.circleBtnLabel}>Nhắn tin</Text>
                 </TouchableOpacity>
               )}
 
@@ -332,10 +335,10 @@ const UserProfile = ({ route, navigation }: any) => {
                 onPress={() => !isBlocked && navigation.navigate('VoiceCall', { otherMember: user, conversation: { _id: 'new', type: 'private', members: [{ user }] } })}
                 activeOpacity={isBlocked ? 1 : 0.75}
               >
-                <View style={[styles.circleIcon, { backgroundColor: theme.surface, opacity: isBlocked ? 0.4 : 1 }]}>
-                  <FontAwesome5 name="phone-alt" size={20} color={theme.primary} {...({ solid: true } as any)} />
+                <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)', opacity: isBlocked ? 0.35 : 1 }]}>
+                  <FontAwesome5 name="phone-alt" size={20} color="#fff" {...({ solid: true } as any)} />
                 </View>
-                <Text style={[styles.circleBtnLabel, { color: theme.textSecondary, opacity: isBlocked ? 0.4 : 1 }]}>Gọi</Text>
+                <Text style={[styles.circleBtnLabel, { opacity: isBlocked ? 0.35 : 1 }]}>Gọi</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -343,10 +346,10 @@ const UserProfile = ({ route, navigation }: any) => {
                 onPress={() => !isBlocked && navigation.navigate('VideoCall', { otherMember: user, conversation: { _id: 'new', type: 'private', members: [{ user }] } })}
                 activeOpacity={isBlocked ? 1 : 0.75}
               >
-                <View style={[styles.circleIcon, { backgroundColor: theme.surface, opacity: isBlocked ? 0.4 : 1 }]}>
-                  <FontAwesome5 name="video" size={20} color={theme.primary} {...({ solid: true } as any)} />
+                <View style={[styles.circleIcon, { backgroundColor: 'rgba(255,255,255,0.15)', opacity: isBlocked ? 0.35 : 1 }]}>
+                  <FontAwesome5 name="video" size={20} color="#fff" {...({ solid: true } as any)} />
                 </View>
-                <Text style={[styles.circleBtnLabel, { color: theme.textSecondary, opacity: isBlocked ? 0.4 : 1 }]}>Video</Text>
+                <Text style={[styles.circleBtnLabel, { opacity: isBlocked ? 0.35 : 1 }]}>Video</Text>
               </TouchableOpacity>
 
               {renderFriendStatusIcon()}
@@ -435,8 +438,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 240,
-    opacity: 0.2,
+    height: 320,
+    opacity: 0.85,
   },
   heroSection: {
     alignItems: 'center',
@@ -454,9 +457,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   avatarBorder: {
-    padding: 4,
+    padding: 3,
     borderRadius: 60,
-    borderWidth: 2,
+    borderWidth: 2.5,
+  },
+  avatarRing: {
+    padding: 3,
+    borderRadius: 60,
+    borderWidth: 2.5,
   },
   avatar: { width: 100, height: 100, borderRadius: 50 },
   onlineDot: {
@@ -497,7 +505,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  circleBtnLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  circleBtnLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center', color: 'rgba(255,255,255,0.85)' },
+  bioText: { fontSize: 14, textAlign: 'center', lineHeight: 20, color: 'rgba(255,255,255,0.7)', paddingHorizontal: 28, marginBottom: 10 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 18,
+  },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusPillText: { fontSize: 13, fontWeight: '600' },
   contentSection: {
     paddingHorizontal: 20,
     paddingTop: 10,
